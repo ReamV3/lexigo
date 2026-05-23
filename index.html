@@ -1046,6 +1046,1442 @@ function buildClassChips() {
   CLASSES.forEach(c => {
     const btn = document.createElement('button');
     btn.className = 'class-chip' + (selectedClasses.has(c) ? ' selected' : '');
+    btn.textContent = `Class ${c}`;
+    btn.onclick = () => toggleClass(c, btn);
+    el.appendChild(btn);
+  });
+}
+
+function toggleClass(c, btn) {
+  if (selectedClasses.has(c)) {
+    if (selectedClasses.size === 1) return;
+    selectedClasses.delete(c);
+    btn.classList.remove('selected');
+  } else {
+    selectedClasses.add(c);
+    btn.classList.add('selected');
+  }
+  buildDeck();
+}
+
+const EXERCISE_NAMES = {
+  flashcard: '🃏 Flashcard',
+  choice: '☑ Multiple Choice',
+  typein: '✏ Type In',
+  fill: '📝 Fill Blank',
+  match: '🔗 Match'
+};
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnClass').classList.toggle('active', m === 'class');
+  document.getElementById('btnMixed').classList.toggle('active', m === 'mixed');
+  document.getElementById('classSelector').style.display = m === 'class' ? 'flex' : 'none';
+  buildDeck();
+}
+
+function setExercise(ex) {
+  exercise = ex;
+  ['Flash','Choice','Type','Fill','Match'].forEach(x => document.getElementById('ex'+x).classList.remove('active'));
+  const map = {flashcard:'Flash', choice:'Choice', typein:'Type', fill:'Fill', match:'Match'};
+  document.getElementById('ex'+map[ex]).classList.add('active');
+  // Enter focus mode
+  document.body.classList.add('game-active');
+  document.getElementById('gameArea').style.display = 'flex';
+  document.getElementById('gameTitleDisplay').textContent = EXERCISE_NAMES[ex];
+  buildDeck();
+}
+
+function exitGame() {
+  document.body.classList.remove('game-active');
+  document.getElementById('gameArea').style.display = 'none';
+  // Hide all game panels
+  ['cardWrap','choicesWrap','typeWrap','fillWrap','matchWrap'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('progressTxt').textContent = '';
+  document.getElementById('emptyMsg').style.display = 'none';
+}
+
+function buildDeck() {
+  let pool;
+  if (mode === 'mixed') {
+    pool = [...ALL_WORDS];
+  } else {
+    pool = ALL_WORDS.filter(w => selectedClasses.has(w.c));
+  }
+  // Filter out skipped words
+  pool = pool.filter(w => !isSkipped(w.r));
+
+  // Smart sort: unseen first, then least correct, then shuffle ties
+  // Within same class, newer class = higher priority
+  pool.sort((a, b) => {
+    const ca = getP(a.r).correct || 0;
+    const cb = getP(b.r).correct || 0;
+    if (ca !== cb) return ca - cb; // fewer correct = earlier
+    return b.c - a.c; // newer class first within same correct count
+  });
+
+  // Shuffle words with same correct count so it's not always the same order
+  // Group by correct count and shuffle within each group
+  const groups = {};
+  pool.forEach(w => {
+    const k = getP(w.r).correct || 0;
+    (groups[k] = groups[k] || []).push(w);
+  });
+  deck = [];
+  Object.keys(groups).sort((a,b) => a-b).forEach(k => {
+    deck.push(...shuffle(groups[k]));
+  });
+
+  idx = 0;
+  matchOffset = 0;
+  if (exercise === 'match') { renderMatch(); return; }
+  renderCurrent();
+}
+
+function renderCurrent() {
+  const empty = document.getElementById('emptyMsg');
+  const cardWrap = document.getElementById('cardWrap');
+  const choicesWrap = document.getElementById('choicesWrap');
+  const typeWrap = document.getElementById('typeWrap');
+  const fillWrap = document.getElementById('fillWrap');
+  const matchWrap = document.getElementById('matchWrap');
+  const fb = document.getElementById('feedback');
+  fb.textContent = '';
+
+  matchWrap.style.display = 'none';
+
+  if (deck.length === 0) {
+    empty.style.display = 'block';
+    cardWrap.style.display = 'none';
+    choicesWrap.style.display = 'none';
+    typeWrap.style.display = 'none';
+    document.getElementById('progressTxt').textContent = '0 / 0';
+    document.getElementById('progFill').style.width = '0%';
+    return;
+  }
+
+  empty.style.display = 'none';
+  document.getElementById('progressTxt').textContent = `${idx+1} / ${deck.length}`;
+  document.getElementById('progFill').style.width = `${((idx+1)/deck.length)*100}%`;
+
+  const w = deck[idx];
+
+  fillWrap.style.display = 'none';
+  if (exercise === 'fill') {
+    cardWrap.style.display = 'none';
+    choicesWrap.style.display = 'none';
+    typeWrap.style.display = 'none';
+    fillWrap.style.display = 'block';
+    renderFill();
+    return;
+  }
+  if (exercise === 'flashcard') {
+    cardWrap.style.display = 'block';
+    choicesWrap.style.display = 'none';
+    typeWrap.style.display = 'none';
+    flipped = false;
+    document.getElementById('cardInner').classList.remove('flipped');
+    document.getElementById('cardFront').textContent = w.r;
+    document.getElementById('cardBack').textContent = w.e;
+    const tag = `Class ${w.c}`;
+    document.getElementById('cardClass').textContent = tag;
+    document.getElementById('cardClassBack').textContent = tag;
+  } else if (exercise === 'choice') {
+    cardWrap.style.display = 'none';
+    typeWrap.style.display = 'none';
+    choicesWrap.style.display = 'grid';
+    choiceAnswered = false;
+    renderChoices(w);
+  } else {
+    cardWrap.style.display = 'none';
+    choicesWrap.style.display = 'none';
+    typeWrap.style.display = 'flex';
+    typeAnswered = false;
+    document.getElementById('typeQuestion').textContent = w.r;
+    const inp = document.getElementById('typeInput');
+    inp.value = '';
+    inp.className = 'type-input';
+    inp.disabled = false;
+    inp.focus();
+  }
+}
+
+// ── Match Game ──────────────────────────────────────
+let matchPairs = [];
+let matchSelected = null; // {side:'ru'|'en', idx}
+let matchMatched = new Set();
+let matchOffset = 0;
+
+function renderMatch() {
+  const matchWrap = document.getElementById('matchWrap');
+  const cardWrap = document.getElementById('cardWrap');
+  const choicesWrap = document.getElementById('choicesWrap');
+  const typeWrap = document.getElementById('typeWrap');
+  const fillWrap = document.getElementById('fillWrap');
+  const empty = document.getElementById('emptyMsg');
+
+  cardWrap.style.display = 'none';
+  choicesWrap.style.display = 'none';
+  typeWrap.style.display = 'none';
+  fillWrap.style.display = 'none';
+  empty.style.display = 'none';
+  document.getElementById('feedback').textContent = '';
+
+  if (deck.length === 0) {
+    empty.style.display = 'block';
+    matchWrap.style.display = 'none';
+    return;
+  }
+
+  // Pick 6 from current offset, cycle through deck to avoid repeating
+  const available = deck.length;
+  matchPairs = [];
+  for (let i = 0; i < 6 && i < available; i++) {
+    matchPairs.push(deck[(matchOffset + i) % available]);
+  }
+  matchOffset = (matchOffset + 6) % available;
+  matchSelected = null;
+  matchMatched = new Set();
+
+  matchWrap.style.display = 'block';
+  document.getElementById('matchScore').textContent = `Match all 6 pairs`;
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('progressTxt').textContent = `0 / 6`;
+
+  const ruShuffled = shuffle([...matchPairs]);
+  const enShuffled = shuffle([...matchPairs]);
+
+  const cols = document.getElementById('matchCols');
+  cols.innerHTML = '';
+
+  const ruCol = document.createElement('div');
+  ruCol.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+  const enCol = document.createElement('div');
+  enCol.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+
+  ruShuffled.forEach((w, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'match-btn';
+    btn.textContent = w.r;
+    btn.dataset.word = w.r;
+    btn.dataset.side = 'ru';
+    btn.dataset.i = i;
+    btn.onclick = () => matchClick(btn, 'ru', w.r);
+    ruCol.appendChild(btn);
+  });
+
+  enShuffled.forEach((w, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'match-btn';
+    btn.textContent = w.e;
+    btn.dataset.word = w.r; // store Russian as key
+    btn.dataset.side = 'en';
+    btn.dataset.i = i;
+    btn.onclick = () => matchClick(btn, 'en', w.r);
+    enCol.appendChild(btn);
+  });
+
+  cols.appendChild(ruCol);
+  cols.appendChild(enCol);
+}
+
+function matchClick(btn, side, wordKey) {
+  if (btn.classList.contains('matched')) return;
+  if (btn.classList.contains('selected')) {
+    // deselect
+    btn.classList.remove('selected');
+    matchSelected = null;
+    return;
+  }
+
+  if (!matchSelected) {
+    // First selection
+    btn.classList.add('selected');
+    matchSelected = { side, wordKey, btn };
+    return;
+  }
+
+  // Second selection
+  if (matchSelected.side === side) {
+    // Same column - switch selection
+    matchSelected.btn.classList.remove('selected');
+    btn.classList.add('selected');
+    matchSelected = { side, wordKey, btn };
+    return;
+  }
+
+  // Different columns - check match
+  const isMatch = matchSelected.wordKey === wordKey;
+  if (isMatch) {
+    btn.classList.add('matched');
+    matchSelected.btn.classList.add('matched');
+    btn.disabled = true;
+    matchSelected.btn.disabled = true;
+    matchMatched.add(wordKey);
+    matchSelected = null;
+    // Record correct for both words in the pair
+    recordCorrect(wordKey);
+    buildClassChips();
+    const done = matchMatched.size;
+    document.getElementById('matchScore').textContent = `${done} / 6 matched`;
+    document.getElementById('progressTxt').textContent = `${done} / 6`;
+    document.getElementById('progFill').style.width = `${(done/6)*100}%`;
+    if (done === matchPairs.length) {
+      setFeedback('🎉 All matched! Tap Next for more →', true);
+    }
+  } else {
+    // Wrong - flash both red briefly
+    btn.classList.add('wrong-flash');
+    matchSelected.btn.classList.add('wrong-flash');
+    const prevBtn = matchSelected.btn;
+    matchSelected = null;
+    setTimeout(() => {
+      btn.classList.remove('wrong-flash', 'selected');
+      prevBtn.classList.remove('wrong-flash', 'selected');
+    }, 500);
+  }
+}
+
+function flipCard() {
+  if (exercise !== 'flashcard') return;
+  flipped = !flipped;
+  document.getElementById('cardInner').classList.toggle('flipped', flipped);
+}
+
+function renderChoices(w) {
+  const wrap = document.getElementById('choicesWrap');
+  wrap.innerHTML = `<div style="grid-column:1/-1;text-align:center;font-family:'Inter',sans-serif;font-size:1.7rem;color:var(--text);margin-bottom:6px;">${w.r}</div>
+  <div style="grid-column:1/-1;text-align:center;font-size:0.75rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Class ${w.c}</div>`;
+
+  const distractors = ALL_WORDS.filter(x => x.r !== w.r);
+  const picked = shuffle(distractors).slice(0,3);
+  const options = shuffle([w, ...picked]);
+
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = opt.e;
+    btn.onclick = () => {
+      if (choiceAnswered) return;
+      const correct = opt.r === w.r;
+      if (correct) {
+        choiceAnswered = true;
+        btn.classList.add('correct');
+        wrap.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+        recordCorrect(w.r);
+        buildClassChips();
+        setFeedback('✓ Correct!', true);
+      } else {
+        // Just flash red, disable this option, keep others available
+        btn.classList.add('wrong');
+        btn.disabled = true;
+        setTimeout(() => { btn.classList.remove('wrong'); btn.style.opacity='0.35'; }, 500);
+      }
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+function checkType() {
+  if (typeAnswered) { nextCard(); return; }
+  const w = deck[idx];
+  const val = document.getElementById('typeInput').value.trim().toLowerCase();
+  const correct = w.e.toLowerCase();
+  const inp = document.getElementById('typeInput');
+  const answerWords = correct.split(/[\s\/,()]+/).filter(Boolean);
+  const ok = answerWords.some(aw => val.includes(aw)) || correct.includes(val) && val.length > 1;
+  typeAnswered = true;
+  if (ok) {
+    inp.className = 'type-input correct';
+    recordCorrect(w.r);
+    buildClassChips();
+    setFeedback('✓ Correct! — ' + w.e, true);
+  } else {
+    inp.className = 'type-input wrong';
+    setFeedback('✗ ' + w.e, false);
+  }
+  inp.disabled = true;
+  document.querySelector('.submit-btn').textContent = 'Next →';
+}
+
+function setFeedback(msg, good) {
+  const fb = document.getElementById('feedback');
+  fb.textContent = msg;
+  fb.className = 'feedback ' + (good ? 'good' : 'bad');
+}
+
+function nextCard() {
+  if (deck.length === 0) return;
+  if (exercise === 'match') { renderMatch(); return; }
+  if (exercise === 'fill') { renderFill(); return; }
+  if (exercise === 'typein' && !typeAnswered) { checkType(); return; }
+  // For flashcard: if card was flipped, count as a correct review
+  if (exercise === 'flashcard' && flipped) {
+    recordCorrect(deck[idx].r);
+    buildClassChips();
+  }
+  idx = (idx + 1) % deck.length;
+  document.getElementById('feedback').textContent = '';
+  document.querySelector('.submit-btn').textContent = 'Check →';
+  renderCurrent();
+}
+
+function prevCard() {
+  if (deck.length === 0) return;
+  if (exercise === 'match') return;
+  idx = (idx - 1 + deck.length) % deck.length;
+  document.getElementById('feedback').textContent = '';
+  document.querySelector('.submit-btn').textContent = 'Check →';
+  renderCurrent();
+}
+
+function updateScore() {}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// keyboard shortcut
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextCard(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevCard(); }
+  if (e.key === 'Enter' && exercise === 'flashcard') flipCard();
+});
+
+document.getElementById('typeInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkType();
+});
+
+// Boot
+loadProgress();
+buildClassChips();
+document.getElementById('classSelector').style.display = 'flex';
+buildDeck();
+</script>
+</body>
+</html>
+    font-family: 'Inter', sans-serif;
+    font-size: 2rem;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  /* ── Mode selector ── */
+  .mode-bar {
+    display: inline-flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 4px;
+  }
+
+  .mode-btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 50px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .mode-btn.active {
+    background: var(--accent);
+    color: #0e0e12;
+    font-weight: 500;
+  }
+
+  /* ── Class selector ── */
+  #classSelector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+    max-width: 520px;
+  }
+
+  .class-chip {
+    padding: 8px 18px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.05em;
+  }
+
+  .class-chip.selected {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(124,158,255,0.1);
+  }
+
+  .chip-progress {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-left: 4px;
+  }
+  .chip-progress.good { color: var(--green); opacity: 1; }
+  .chip-progress.mid { color: var(--accent); opacity: 1; }
+
+  /* ── Exercise type ── */
+  .exercise-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .ex-btn {
+    padding: 16px 24px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.04em;
+    text-align: left;
+    width: 100%;
+  }
+
+  .ex-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(124,158,255,0.08);
+  }
+
+  .ex-btn:hover:not(.active) {
+    border-color: var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+
+  /* ── Card ── */
+  .card-wrap {
+    perspective: 1200px;
+    width: 100%;
+    max-width: 480px;
+    height: 220px;
+    margin-bottom: 20px;
+    cursor: pointer;
+  }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .card-inner.flipped { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    gap: 10px;
+  }
+
+  .card-face.back { transform: rotateY(180deg); }
+
+  .card-lang {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+
+  .card-word {
+    font-family: 'Inter', sans-serif;
+    font-size: 2rem;
+    text-align: center;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .card-face.back .card-word { color: var(--accent); }
+
+  .card-hint {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .card-class-tag {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Multiple choice ── */
+  .choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 20px;
+  }
+
+  .choice-btn {
+    padding: 14px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .choice-btn:hover:not(:disabled) {
+    border-color: var(--accent2);
+    background: rgba(124,158,255,0.08);
+  }
+
+  .choice-btn.correct { border-color: var(--green); background: rgba(110,231,183,0.1); color: var(--green); }
+  .choice-btn.wrong { border-color: var(--red); background: rgba(248,113,113,0.08); color: var(--red); }
+  .choice-btn:disabled { cursor: default; }
+
+  /* ── Type-in ── */
+  .type-area {
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .type-input {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .type-input:focus { border-color: var(--accent2); }
+  .type-input.correct { border-color: var(--green); }
+  .type-input.wrong { border-color: var(--red); }
+
+  .submit-btn {
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent2);
+    color: #0e0e12;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.18s;
+  }
+
+  .submit-btn:hover { opacity: 0.88; }
+
+  /* ── Feedback ── */
+  .feedback {
+    font-size: 0.78rem;
+    text-align: center;
+    min-height: 20px;
+    margin-bottom: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .feedback.good { color: var(--green); }
+  .feedback.bad { color: var(--red); }
+
+  /* ── Nav buttons ── */
+  .nav-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 4px;
+  }
+
+  .nav-btn {
+    padding: 13px 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.04em;
+  }
+
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .progress-txt {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Score bar ── */
+  .score-bar {
+    display: flex;
+    gap: 16px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+  }
+
+  .score-bar span { color: var(--text); }
+
+  /* ── Empty state ── */
+  .empty {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 40px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Progress line ── */
+  .prog-line {
+    width: 100%;
+    max-width: 480px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .prog-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Word List Button ── */
+  .wordlist-btn {
+    margin-bottom: 20px;
+    padding: 10px 24px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.05em;
+  }
+  .wordlist-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── Word List Screen (full-page overlay) ── */
+  #wordlistScreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+    overflow-y: auto;
+  }
+  #wordlistScreen.open { display: flex; }
+
+  .wls-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 24px;
+  }
+  .wls-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.4rem;
+    color: var(--accent);
+    flex: 1;
+  }
+
+  .wls-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 20px;
+  }
+  .wls-filter {
+    padding: 6px 16px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .wls-filter.active { border-color: var(--accent); color: var(--accent); background: rgba(232,184,109,0.08); }
+
+  .wls-class-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 20px;
+  }
+  .wl-tab {
+    padding: 6px 14px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .wl-tab.active { border-color: var(--accent2); color: var(--accent2); background: rgba(124,158,255,0.08); }
+
+  .wls-list {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .wl-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .wl-item.skipped { opacity: 0.4; }
+
+  .wl-checkbox {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-size: 13px;
+    color: var(--bg);
+  }
+  .wl-checkbox.checked { background: var(--muted); border-color: var(--muted); }
+  .wl-checkbox.checked::after { content: '✓'; }
+
+  .wl-word-info { flex: 1; min-width: 0; }
+  .wl-ru { color: var(--text); font-size: 0.95rem; }
+  .wl-en { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+
+  .wl-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+  .wl-badge {
+    padding: 3px 8px;
+    border-radius: 50px;
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .wl-badge.b3 { background: rgba(124,158,255,0.15); color: var(--accent2); border: 1px solid rgba(124,158,255,0.3); }
+  .wl-badge.b5 { background: rgba(110,231,183,0.15); color: var(--green); border: 1px solid rgba(110,231,183,0.3); }
+  .wl-badge.seen { background: rgba(107,107,128,0.15); color: var(--muted); border: 1px solid rgba(107,107,128,0.2); font-size: 0.68rem; }
+
+  /* ── Focus mode (game active) ── */
+  .setup-area { transition: all 0.2s; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 420px; }
+  body.game-active .setup-area { display: none !important; }
+  body.game-active .wordlist-btn { display: none !important; }
+
+  .game-header {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 480px;
+  }
+  body.game-active .game-header { display: flex; }
+
+  .back-btn {
+    padding: 8px 16px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .game-title-display {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    color: var(--accent);
+  }
+
+  /* ── Nav/progress hidden until game starts ── */
+  .game-area { display: none; width: 100%; max-width: 480px; align-items: center; flex-direction: column; }
+  body.game-active .game-area { display: flex; }
+
+  /* ── Match Game ── */
+  .match-wrap {
+    width: 100%;
+    max-width: 520px;
+    margin-bottom: 20px;
+  }
+  .match-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .match-btn {
+    padding: 12px 10px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .match-btn:hover:not(:disabled) { border-color: var(--accent2); background: rgba(124,158,255,0.08); }
+  .match-btn.selected { border-color: var(--accent); background: rgba(232,184,109,0.12); color: var(--accent); }
+  .match-btn.matched { border-color: var(--green); background: rgba(110,231,183,0.1); color: var(--green); opacity: 0.6; cursor: default; }
+  .match-btn.wrong-flash { border-color: var(--red); background: rgba(248,113,113,0.1); animation: wrongFlash 0.4s ease; }
+  @keyframes wrongFlash { 0%,100%{} 50%{background:rgba(248,113,113,0.2);} }
+  .match-score { text-align: center; font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<h1>Русские слова</h1>
+<p class="subtitle">Russian Vocabulary Trainer</p>
+
+<!-- Word list toggle button -->
+<button class="wordlist-btn" onclick="openWordList()">📖 Word List</button>
+
+<!-- Word List Screen (full page) -->
+<div id="wordlistScreen">
+  <div class="wls-header">
+    <button class="back-btn" onclick="closeWordList()">← Back</button>
+    <span class="wls-title">Word List</span>
+  </div>
+  <div class="wls-filter-bar">
+    <button class="wls-filter active" onclick="setWlFilter('all',this)">All</button>
+    <button class="wls-filter" onclick="setWlFilter('learned3',this)">⭐ 3× streak</button>
+    <button class="wls-filter" onclick="setWlFilter('learned5',this)">🌟 5× streak</button>
+    <button class="wls-filter" onclick="setWlFilter('skipped',this)">☑ Skipped</button>
+  </div>
+  <div class="wls-class-tabs" id="wlTabs"></div>
+  <div class="wls-list" id="wlList"></div>
+</div>
+
+<!-- Setup area (hidden during game) -->
+<div class="setup-area">
+  <!-- Mode -->
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('class')" id="btnClass">By Class</button>
+    <button class="mode-btn" onclick="setMode('mixed')" id="btnMixed">Mixed</button>
+  </div>
+
+  <!-- Class selector (shown in "by class" mode) -->
+  <div id="classSelector"></div>
+
+  <!-- Exercise type -->
+  <div class="exercise-bar">
+    <button class="ex-btn active" onclick="setExercise('flashcard')" id="exFlash">🃏 Flashcard</button>
+    <button class="ex-btn" onclick="setExercise('choice')" id="exChoice">☑ Multiple Choice</button>
+    <button class="ex-btn" onclick="setExercise('typein')" id="exType">✏ Type In</button>
+    <button class="ex-btn" onclick="setExercise('fill')" id="exFill">📝 Fill Blank</button>
+    <button class="ex-btn" onclick="setExercise('match')" id="exMatch">🔗 Match</button>
+  </div>
+</div>
+
+<!-- Game header (shown during game) -->
+<div class="game-header">
+  <button class="back-btn" onclick="exitGame()">← Back</button>
+  <span class="game-title-display" id="gameTitleDisplay"></span>
+</div>
+
+<!-- Everything below only shown when a game is active -->
+<div class="game-area" id="gameArea">
+
+<!-- Progress line -->
+<div class="prog-line" style="width:100%;max-width:480px;"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+
+<!-- Card (flashcard mode) -->
+<div class="card-wrap" id="cardWrap" style="display:none" onclick="flipCard()">
+  <div class="card-inner" id="cardInner">
+    <div class="card-face front">
+      <div class="card-lang">Russian</div>
+      <div class="card-word" id="cardFront">—</div>
+      <div class="card-hint">tap to reveal</div>
+      <div class="card-class-tag" id="cardClass"></div>
+    </div>
+    <div class="card-face back">
+      <div class="card-lang">English</div>
+      <div class="card-word" id="cardBack">—</div>
+      <div class="card-class-tag" id="cardClassBack"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Multiple choice -->
+<div class="choices" id="choicesWrap" style="display:none"></div>
+
+<!-- Type in -->
+<div class="type-area" id="typeWrap" style="display:none">
+  <div class="card-word" id="typeQuestion" style="font-family:'Inter',sans-serif;font-size:1.8rem;text-align:center;margin-bottom:8px;color:var(--text)"></div>
+  <input class="type-input" id="typeInput" placeholder="Type the English meaning…" autocomplete="off" />
+  <button class="submit-btn" onclick="checkType()">Check →</button>
+</div>
+
+<!-- Fill the blank -->
+<div id="fillWrap" style="display:none;width:100%;max-width:480px;margin-bottom:16px;">
+  <div id="fillSentence" style="font-family:'Inter',sans-serif;font-size:1.3rem;text-align:center;line-height:1.6;color:var(--text);margin-bottom:18px;min-height:60px;"></div>
+  <div id="fillChips" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:14px;"></div>
+  <div id="fillReveal" style="display:none;background:rgba(232,184,109,0.08);border:1px solid rgba(232,184,109,0.3);border-radius:12px;padding:14px;text-align:center;margin-bottom:8px;">
+    <div id="fillTranslation" style="color:var(--accent);font-size:0.95rem;line-height:1.5;"></div>
+  </div>
+</div>
+
+<!-- Match game -->
+<div id="matchWrap" style="display:none;width:100%;max-width:520px;">
+  <div class="match-score" id="matchScore"></div>
+  <div class="match-cols" id="matchCols"></div>
+</div>
+
+<!-- Feedback -->
+<div class="feedback" id="feedback"></div>
+
+<!-- Nav -->
+<div class="nav-row">
+  <button class="nav-btn" onclick="prevCard()">← Prev</button>
+  <span class="progress-txt" id="progressTxt"></span>
+  <button class="nav-btn" onclick="nextCard()">Next →</button>
+</div>
+
+<div class="empty" id="emptyMsg" style="display:none">Select at least one class to start!</div>
+
+</div><!-- end game-area -->
+
+<script>
+
+const SENTENCES = {"Делать":[{"ru":"Мне нужно делать уборку каждый вечер.","en":"I need to do cleaning every evening."},{"ru":"Что ты хочешь делать в воскресенье?","en":"What do you want to do on Sunday?"},{"ru":"Снова нужно делать стирку.","en":"It's time to do laundry again."}],"Заниматься":[{"ru":"Я люблю заниматься спортом в спортзале.","en":"I love doing sports at the gym."},{"ru":"Каждое утро она заниматься рисованием.","en":"Every morning she does drawing."},{"ru":"Взрослый должен заниматься готовкой сам.","en":"An adult should do cooking himself."}],"Квартира":[{"ru":"В нашей квартире есть балкон и камин.","en":"Our flat has a balcony and a fireplace."},{"ru":"Уборка квартиры занимает весь день.","en":"Cleaning the flat takes the whole day."},{"ru":"Моя квартира находится рядом с рынком.","en":"My flat is near the market."}],"Стирка":[{"ru":"Сегодня у меня стирка и уборка.","en":"Today I have laundry and cleaning."},{"ru":"Стирка занимает много времени, поздно заканчиваю.","en":"Laundry takes a lot of time, I finish late."},{"ru":"Снова стирка — каждый понедельник.","en":"Laundry again — every Monday."}],"Уборка":[{"ru":"После обеда мы делаем уборку в квартире.","en":"After lunch we do cleaning in the flat."},{"ru":"Уборка вдоль коридора уже готова.","en":"Cleaning along the corridor is done."},{"ru":"Каждую субботу мы делаем большую уборку.","en":"Every Saturday we do a big clean."}],"Готовка":[{"ru":"Готовка обеда — это её любимое занятие.","en":"Cooking lunch is her favourite activity."},{"ru":"Честно говоря, готовка занимает много времени.","en":"To be honest, cooking takes a lot of time."},{"ru":"Он тоже умеет делать готовку.","en":"He also knows how to do cooking."}],"Тоже":[{"ru":"Она тоже хочет ездить на рынок.","en":"She wants to go to the market too."},{"ru":"Я тоже заканчиваю работу поздно.","en":"I finish work late too."},{"ru":"Он тоже делает уборку каждый день.","en":"He also does cleaning every day."}],"Также":[{"ru":"Также нужно убирать балкон каждую неделю.","en":"You also need to clean the balcony every week."},{"ru":"Она также занимается рисованием и пением.","en":"She also does drawing and singing."},{"ru":"Также возможно заниматься спортом дома.","en":"It is also possible to do sports at home."}],"Каждый":[{"ru":"Каждый взрослый должен убирать свою квартиру.","en":"Every adult must clean their flat."},{"ru":"Каждый понедельник я иду в спортзал.","en":"Every Monday I go to the gym."},{"ru":"Каждый день нужно делать перерыв.","en":"Every day you need to take a break."}],"Последний":[{"ru":"Это последний перерыв перед обедом.","en":"This is the last break before lunch."},{"ru":"Последний урок заканчивается поздно в пятницу.","en":"The last lesson ends late on Friday."},{"ru":"Последний подарок был для садовника.","en":"The last gift was for the gardener."}],"Ровно":[{"ru":"Занятие начинается ровно в восемь утра.","en":"The lesson starts at exactly eight in the morning."},{"ru":"Ровно в полдень мы делаем перерыв.","en":"At exactly noon we take a break."},{"ru":"Он ждёт ровно пять минут.","en":"He waits exactly five minutes."}],"Честно говоря":[{"ru":"Честно говоря, готовка мне не нравится.","en":"To be honest, I don't like cooking."},{"ru":"Честно говоря, уборка квартиры очень скучная.","en":"To be honest, cleaning the flat is very boring."},{"ru":"Честно говоря, я часто встаю поздно.","en":"To be honest, I often get up late."}],"Снова":[{"ru":"Снова пора делать уборку в квартире.","en":"It's time to clean the flat again."},{"ru":"Снова беспорядок на балконе!","en":"There's a mess on the balcony again!"},{"ru":"Снова встаю поздно каждое воскресенье.","en":"I get up late every Sunday again."}],"До":[{"ru":"До обеда у меня репетиция в зале.","en":"Before lunch I have rehearsal in the hall."},{"ru":"Приходи до перерыва, это важно.","en":"Come before the break, it's important."},{"ru":"До воскресенья нужно закончить уборку.","en":"The cleaning needs to be done before Sunday."}],"Поздно":[{"ru":"Поздно вечером он возвращается домой.","en":"Late in the evening he comes home."},{"ru":"Вставать поздно — это привычка совы.","en":"Getting up late is an owl's habit."},{"ru":"Поздно начинать стирку — плохая идея.","en":"Starting laundry late is a bad idea."}],"Сразу":[{"ru":"Сразу после обеда начинается репетиция.","en":"Rehearsal starts immediately after lunch."},{"ru":"Он сразу делает уборку в квартире.","en":"He immediately does cleaning in the flat."},{"ru":"Сразу видно, что здесь беспорядок.","en":"You can immediately see there's a mess here."}],"Перерыв":[{"ru":"Перерыв между уроками длится десять минут.","en":"The break between lessons lasts ten minutes."},{"ru":"После перерыва снова начинается репетиция.","en":"After the break rehearsal starts again."},{"ru":"В перерыв мы пьём чай и общаемся.","en":"During the break we drink tea and chat."}],"Вдоль":[{"ru":"Она идёт вдоль рынка каждое утро.","en":"She walks along the market every morning."},{"ru":"Вдоль балкона стоит красивая мебель.","en":"Beautiful furniture stands along the balcony."},{"ru":"Мы ездим вдоль пляжа каждую субботу.","en":"We drive along the beach every Saturday."}],"Пора спать":[{"ru":"Пора спать — уже очень поздно!","en":"It's time to sleep — it's very late!"},{"ru":"После уборки и готовки пора спать.","en":"After cleaning and cooking it's time to sleep."},{"ru":"Каждый вечер ровно в десять пора спать.","en":"Every evening at exactly ten it's time to sleep."}],"Декрет":[{"ru":"Она в декрете и делает готовку дома.","en":"She is on maternity leave and cooks at home."},{"ru":"В декрете много времени на творчество.","en":"On maternity leave there's lots of time for creativity."},{"ru":"Подарок для неё в декрет был особенным.","en":"The gift for her maternity leave was special."}],"Беспорядок":[{"ru":"В квартире снова беспорядок после вечеринки.","en":"There's a mess in the flat again after the party."},{"ru":"Беспорядок на балконе мешает отдыхать.","en":"The mess on the balcony stops you relaxing."},{"ru":"Каждый раз беспорядок после готовки.","en":"Every time there's a mess after cooking."}],"Общаться":[{"ru":"Мы любим общаться во время перерыва.","en":"We love to chat during the break."},{"ru":"Взрослый должен уметь общаться с людьми.","en":"An adult must be able to communicate with people."},{"ru":"Легко общаться с добрым человеком.","en":"It's easy to communicate with a kind person."}],"Планы рухнули":[{"ru":"Планы рухнули из-за плохой погоды в пятницу.","en":"Plans fell apart because of bad weather on Friday."},{"ru":"Планы рухнули, и мы остались дома делать уборку.","en":"Plans fell apart and we stayed home to clean."},{"ru":"Честно говоря, снова планы рухнули.","en":"To be honest, plans fell apart again."}],"Время летит":[{"ru":"Время летит, когда занимаешься творчеством.","en":"Time flies when you are doing creative work."},{"ru":"Время летит — уже воскресенье, а уборки нет.","en":"Time flies — it's Sunday already and no cleaning done."},{"ru":"Честно говоря, время летит очень быстро.","en":"To be honest, time flies very fast."}],"Жаворонок":[{"ru":"Жаворонок встаёт ровно в шесть утра.","en":"An early bird gets up at exactly six in the morning."},{"ru":"Она жаворонок и сразу делает готовку.","en":"She's an early bird and immediately starts cooking."},{"ru":"Каждый жаворонок начинает день до обеда.","en":"Every early bird starts the day before lunch."}],"Сова":[{"ru":"Сова никогда не встаёт до обеда.","en":"A night owl never gets up before noon."},{"ru":"Он сова и поздно заканчивает работу.","en":"He's a night owl and finishes work late."},{"ru":"Совой быть трудно, когда урок начинается ровно в восемь.","en":"Being a night owl is hard when the lesson starts at exactly eight."}],"Взрослый":[{"ru":"Взрослый человек сам делает уборку.","en":"An adult does the cleaning himself."},{"ru":"Каждый взрослый должен уметь готовить обед.","en":"Every adult should be able to cook lunch."},{"ru":"Взрослый сотрудник помогает новому коллеге.","en":"An adult employee helps a new colleague."}],"Подарок":[{"ru":"Подарок для неё был в красивой коробке.","en":"The gift for her was in a beautiful box."},{"ru":"Каждый подарок она убирает сразу на полку.","en":"She immediately puts every gift on the shelf."},{"ru":"Певец получил подарок от поклонников в пятницу.","en":"The singer received a gift from fans on Friday."}],"Понедельник":[{"ru":"В понедельник я всегда иду в спортзал.","en":"On Monday I always go to the gym."},{"ru":"Понедельник — самый трудный день недели.","en":"Monday is the most difficult day of the week."},{"ru":"В понедельник начинается новый урок русского.","en":"On Monday a new Russian lesson starts."}],"Вторник":[{"ru":"Во вторник у нас репетиция и урок.","en":"On Tuesday we have rehearsal and a lesson."},{"ru":"Каждый вторник она делает покупки на рынке.","en":"Every Tuesday she shops at the market."},{"ru":"Во вторник после обеда идём в библиотеку.","en":"On Tuesday after lunch we go to the library."}],"Среда":[{"ru":"В среду всегда много работы в офисе.","en":"On Wednesday there is always a lot of work in the office."},{"ru":"Среда — день перерыва и отдыха.","en":"Wednesday is a day of rest and breaks."},{"ru":"Каждую среду садовник убирает сад.","en":"Every Wednesday the gardener cleans the garden."}],"Четверг":[{"ru":"В четверг у меня встреча с адвокатом.","en":"On Thursday I have a meeting with the lawyer."},{"ru":"Каждый четверг бухгалтер делает отчёт.","en":"Every Thursday the accountant does a report."},{"ru":"В четверг после обеда иду в спортзал.","en":"On Thursday after lunch I go to the gym."}],"Пятница":[{"ru":"В пятницу все сотрудники уходят раньше.","en":"On Friday all employees leave earlier."},{"ru":"Каждую пятницу певец даёт концерт.","en":"Every Friday the singer gives a concert."},{"ru":"В пятницу поздно вечером пора спать.","en":"On Friday late in the evening it's time to sleep."}],"Суббота":[{"ru":"В субботу мы делаем большую уборку квартиры.","en":"On Saturday we do a big flat clean."},{"ru":"Каждую субботу ездим на рынок за покупками.","en":"Every Saturday we go to the market for shopping."},{"ru":"В субботу после обеда идём на пляж.","en":"On Saturday after lunch we go to the beach."}],"Воскресенье":[{"ru":"В воскресенье пора спать до обеда.","en":"On Sunday it's fine to sleep until noon."},{"ru":"Каждое воскресенье мы проводим время на балконе.","en":"Every Sunday we spend time on the balcony."},{"ru":"В воскресенье готовка занимает весь день.","en":"On Sunday cooking takes the whole day."}],"Гамак":[{"ru":"Летом я лежу в гамаке на балконе.","en":"In summer I lie in the hammock on the balcony."},{"ru":"Гамак рядом с камином — мечта!","en":"A hammock next to the fireplace is a dream!"},{"ru":"В воскресенье хорошо читать газету в гамаке.","en":"On Sunday it's nice to read the newspaper in the hammock."}],"Камин":[{"ru":"Камин в квартире делает её уютной.","en":"A fireplace in the flat makes it cosy."},{"ru":"Вечером мы сидим у камина и общаемся.","en":"In the evening we sit by the fireplace and chat."},{"ru":"Рядом с камином стоит красивая мебель.","en":"Beautiful furniture stands next to the fireplace."}],"Рынок":[{"ru":"Каждую субботу мы ездим на рынок.","en":"Every Saturday we go to the market."},{"ru":"На рынке можно найти дешёвые товары.","en":"At the market you can find cheap goods."},{"ru":"После обеда идём на рынок за покупками.","en":"After lunch we go to the market for shopping."}],"Балкон":[{"ru":"На балконе квартиры стоит гамак.","en":"There's a hammock on the flat's balcony."},{"ru":"Вдоль балкона растут красивые цветы.","en":"Beautiful flowers grow along the balcony."},{"ru":"В воскресенье мы пьём чай на балконе.","en":"On Sunday we drink tea on the balcony."}],"Обед":[{"ru":"После обеда у нас репетиция в зале.","en":"After lunch we have rehearsal in the hall."},{"ru":"До обеда нужно сделать уборку.","en":"Before lunch the cleaning needs to be done."},{"ru":"На обед она готовит суп и салат.","en":"For lunch she cooks soup and salad."}],"Украсть":[{"ru":"Охранник не дал украсть товары из магазина.","en":"The security guard stopped someone from stealing goods from the shop."},{"ru":"Трудно украсть что-то, когда есть страховка.","en":"It is difficult to steal something when there is insurance."},{"ru":"Нельзя украсть книгу из библиотеки.","en":"You must not steal a book from the library."}],"Использовать":[{"ru":"Можно использовать ноутбук для урока.","en":"You can use a laptop for a lesson."},{"ru":"Она использует перчатки для уборки.","en":"She uses gloves for cleaning."},{"ru":"Редактор использует компьютер каждый день.","en":"The editor uses a computer every day."}],"Встречаться":[{"ru":"Мы встречаемся каждую пятницу после обеда.","en":"We meet every Friday after lunch."},{"ru":"Они встречаются у камина в гостиной.","en":"They meet by the fireplace in the living room."},{"ru":"Трудно встречаться, когда все работают поздно.","en":"It is hard to meet when everyone works late."}],"Проводить время":[{"ru":"Мы любим проводить время на балконе.","en":"We love spending time on the balcony."},{"ru":"Лучший способ проводить время — путешествовать.","en":"The best way to spend time is to travel."},{"ru":"В воскресенье хорошо проводить время в библиотеке.","en":"On Sunday it's nice to spend time in the library."}],"Вставать":[{"ru":"Жаворонок любит вставать ровно в шесть.","en":"An early bird loves getting up at exactly six."},{"ru":"Трудно вставать в понедельник после выходных.","en":"It is hard to get up on Monday after the weekend."},{"ru":"Пора вставать — уже поздно утро!","en":"Time to get up — it's already late morning!"}],"Ездить":[{"ru":"Каждый день я ездить на работу на метро.","en":"Every day I go to work by metro."},{"ru":"Мы любим ездить на рынок в субботу.","en":"We love going to the market on Saturday."},{"ru":"Певец любит ездить в другие города.","en":"The singer loves going to other cities."}],"Петь":[{"ru":"Певец начинает петь ровно в восемь.","en":"The singer starts to sing at exactly eight."},{"ru":"Она любит петь во время готовки.","en":"She loves to sing while cooking."},{"ru":"Трудно петь и убирать одновременно.","en":"It is hard to sing and clean at the same time."}],"Убирать":[{"ru":"Нужно убирать квартиру каждую субботу.","en":"You need to clean the flat every Saturday."},{"ru":"Садовник убирает листья вдоль дорожки.","en":"The gardener clears leaves along the path."},{"ru":"Охранник помогает убирать после мероприятия.","en":"The security guard helps clean up after the event."}],"Спортзал":[{"ru":"Каждый понедельник я иду в спортзал.","en":"Every Monday I go to the gym."},{"ru":"В спортзале встречаются взрослые и молодые.","en":"Adults and young people meet at the gym."},{"ru":"После обеда — спортзал, вечером — репетиция.","en":"After lunch — the gym, in the evening — rehearsal."}],"Репетиция":[{"ru":"Репетиция начинается сразу после обеда.","en":"Rehearsal starts immediately after lunch."},{"ru":"Певец готовится к репетиции каждый вторник.","en":"The singer prepares for rehearsal every Tuesday."},{"ru":"После репетиции все идут в спортзал.","en":"After rehearsal everyone goes to the gym."}],"Существительное":[{"ru":"Существительное — это самая важная часть речи.","en":"A noun is the most important part of speech."},{"ru":"Учитель объясняет существительное на уроке.","en":"The teacher explains the noun in the lesson."},{"ru":"Каждое существительное имеет род и число.","en":"Every noun has a gender and a number."}],"Глагол":[{"ru":"Глагол делать — один из первых в учебнике.","en":"The verb to do is one of the first in the textbook."},{"ru":"Учитель пишет глагол на экране.","en":"The teacher writes the verb on the screen."},{"ru":"Без глагола предложение неполное.","en":"Without a verb the sentence is incomplete."}],"Прилагательное":[{"ru":"Прилагательное описывает существительное.","en":"An adjective describes a noun."},{"ru":"Тёплый — это прилагательное для осени.","en":"Warm is an adjective for autumn."},{"ru":"На уроке мы учим прилагательное и глагол.","en":"In the lesson we learn adjectives and verbs."}],"Глобальное потепление":[{"ru":"Глобальное потепление меняет осень и весну.","en":"Global warming is changing autumn and spring."},{"ru":"Из-за глобального потепления зима стала теплее.","en":"Because of global warming winter has become warmer."},{"ru":"Редактор пишет статью о глобальном потеплении.","en":"The editor writes an article about global warming."}],"Точно":[{"ru":"Он точно знает, когда начинать урок.","en":"He knows exactly when to start the lesson."},{"ru":"Ровно в девять — точно по расписанию.","en":"At exactly nine — right on schedule."},{"ru":"Я точно приеду в пятницу вечером.","en":"I will definitely come on Friday evening."}],"Начинать":[{"ru":"Нужно начинать уборку до обеда.","en":"You need to start cleaning before lunch."},{"ru":"Она начинает каждый день с готовки.","en":"She starts every day with cooking."},{"ru":"Трудно начинать новый урок в понедельник.","en":"It is hard to start a new lesson on Monday."}],"Заканчивать":[{"ru":"Нужно заканчивать уборку до обеда.","en":"You need to finish cleaning before lunch."},{"ru":"Она заканчивает готовку поздно вечером.","en":"She finishes cooking late in the evening."},{"ru":"Репетиция заканчивается ровно в шесть.","en":"Rehearsal finishes at exactly six."}],"Возможно":[{"ru":"Возможно, мы встретимся в пятницу после работы.","en":"Maybe we'll meet on Friday after work."},{"ru":"Возможно, поздно начинать уборку сейчас.","en":"It's maybe too late to start cleaning now."},{"ru":"Возможно, певец приедет на репетицию в среду.","en":"Maybe the singer will come to rehearsal on Wednesday."}],"Иногда":[{"ru":"Иногда мы ездим на рынок в воскресенье.","en":"Sometimes we go to the market on Sunday."},{"ru":"Иногда поздно вечером слышно пение.","en":"Sometimes late in the evening you can hear singing."},{"ru":"Иногда беспорядок в квартире мешает работать.","en":"Sometimes the mess in the flat makes it hard to work."}],"Ждать":[{"ru":"Нужно ждать автобус вдоль дороги.","en":"You need to wait for the bus along the road."},{"ru":"Скучно ждать доставку целый день.","en":"It's boring to wait for delivery all day."},{"ru":"Он ждёт ровно пять минут, не больше.","en":"He waits exactly five minutes, no more."}],"Тратить":[{"ru":"Не нужно тратить деньги на ненужные покупки.","en":"You don't need to spend money on unnecessary purchases."},{"ru":"Она тратит время на творчество каждый вечер.","en":"She spends time on creativity every evening."},{"ru":"Трудно не тратить много на рынке.","en":"It is hard not to spend a lot at the market."}],"Курить":[{"ru":"Нельзя курить на балконе квартиры.","en":"You cannot smoke on the flat's balcony."},{"ru":"Охранник попросил не курить в здании.","en":"The security guard asked not to smoke in the building."},{"ru":"Взрослый должен знать, что курить вредно.","en":"An adult should know that smoking is harmful."}],"Покупка":[{"ru":"Каждая покупка на рынке — хорошая идея.","en":"Every purchase at the market is a good idea."},{"ru":"После покупки обувь нужно убрать на полку.","en":"After purchase shoes need to be put on the shelf."},{"ru":"Покупка мебели — это большая трата денег.","en":"Buying furniture is a big expense."}],"Доставка":[{"ru":"Доставка товаров занимает два дня.","en":"Delivery of goods takes two days."},{"ru":"Мы ждём доставку новой мебели.","en":"We are waiting for delivery of new furniture."},{"ru":"Доставка на дом удобнее, чем ездить на рынок.","en":"Home delivery is more convenient than going to the market."}],"Осень":[{"ru":"Осенью хорошо читать книгу у камина.","en":"In autumn it's nice to read a book by the fireplace."},{"ru":"Осень — время убирать листья в саду.","en":"Autumn is the time to clear leaves in the garden."},{"ru":"Честно говоря, осень — моё любимое время года.","en":"To be honest, autumn is my favourite time of year."}],"Весна":[{"ru":"Весной садовник начинает убирать сад.","en":"In spring the gardener starts cleaning the garden."},{"ru":"Весна — время путешествовать и общаться.","en":"Spring is the time to travel and socialise."},{"ru":"После зимы весна кажется очень тёплой.","en":"After winter spring feels very warm."}],"Газета":[{"ru":"Каждое утро он читает газету у камина.","en":"Every morning he reads the newspaper by the fireplace."},{"ru":"Редактор пишет в газету каждую неделю.","en":"The editor writes for the newspaper every week."},{"ru":"В газете статья о глобальном потеплении.","en":"There's an article about global warming in the newspaper."}],"Редактор":[{"ru":"Редактор газеты работает до позднего вечера.","en":"The newspaper editor works until late evening."},{"ru":"Редактор использует ноутбук на каждом уроке.","en":"The editor uses a laptop in every lesson."},{"ru":"Редактор — это трудная, но интересная профессия.","en":"Being an editor is a difficult but interesting profession."}],"Цифра":[{"ru":"Цифра восемь — моя любимая цифра.","en":"The digit eight is my favourite digit."},{"ru":"Бухгалтер считает каждую цифру внимательно.","en":"The accountant counts every digit carefully."},{"ru":"Каждая цифра важна в бухгалтерии.","en":"Every digit is important in accounting."}],"Число":[{"ru":"Большое число товаров ждёт доставки.","en":"A large number of goods is waiting for delivery."},{"ru":"Число сотрудников в офисе растёт.","en":"The number of employees in the office is growing."},{"ru":"Трудное число — это двести девяносто семь.","en":"A difficult number is two hundred and ninety-seven."}],"Куртка":[{"ru":"Надень куртку — на улице холодно.","en":"Put on your jacket — it's cold outside."},{"ru":"Коричневая куртка лежит на полке.","en":"The brown jacket is lying on the shelf."},{"ru":"Охранник носит синюю куртку каждый день.","en":"The security guard wears a blue jacket every day."}],"Блузка":[{"ru":"Она выбирает блузку к юбке.","en":"She is choosing a blouse to match the skirt."},{"ru":"Голубая блузка — красивый выбор для весны.","en":"A light blue blouse is a beautiful choice for spring."},{"ru":"Блузка и пиджак — хорошее сочетание для работы.","en":"A blouse and blazer are a good combination for work."}],"Юбка":[{"ru":"Длинная юбка хорошо подходит к блузке.","en":"A long skirt goes well with a blouse."},{"ru":"Она надевает юбку и туфли на работу.","en":"She puts on a skirt and heels for work."},{"ru":"Коричневая юбка висит рядом с платьем.","en":"The brown skirt hangs next to the dress."}],"Пальто":[{"ru":"Пальто и шарф — одежда для осени.","en":"A coat and scarf are clothes for autumn."},{"ru":"Она покупает новое пальто на рынке.","en":"She buys a new coat at the market."},{"ru":"Коричневое пальто висит на полке.","en":"The brown coat hangs on the shelf."}],"Платье":[{"ru":"Красивое платье — хороший подарок.","en":"A beautiful dress is a good gift."},{"ru":"Она надевает платье и туфли на вечер.","en":"She puts on a dress and heels for the evening."},{"ru":"Голубое платье лежит рядом с блузкой.","en":"The light blue dress lies next to the blouse."}],"Брюки":[{"ru":"Брюки и пиджак — деловой стиль.","en":"Trousers and a blazer are a business style."},{"ru":"Он носит брюки и рубашку каждый день.","en":"He wears trousers and a shirt every day."},{"ru":"Коричневые брюки хорошо подходят к туфлям.","en":"Brown trousers go well with heels."}],"Пиджак":[{"ru":"Пиджак и галстук — стиль адвоката.","en":"A blazer and tie are a lawyer's style."},{"ru":"Он надевает пиджак на каждую встречу.","en":"He puts on a blazer for every meeting."},{"ru":"Коричневый пиджак висит рядом с брюками.","en":"The brown blazer hangs next to the trousers."}],"Шуба":[{"ru":"Шуба нужна зимой, пальто — осенью.","en":"A fur coat is needed in winter, a coat in autumn."},{"ru":"Она хранит шубу рядом с сапогами на полке.","en":"She keeps her fur coat next to the boots on the shelf."},{"ru":"Шуба — дорогая покупка, но тёплая.","en":"A fur coat is an expensive purchase but warm."}],"Халат":[{"ru":"Утром она ходит по квартире в халате.","en":"In the morning she walks around the flat in a robe."},{"ru":"Халат и тапочки — домашняя одежда.","en":"A robe and slippers are home clothes."},{"ru":"После душа она надевает тёплый халат.","en":"After a shower she puts on a warm robe."}],"Рубашка":[{"ru":"Белая рубашка и галстук — для офиса.","en":"A white shirt and tie are for the office."},{"ru":"Он гладит рубашку каждое утро.","en":"He irons his shirt every morning."},{"ru":"Рубашка висит рядом с пиджаком в шкафу.","en":"The shirt hangs next to the blazer in the wardrobe."}],"Туфли":[{"ru":"Туфли и платье — хорошее сочетание.","en":"Heels and a dress are a good combination."},{"ru":"Она ищет туфли нужного размера.","en":"She is looking for heels in the right size."},{"ru":"Коричневые туфли стоят рядом с сапогами.","en":"The brown heels stand next to the boots."}],"Сапоги":[{"ru":"Сапоги нужны осенью и зимой.","en":"Boots are needed in autumn and winter."},{"ru":"Она надевает сапоги и пальто на прогулку.","en":"She puts on boots and a coat for a walk."},{"ru":"Кожаные сапоги стоят рядом с туфлями.","en":"The leather boots stand next to the heels."}],"Тапочки":[{"ru":"Тапочки и халат — домашняя одежда.","en":"Slippers and a robe are home clothes."},{"ru":"Она убирает тапочки под полку каждый вечер.","en":"She puts her slippers under the shelf every evening."},{"ru":"Мягкие тапочки — лучший подарок для дома.","en":"Soft slippers are the best home gift."}],"Очки":[{"ru":"Она надевает очки, чтобы читать газету.","en":"She puts on glasses to read the newspaper."},{"ru":"Редактор всегда работает в очках.","en":"The editor always works in glasses."},{"ru":"Очки лежат рядом с ноутбуком на полке.","en":"The glasses lie next to the laptop on the shelf."}],"Галстук":[{"ru":"Галстук и пиджак — стиль адвоката.","en":"A tie and blazer are a lawyer's style."},{"ru":"Он выбирает галстук к рубашке каждое утро.","en":"He chooses a tie to match his shirt every morning."},{"ru":"Коричневый галстук подходит к коричневому пиджаку.","en":"A brown tie matches a brown blazer."}],"Ремень":[{"ru":"Ремень подбирают к брюкам и туфлям.","en":"A belt is matched to trousers and shoes."},{"ru":"Коричневый ремень хорошо сочетается с пиджаком.","en":"A brown belt goes well with a blazer."},{"ru":"Размер ремня важен при покупке.","en":"The belt size is important when buying."}],"Шарф":[{"ru":"Шарф и пальто — одежда для осени.","en":"A scarf and coat are clothes for autumn."},{"ru":"Она вяжет шарф каждую осень.","en":"She knits a scarf every autumn."},{"ru":"Голубой шарф лежит рядом с перчатками.","en":"The light blue scarf lies next to the gloves."}],"Перчатки":[{"ru":"Перчатки и шапка нужны зимой.","en":"Gloves and a hat are needed in winter."},{"ru":"Она использует перчатки для уборки квартиры.","en":"She uses gloves for cleaning the flat."},{"ru":"Перчатки лежат рядом с шарфом на полке.","en":"The gloves lie next to the scarf on the shelf."}],"Шапка":[{"ru":"Шапка и перчатки нужны в холодную осень.","en":"A hat and gloves are needed in cold autumn."},{"ru":"Он надевает шапку и куртку на прогулку.","en":"He puts on a hat and jacket for a walk."},{"ru":"Голубая шапка лежит рядом с шарфом.","en":"The light blue hat lies next to the scarf."}],"Кепка":[{"ru":"Летом он носит кепку и босоножки.","en":"In summer he wears a cap and sandals."},{"ru":"Кепка лежит рядом с очками на полке.","en":"The cap lies next to the glasses on the shelf."},{"ru":"Она выбирает кепку к куртке.","en":"She chooses a cap to match the jacket."}],"Касса":[{"ru":"В магазине большая очередь у кассы.","en":"There's a big queue at the cash register in the shop."},{"ru":"Охранник стоит рядом с кассой.","en":"The security guard stands next to the cash register."},{"ru":"Чек можно получить только у кассы.","en":"You can only get a receipt at the cash register."}],"Чек":[{"ru":"После покупки обязательно возьми чек.","en":"After purchase always take the receipt."},{"ru":"Бухгалтер проверяет каждый чек внимательно.","en":"The accountant checks every receipt carefully."},{"ru":"Чек от кассы нужен для страховки.","en":"The receipt from the cash register is needed for insurance."}],"Мечтать":[{"ru":"Она мечтает путешествовать весной по всему миру.","en":"She dreams of travelling all over the world in spring."},{"ru":"Каждый певец мечтает о большом концерте.","en":"Every singer dreams of a big concert."},{"ru":"Молодой пекарь мечтает открыть свою пекарню.","en":"The young baker dreams of opening his own bakery."}],"Сканировать":[{"ru":"На кассе нужно сканировать каждый товар.","en":"At the cash register you need to scan every item."},{"ru":"Сотрудник сканирует документы на экране.","en":"The employee scans documents on the screen."},{"ru":"Охранник сканирует сумки на входе.","en":"The security guard scans bags at the entrance."}],"Подбирать":[{"ru":"Нужно подбирать одежду по размеру.","en":"You need to match clothes by size."},{"ru":"Она умеет подбирать туфли к платью.","en":"She knows how to match heels with a dress."},{"ru":"Редактор подбирает слова очень тщательно.","en":"The editor matches words very carefully."}],"Ухаживать":[{"ru":"Садовник ухаживает за садом каждый день.","en":"The gardener takes care of the garden every day."},{"ru":"Нужно ухаживать за одеждой после каждой стирки.","en":"You need to take care of clothes after every wash."},{"ru":"Она ухаживает за цветами на балконе.","en":"She takes care of the flowers on the balcony."}],"Охранник":[{"ru":"Охранник стоит у кассы в магазине.","en":"The security guard stands at the cash register in the shop."},{"ru":"Охранник проверяет страховку на входе.","en":"The security guard checks the insurance at the entrance."},{"ru":"Молодой охранник пришёл на работу в понедельник.","en":"The young security guard came to work on Monday."}],"Страховка":[{"ru":"Страховка нужна для каждой покупки.","en":"Insurance is needed for every purchase."},{"ru":"Бухгалтер проверяет страховку каждый месяц.","en":"The accountant checks the insurance every month."},{"ru":"Охранник попросил показать страховку.","en":"The security guard asked to show the insurance."}],"Выбор":[{"ru":"Выбор одежды на рынке очень большой.","en":"The choice of clothes at the market is very large."},{"ru":"Сделать выбор между пальто и шубой трудно.","en":"It's hard to make a choice between a coat and a fur coat."},{"ru":"Выбор профессии — важное решение для взрослого.","en":"The choice of profession is an important decision for an adult."}],"Садовник":[{"ru":"Садовник убирает сад каждую среду.","en":"The gardener clears the garden every Wednesday."},{"ru":"Садовник ухаживает за цветами вдоль дорожки.","en":"The gardener takes care of flowers along the path."},{"ru":"Молодой садовник мечтает о большом саду.","en":"The young gardener dreams of a big garden."}],"Молодой":[{"ru":"Молодой певец начинает петь в среду.","en":"The young singer starts singing on Wednesday."},{"ru":"Молодой адвокат работает в этом офисе.","en":"The young lawyer works in this office."},{"ru":"Молодой пекарь делает хлеб каждый день.","en":"The young baker makes bread every day."}],"Певец":[{"ru":"Певец мечтает петь на большой сцене.","en":"The singer dreams of singing on a big stage."},{"ru":"Молодой певец приходит на репетицию каждый вторник.","en":"The young singer comes to rehearsal every Tuesday."},{"ru":"Певец получил подарок от поклонников.","en":"The singer received a gift from fans."}],"Пекарь":[{"ru":"Пекарь делает хлеб ровно в шесть утра.","en":"The baker makes bread at exactly six in the morning."},{"ru":"Молодой пекарь мечтает открыть свою пекарню.","en":"The young baker dreams of opening his own bakery."},{"ru":"Пекарь покупает муку на рынке каждый вторник.","en":"The baker buys flour at the market every Tuesday."}],"Размер":[{"ru":"Выбери правильный размер туфель.","en":"Choose the right size of heels."},{"ru":"Размер брюк и пиджака должен совпадать.","en":"The size of trousers and blazer must match."},{"ru":"Охранник помог найти нужный размер.","en":"The security guard helped find the right size."}],"Библиотека":[{"ru":"В библиотеке можно найти книги о творчестве.","en":"In the library you can find books about creativity."},{"ru":"Сотрудник библиотеки рекомендует интересные газеты.","en":"The library employee recommends interesting newspapers."},{"ru":"Каждый вторник после обеда мы идём в библиотеку.","en":"Every Tuesday after lunch we go to the library."}],"Сотрудник":[{"ru":"Сотрудник офиса приходит ровно в девять.","en":"The office employee arrives at exactly nine."},{"ru":"Каждый сотрудник получил подарок на праздник.","en":"Every employee received a gift for the holiday."},{"ru":"Молодой сотрудник учится на каждом уроке.","en":"The young employee learns at every lesson."}],"Адвокат":[{"ru":"Адвокат носит пиджак и галстук на работу.","en":"The lawyer wears a blazer and tie to work."},{"ru":"Молодой адвокат работает в большом офисе.","en":"The young lawyer works in a large office."},{"ru":"Адвокат приходит на встречу в четверг.","en":"The lawyer comes to the meeting on Thursday."}],"Домохозяйка":[{"ru":"Домохозяйка делает уборку и готовку каждый день.","en":"The housewife does cleaning and cooking every day."},{"ru":"Домохозяйка также ухаживает за детьми.","en":"The housewife also takes care of the children."},{"ru":"Честно говоря, домохозяйка работает больше всех.","en":"To be honest, the housewife works more than anyone."}],"Бухгалтер":[{"ru":"Бухгалтер проверяет каждый чек внимательно.","en":"The accountant checks every receipt carefully."},{"ru":"Бухгалтер считает цифры на ноутбуке.","en":"The accountant counts figures on the laptop."},{"ru":"Молодой бухгалтер начал работу в понедельник.","en":"The young accountant started work on Monday."}],"Костюм":[{"ru":"Костюм и галстук — стиль сотрудника офиса.","en":"A suit and tie are an office employee's style."},{"ru":"Певец надевает красивый костюм на концерт.","en":"The singer puts on a beautiful costume for the concert."},{"ru":"Размер костюма нужно проверить перед покупкой.","en":"The suit size needs to be checked before purchase."}],"Экран":[{"ru":"Редактор смотрит в экран весь день.","en":"The editor looks at the screen all day."},{"ru":"На экране ноутбука виден новый урок.","en":"The new lesson is visible on the laptop screen."},{"ru":"Бухгалтер работает с цифрами на экране.","en":"The accountant works with figures on the screen."}],"Бумага":[{"ru":"Бумага нужна для урока и работы.","en":"Paper is needed for the lesson and work."},{"ru":"Адвокат складывает документы на бумаге.","en":"The lawyer puts documents on paper."},{"ru":"На бумаге написаны все цифры бюджета.","en":"All budget figures are written on paper."}],"Урок":[{"ru":"Урок начинается ровно в девять.","en":"The lesson starts at exactly nine."},{"ru":"После урока идём в спортзал.","en":"After the lesson we go to the gym."},{"ru":"Каждый урок учитель пишет глагол на экране.","en":"In every lesson the teacher writes a verb on the screen."}],"Обязательно":[{"ru":"Обязательно возьми чек после покупки.","en":"Definitely take the receipt after purchase."},{"ru":"Обязательно надень шарф и перчатки в холод.","en":"Definitely put on a scarf and gloves in the cold."},{"ru":"Обязательно убери квартиру до воскресенья.","en":"Definitely clean the flat before Sunday."}],"Даже":[{"ru":"Даже взрослый иногда не умеет готовить.","en":"Even an adult sometimes doesn't know how to cook."},{"ru":"Даже в пятницу нужно делать уборку.","en":"Even on Friday you need to clean."},{"ru":"Даже певец устаёт после репетиции.","en":"Even the singer gets tired after rehearsal."}],"Так":[{"ru":"Так делать уборку намного легче.","en":"It's much easier to do cleaning this way."},{"ru":"Так мы проводим время каждую субботу.","en":"This is how we spend time every Saturday."},{"ru":"Так бухгалтер считает цифры быстрее.","en":"This is how the accountant counts figures faster."}],"Самолёт":[{"ru":"Певец летит на самолёте в пятницу.","en":"The singer flies by plane on Friday."},{"ru":"Самолёт летит вдоль побережья в ясный день.","en":"The plane flies along the coast on a clear day."},{"ru":"Путешествовать на самолёте быстро и удобно.","en":"Travelling by plane is fast and convenient."}],"Корабль":[{"ru":"Они путешествуют на корабле вдоль берега.","en":"They travel by ship along the coast."},{"ru":"Корабль отплывает в воскресенье утром.","en":"The ship departs on Sunday morning."},{"ru":"Мир виден иначе с палубы корабля.","en":"The world looks different from the deck of a ship."}],"Творчество":[{"ru":"Творчество делает жизнь интереснее.","en":"Creativity makes life more interesting."},{"ru":"В декрете много времени для творчества.","en":"On maternity leave there's lots of time for creativity."},{"ru":"Рисовать — это одна из форм творчества.","en":"Drawing is one form of creativity."}],"Чисто":[{"ru":"После уборки в квартире чисто и уютно.","en":"After cleaning the flat is clean and cosy."},{"ru":"Чисто на балконе — значит садовник поработал.","en":"The balcony is clean — meaning the gardener has worked."},{"ru":"Обязательно держи одежду чисто.","en":"Definitely keep your clothes clean."}],"Рисовать":[{"ru":"Она любит рисовать у камина осенью.","en":"She loves to draw by the fireplace in autumn."},{"ru":"Творчество начинается с умения рисовать.","en":"Creativity starts with the ability to draw."},{"ru":"Каждый урок дети рисовать на бумаге.","en":"In every lesson the children draw on paper."}],"Считать":[{"ru":"Бухгалтер умеет считать очень быстро.","en":"The accountant can count very fast."},{"ru":"Нужно считать каждую цифру внимательно.","en":"You need to count every digit carefully."},{"ru":"Трудно считать большие числа в уме.","en":"It is hard to count large numbers in your head."}],"Путешествовать":[{"ru":"Мечтать и путешествовать — лучшее сочетание.","en":"Dreaming and travelling are the best combination."},{"ru":"Весной хорошо путешествовать на самолёте.","en":"In spring it's good to travel by plane."},{"ru":"Певец любит путешествовать после каждого концерта.","en":"The singer loves to travel after every concert."}],"Выбирать":[{"ru":"Трудно выбирать между юбкой и платьем.","en":"It's hard to choose between a skirt and a dress."},{"ru":"Она умеет выбирать одежду нужного размера.","en":"She knows how to choose clothes of the right size."},{"ru":"Выбирать подарок — это всегда приятно.","en":"Choosing a gift is always a pleasure."}],"Теплый":[{"ru":"Тёплый шарф и перчатки нужны осенью.","en":"A warm scarf and gloves are needed in autumn."},{"ru":"Тёплый камин делает квартиру уютной.","en":"A warm fireplace makes the flat cosy."},{"ru":"Весной погода теплая и приятная.","en":"In spring the weather is warm and pleasant."}],"Добрый":[{"ru":"Добрый садовник помогает всем соседям.","en":"The kind gardener helps all the neighbours."},{"ru":"Добрый взрослый всегда даёт хороший совет.","en":"A kind adult always gives good advice."},{"ru":"Добрый пекарь угощает всех хлебом.","en":"The kind baker treats everyone to bread."}],"Злой":[{"ru":"Злой охранник не пускает никого без чека.","en":"The angry security guard lets nobody in without a receipt."},{"ru":"Злой начальник кричит на сотрудников.","en":"The angry boss shouts at the employees."},{"ru":"Злой человек не умеет общаться.","en":"An angry person doesn't know how to communicate."}],"Короткий":[{"ru":"Короткий перерыв не помогает отдохнуть.","en":"A short break doesn't help you rest."},{"ru":"Она носит короткую юбку и туфли.","en":"She wears a short skirt and heels."},{"ru":"Короткий урок заканчивается быстро.","en":"A short lesson ends quickly."}],"Длинный":[{"ru":"Длинная юбка хорошо подходит к сапогам.","en":"A long skirt goes well with boots."},{"ru":"Длинный шарф согревает в холодную осень.","en":"A long scarf keeps you warm in cold autumn."},{"ru":"Длинный урок трудно слушать внимательно.","en":"It's hard to listen carefully to a long lesson."}],"Скучный":[{"ru":"Скучный урок трудно слушать.","en":"A boring lesson is hard to listen to."},{"ru":"Скучный день на работе — без творчества.","en":"A boring day at work — without creativity."},{"ru":"Даже скучный фильм лучше смотреть с друзьями.","en":"Even a boring film is better to watch with friends."}],"Высокий":[{"ru":"Высокий садовник легко достаёт до полки.","en":"The tall gardener easily reaches the shelf."},{"ru":"Высокий певец выглядит хорошо на сцене.","en":"The tall singer looks good on stage."},{"ru":"Высокий экран виден из любого места.","en":"The tall screen is visible from any spot."}],"Низкий":[{"ru":"Низкий шкаф не подходит для шубы.","en":"A low wardrobe doesn't suit a fur coat."},{"ru":"Низкий столик стоит рядом с камином.","en":"A low table stands next to the fireplace."},{"ru":"Низкий звук песни очень красивый.","en":"The low sound of the song is very beautiful."}],"Дешевый":[{"ru":"Дешевый товар не всегда хорошего качества.","en":"A cheap item isn't always good quality."},{"ru":"На рынке дешевые покупки — обычное дело.","en":"Cheap purchases at the market are normal."},{"ru":"Дешевый билет — хорошая находка для путешествия.","en":"A cheap ticket is a good find for travel."}],"Недорогой":[{"ru":"Недорогой подарок может быть очень приятным.","en":"An inexpensive gift can be very pleasant."},{"ru":"На рынке всегда можно найти недорогой товар.","en":"At the market you can always find inexpensive items."},{"ru":"Недорогой ресторан рядом с библиотекой.","en":"An inexpensive restaurant near the library."}],"Мебель":[{"ru":"Мебель в квартире стоит вдоль стен.","en":"The furniture in the flat stands along the walls."},{"ru":"Мебель из камина видно сразу.","en":"The furniture by the fireplace is visible immediately."},{"ru":"Покупка мебели — большая трата денег.","en":"Buying furniture is a big expense."}],"Мороженое":[{"ru":"Летом на пляже мы едим мороженое.","en":"In summer at the beach we eat ice cream."},{"ru":"Мороженое — лучший подарок в жаркий день.","en":"Ice cream is the best gift on a hot day."},{"ru":"После обеда она покупает мороженое на рынке.","en":"After lunch she buys ice cream at the market."}],"Слон":[{"ru":"Слон — самое тяжёлое животное в мире.","en":"An elephant is the heaviest animal in the world."},{"ru":"В зоопарке слон ест весь день.","en":"In the zoo the elephant eats all day."},{"ru":"Слон — умное и доброе животное.","en":"An elephant is a clever and kind animal."}],"Тяжелый":[{"ru":"Тяжелый чемодан трудно нести одному.","en":"A heavy suitcase is hard to carry alone."},{"ru":"Тяжелый урок требует много внимания.","en":"A difficult lesson requires a lot of attention."},{"ru":"Тяжелый шкаф с мебелью трудно двигать.","en":"Heavy furniture is hard to move."}],"Легкий":[{"ru":"Легкий шарф хорошо подходит для весны.","en":"A light scarf goes well for spring."},{"ru":"Легкий урок помогает отдохнуть.","en":"An easy lesson helps you rest."},{"ru":"Легкий завтрак до обеда — хорошая привычка.","en":"A light breakfast before lunch is a good habit."}],"Трудный":[{"ru":"Трудный урок требует перерыва.","en":"A difficult lesson requires a break."},{"ru":"Трудно вставать в понедельник утром.","en":"It's hard to get up on Monday morning."},{"ru":"Трудный выбор между двумя хорошими вещами.","en":"A difficult choice between two good things."}],"Огонь":[{"ru":"Огонь в камине очень красивый.","en":"The fire in the fireplace is very beautiful."},{"ru":"Огонь помогает согреться осенью.","en":"Fire helps you warm up in autumn."},{"ru":"Зажигалка нужна, чтобы разжечь огонь.","en":"A lighter is needed to light a fire."}],"Зажигалка":[{"ru":"Зажигалка лежит рядом с камином.","en":"The lighter lies next to the fireplace."},{"ru":"Он использует зажигалку, чтобы зажечь огонь.","en":"He uses a lighter to light the fire."},{"ru":"Зажигалка — маленький, но нужный предмет.","en":"A lighter is a small but necessary item."}],"Голубой":[{"ru":"Голубой шарф и перчатки — красивый выбор.","en":"A light blue scarf and gloves are a beautiful choice."},{"ru":"Она выбирает голубую блузку к юбке.","en":"She chooses a light blue blouse for the skirt."},{"ru":"Голубое небо весной очень красивое.","en":"The light blue sky in spring is very beautiful."}],"Коричневый":[{"ru":"Коричневый пиджак и брюки — классический стиль.","en":"Brown blazer and trousers are a classic style."},{"ru":"Коричневые сапоги хорошо подходят к пальто.","en":"Brown boots go well with a coat."},{"ru":"Коричневый ремень к коричневым туфлям.","en":"A brown belt for brown heels."}],"Ноутбук":[{"ru":"Редактор работает на ноутбуке каждый день.","en":"The editor works on the laptop every day."},{"ru":"Ноутбук лежит рядом с очками на столе.","en":"The laptop lies next to the glasses on the table."},{"ru":"Бухгалтер считает цифры на ноутбуке.","en":"The accountant counts figures on the laptop."}],"Обычно":[{"ru":"Обычно я встаю ровно в семь.","en":"I usually get up at exactly seven."},{"ru":"Обычно после обеда делаю уборку.","en":"I usually do cleaning after lunch."},{"ru":"Обычно сова встаёт поздно утром.","en":"A night owl usually gets up late in the morning."}],"Колготки":[{"ru":"Колготки носят с платьем или юбкой.","en":"Tights are worn with a dress or skirt."},{"ru":"Она покупает колготки на рынке каждую осень.","en":"She buys tights at the market every autumn."},{"ru":"Колготки лежат рядом с нижним бельём.","en":"The tights lie next to the underwear."}],"Пляж":[{"ru":"На пляже летом мы едим мороженое.","en":"At the beach in summer we eat ice cream."},{"ru":"Купальник и босоножки нужны для пляжа.","en":"A swimsuit and sandals are needed for the beach."},{"ru":"Каждое воскресенье летом мы ездим на пляж.","en":"Every Sunday in summer we go to the beach."}],"Слишком":[{"ru":"Слишком поздно начинать уборку вечером.","en":"It's too late to start cleaning in the evening."},{"ru":"Слишком много покупок на рынке — плохая идея.","en":"Too many purchases at the market is a bad idea."},{"ru":"Слишком трудный урок пугает студентов.","en":"A lesson that's too difficult frightens students."}],"Одежда":[{"ru":"Одежда для пляжа — купальник и босоножки.","en":"Clothes for the beach are a swimsuit and sandals."},{"ru":"Зимняя одежда лежит на полке в шкафу.","en":"Winter clothes lie on the shelf in the wardrobe."},{"ru":"Покупка одежды на рынке — хорошая идея.","en":"Buying clothes at the market is a good idea."}],"Обувь":[{"ru":"Обувь нужно убирать на полку каждый день.","en":"Shoes need to be put on the shelf every day."},{"ru":"Выбор обуви — туфли или сапоги?","en":"Choice of footwear — heels or boots?"},{"ru":"Хорошая обувь — важная покупка.","en":"Good footwear is an important purchase."}],"Купальник":[{"ru":"Купальник и шапка нужны в бассейне.","en":"A swimsuit and cap are needed in the pool."},{"ru":"Она покупает новый купальник перед пляжем.","en":"She buys a new swimsuit before the beach."},{"ru":"Купальник лежит рядом с босоножками.","en":"The swimsuit lies next to the sandals."}],"Босоножки":[{"ru":"Босоножки надевают летом на пляж.","en":"Sandals are worn in summer to the beach."},{"ru":"Она выбирает босоножки к платью.","en":"She chooses sandals to go with the dress."},{"ru":"Босоножки лежат рядом с купальником.","en":"The sandals lie next to the swimsuit."}],"Штаны":[{"ru":"Штаны и рубашка — удобная одежда дома.","en":"Trousers and a shirt are comfortable home clothes."},{"ru":"Коричневые штаны хорошо подходят к куртке.","en":"Brown trousers go well with a jacket."},{"ru":"Штаны лежат рядом с пиджаком в шкафу.","en":"The trousers lie next to the blazer in the wardrobe."}],"Носки":[{"ru":"Носки и тапочки — домашняя одежда.","en":"Socks and slippers are home clothes."},{"ru":"Носки лежат рядом с нижним бельём.","en":"The socks lie next to the underwear."},{"ru":"Обязательно надень носки в холодный день.","en":"Definitely put on socks on a cold day."}],"Банка":[{"ru":"В банке хранится варенье с рынка.","en":"Jam from the market is stored in the jar."},{"ru":"Банка стоит на полке рядом с другими товарами.","en":"The jar stands on the shelf next to other goods."},{"ru":"Она покупает банку мёда на рынке.","en":"She buys a jar of honey at the market."}],"Подушка":[{"ru":"Мягкая подушка — лучший подарок для дома.","en":"A soft pillow is the best home gift."},{"ru":"Подушка и постельное бельё лежат на полке.","en":"The pillow and bed sheets lie on the shelf."},{"ru":"После уборки комнаты подушка выглядит чисто.","en":"After room cleaning the pillow looks clean."}],"Шторы":[{"ru":"Светлые шторы делают квартиру уютней.","en":"Light curtains make the flat cosier."},{"ru":"Шторы убирают каждый месяц на стирку.","en":"The curtains are sent for washing every month."},{"ru":"Шторы висят вдоль больших окон.","en":"The curtains hang along the big windows."}],"Полка":[{"ru":"На полке лежат очки и ноутбук.","en":"Glasses and a laptop lie on the shelf."},{"ru":"Обувь стоит на нижней полке шкафа.","en":"The shoes stand on the lower shelf of the wardrobe."},{"ru":"Высокая полка недоступна без стремянки.","en":"A high shelf is inaccessible without a stepladder."}],"Нижнее белье":[{"ru":"Нижнее белье и носки — первая покупка.","en":"Underwear and socks are the first purchase."},{"ru":"Нижнее белье нужно убирать на нижнюю полку.","en":"Underwear needs to be put on the lower shelf."},{"ru":"После стирки нижнее белье сушится на балконе.","en":"After washing the underwear dries on the balcony."}],"Постельное белье":[{"ru":"Постельное белье меняют каждую неделю.","en":"Bed sheets are changed every week."},{"ru":"Постельное белье и подушка лежат на полке.","en":"Bed sheets and a pillow lie on the shelf."},{"ru":"После стирки постельное белье выглядит чисто.","en":"After washing the bed sheets look clean."}],"Товары":[{"ru":"На рынке много дешёвых товаров.","en":"There are many cheap goods at the market."},{"ru":"Охранник следит за товарами в магазине.","en":"The security guard watches over the goods in the shop."},{"ru":"Доставка товаров занимает два дня.","en":"Delivery of goods takes two days."}],"Каникулы":[{"ru":"На каникулах мы путешествуем на самолёте.","en":"During the holidays we travel by plane."},{"ru":"Каникулы летом — время для пляжа и мороженого.","en":"Summer holidays are time for the beach and ice cream."},{"ru":"На каникулах хорошо проводить время у камина.","en":"During the holidays it's nice to spend time by the fireplace."}],"Охота":[{"ru":"Охота — традиция в нашей семье.","en":"Hunting is a tradition in our family."},{"ru":"На охоту надевают тёплую куртку и сапоги.","en":"For hunting you put on a warm jacket and boots."},{"ru":"Охота и рыбалка — любимый отдых отца.","en":"Hunting and fishing are father's favourite leisure."}],"Рыбалка":[{"ru":"Рыбалка и охота — мужской отдых.","en":"Fishing and hunting are men's leisure."},{"ru":"На рыбалку надевают куртку и сапоги.","en":"For fishing you put on a jacket and boots."},{"ru":"Каждое воскресенье отец идёт на рыбалку.","en":"Every Sunday father goes fishing."}],"Мир":[{"ru":"Путешествовать по миру — моя мечта.","en":"Travelling the world is my dream."},{"ru":"Мир прекрасен весной и летом.","en":"The world is beautiful in spring and summer."},{"ru":"Мир полон творчества и красоты.","en":"The world is full of creativity and beauty."}],"Солнце":[{"ru":"Солнце светит на пляже каждый день.","en":"The sun shines at the beach every day."},{"ru":"Весной солнце встаёт рано.","en":"In spring the sun rises early."},{"ru":"Тёмные шторы скрывают яркое солнце.","en":"Dark curtains block out the bright sun."}],"Светлый":[{"ru":"Светлый халат и тапочки — уютная одежда.","en":"A light robe and slippers are cosy clothes."},{"ru":"Светлая квартира с большими окнами.","en":"A bright flat with large windows."},{"ru":"Светлый пиджак хорошо подходит для весны.","en":"A light blazer goes well for spring."}],"Тёмный":[{"ru":"Тёмные шторы помогают спать поздно утром.","en":"Dark curtains help you sleep in late in the morning."},{"ru":"Тёмный пиджак — классический выбор для офиса.","en":"A dark blazer is a classic choice for the office."},{"ru":"Тёмный цвет одежды скрывает пятна.","en":"A dark colour of clothes hides stains."}]};
+const ALL_WORDS = [
+  // Class 11
+  {r:"Делать",e:"to do",c:11},{r:"Заниматься (спортом, рисованием)",e:"to do/to be engaged in",c:11},
+  {r:"Квартира",e:"flat/apartment",c:11},{r:"Стирка",e:"laundry",c:11},{r:"Уборка",e:"cleaning",c:11},
+  {r:"Готовка",e:"cooking",c:11},{r:"Тоже",e:"too",c:11},{r:"Также",e:"also",c:11},
+  {r:"Каждый",e:"every",c:11},{r:"Последний",e:"last",c:11},{r:"Ровно",e:"exactly/smooth",c:11},
+  {r:"Честно говоря",e:"to be honest",c:11},{r:"Снова",e:"again",c:11},{r:"До",e:"before/till",c:11},
+  {r:"Поздно",e:"late",c:11},{r:"Сразу",e:"immediately",c:11},{r:"Перерыв",e:"break",c:11},
+  {r:"Вдоль",e:"along",c:11},{r:"Пора спать",e:"it's time to sleep",c:11},
+  // Class 10
+  {r:"Декрет",e:"maternity leave",c:10},{r:"Беспорядок",e:"mess",c:10},
+  {r:"Общаться",e:"to communicate",c:10},{r:"Планы рухнули",e:"plans fell apart",c:10},
+  {r:"Время летит",e:"time flies",c:10},{r:"Жаворонок",e:"lark (wakes up early)",c:10},
+  {r:"Сова",e:"owl (wakes up late)",c:10},{r:"Взрослый",e:"adult",c:10},{r:"Подарок",e:"gift",c:10},
+  {r:"Понедельник",e:"Monday",c:10},{r:"Вторник",e:"Tuesday",c:10},{r:"Среда",e:"Wednesday",c:10},
+  {r:"Четверг",e:"Thursday",c:10},{r:"Пятница",e:"Friday",c:10},{r:"Суббота",e:"Saturday",c:10},
+  {r:"Воскресенье",e:"Sunday",c:10},
+  // Class 9
+  {r:"Гамак",e:"hammock",c:9},{r:"Камин",e:"fireplace",c:9},{r:"Рынок",e:"market",c:9},
+  {r:"Балкон",e:"balcony",c:9},{r:"Обед",e:"lunch",c:9},{r:"До/после",e:"before/after",c:9},
+  {r:"Украсть",e:"to steal",c:9},{r:"Использовать",e:"to use",c:9},
+  // Class 8
+  {r:"Встречаться",e:"to meet/date",c:8},{r:"Проводить время",e:"to spend time",c:8},
+  {r:"Вставать",e:"to get up",c:8},{r:"Ездить",e:"to go (by transport)",c:8},
+  {r:"Петь",e:"to sing",c:8},{r:"Убирать",e:"to clean/remove",c:8},
+  {r:"Спортзал",e:"gym",c:8},{r:"Репетиция",e:"rehearsal/repetition",c:8},
+  // Class 7
+  {r:"Существительное",e:"noun",c:7},{r:"Глагол",e:"verb",c:7},
+  {r:"Прилагательное",e:"adjective",c:7},{r:"Глобальное потепление",e:"global warming",c:7},
+  {r:"Ты что?",e:"what's with you?",c:7},{r:"Точно",e:"exactly/right",c:7},
+  {r:"Начинать",e:"to begin",c:7},{r:"Заканчивать",e:"to end",c:7},
+  // Class 6
+  {r:"Возможно",e:"maybe",c:6},{r:"Иногда",e:"sometimes",c:6},{r:"Ждать",e:"to wait",c:6},
+  {r:"Тратить",e:"to spend",c:6},{r:"Курить",e:"to smoke",c:6},{r:"Покупка",e:"purchase",c:6},
+  {r:"Доставка",e:"delivery",c:6},{r:"Осень",e:"autumn",c:6},{r:"Весна",e:"spring",c:6},
+  // Class 5
+  {r:"Газета",e:"newspaper",c:5},{r:"Редактор",e:"editor",c:5},{r:"Цифра",e:"number (0-9)",c:5},
+  {r:"Число",e:"number (10+)",c:5},{r:"Куртка",e:"jacket",c:5},{r:"Купальник/плавки",e:"swimwear",c:5},
+  {r:"Блузка",e:"blouse",c:5},{r:"Юбка",e:"skirt",c:5},{r:"Пальто",e:"coat",c:5},
+  {r:"Платье",e:"dress",c:5},{r:"Брюки/штаны",e:"pants",c:5},{r:"Пиджак",e:"blazer",c:5},
+  {r:"Шуба",e:"fur coat",c:5},{r:"Халат",e:"robe",c:5},{r:"Рубашка",e:"shirt",c:5},
+  {r:"Туфли",e:"shoes/heels",c:5},{r:"Сапоги",e:"boots",c:5},{r:"Тапочки",e:"slippers",c:5},
+  {r:"Очки",e:"glasses",c:5},{r:"Галстук",e:"tie",c:5},{r:"Ремень",e:"belt",c:5},
+  {r:"Шарф",e:"scarf",c:5},{r:"Перчатки",e:"gloves",c:5},{r:"Шапка",e:"hat",c:5},{r:"Кепка",e:"cap",c:5},
+  // Class 4
+  {r:"Касса",e:"cash register",c:4},{r:"Чек",e:"receipt",c:4},{r:"Мечтать",e:"to dream",c:4},
+  {r:"Сканировать",e:"to scan",c:4},{r:"Подбирать",e:"to match",c:4},
+  {r:"Ухаживать",e:"to take care",c:4},{r:"Охранник",e:"a security guard",c:4},
+  {r:"Страховка",e:"insurance",c:4},{r:"Выбор",e:"choice",c:4},{r:"Садовник",e:"gardener",c:4},
+  {r:"Молодой",e:"young",c:4},{r:"Певец",e:"singer",c:4},{r:"Пекарь",e:"baker",c:4},{r:"Размер",e:"size",c:4},
+  // Class 3
+  {r:"Библиотека",e:"library",c:3},{r:"Сотрудник",e:"worker/employee",c:3},
+  {r:"Адвокат",e:"lawyer",c:3},{r:"Домохозяйка",e:"housewife",c:3},
+  {r:"Бухгалтер",e:"accountant",c:3},{r:"Костюм",e:"costume",c:3},{r:"Экран",e:"screen",c:3},
+  {r:"Бумага",e:"paper",c:3},{r:"Урок",e:"lesson",c:3},{r:"Обязательно",e:"necessarily",c:3},
+  {r:"Даже",e:"even",c:3},{r:"Так",e:"so",c:3},{r:"Самолёт",e:"airplane",c:3},
+  {r:"Корабль",e:"boat",c:3},{r:"Творчество",e:"art/creation",c:3},{r:"Чисто",e:"clean",c:3},
+  {r:"Рисовать",e:"to paint",c:3},{r:"Считать",e:"to count",c:3},
+  {r:"Путешествовать",e:"to travel",c:3},{r:"Выбирать",e:"to choose",c:3},
+  // Class 2
+  {r:"Теплый",e:"warm",c:2},{r:"Добрый",e:"kind",c:2},{r:"Злой",e:"angry",c:2},
+  {r:"Короткий",e:"short",c:2},{r:"Длинный",e:"long",c:2},{r:"Скучный",e:"boring",c:2},
+  {r:"Высокий",e:"tall/high",c:2},{r:"Низкий",e:"low/short",c:2},{r:"Дешевый",e:"cheap",c:2},
+  {r:"Недорогой",e:"inexpensive",c:2},{r:"Мебель",e:"furniture",c:2},{r:"Мороженое",e:"ice cream",c:2},
+  {r:"Слон",e:"elephant",c:2},{r:"Тяжелый",e:"heavy",c:2},{r:"Легкий",e:"easy/light",c:2},
+  {r:"Трудный",e:"difficult",c:2},{r:"Огонь",e:"fire",c:2},{r:"Зажигалка",e:"lighter",c:2},
+  {r:"Голубой",e:"light blue",c:2},{r:"Коричневый",e:"brown",c:2},{r:"Ноутбук",e:"laptop",c:2},
+  {r:"Обычно",e:"usually",c:2},{r:"Колготки",e:"tights",c:2},{r:"Пляж",e:"beach",c:2},
+  {r:"Слишком",e:"too (much)",c:2},
+  // Class 1
+  {r:"Одежда",e:"clothes",c:1},{r:"Обувь",e:"shoes",c:1},{r:"Купальник",e:"swimsuit",c:1},
+  {r:"Босоножки/сандали",e:"sandals",c:1},{r:"Штаны",e:"trousers",c:1},{r:"Носки",e:"socks",c:1},
+  {r:"Банка",e:"can",c:1},{r:"Подушка",e:"pillow",c:1},{r:"Шторы",e:"curtains",c:1},
+  {r:"Полка",e:"shelf",c:1},{r:"Нижнее белье",e:"underwear",c:1},{r:"Постельное белье",e:"bed sheets",c:1},
+  {r:"Товары",e:"goods",c:1},{r:"Каникулы",e:"holidays",c:1},{r:"Охота",e:"hunting",c:1},
+  {r:"Рыбалка",e:"fishing",c:1},{r:"Мир",e:"world/peace",c:1},{r:"Солнце",e:"sun",c:1},
+  {r:"Светлый",e:"light/bright",c:1},{r:"Тёмный",e:"dark",c:1}
+];
+
+const CLASSES = [11,10,9,8,7,6,5,4,3,2,1];
+
+let mode = 'class';
+let exercise = 'flashcard';
+let selectedClasses = new Set([11]);
+let deck = [];
+let idx = 0;
+let flipped = false;
+let choiceAnswered = false;
+let typeAnswered = false;
+
+
+// ── Progress (localStorage) ──────────────────────────
+// progress[word.r] = { correct: N, skipped: bool }
+// "streak" = total correct across ALL games
+const STORAGE_KEY = 'ru_progress_v1';
+let progress = {};
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    progress = raw ? JSON.parse(raw) : {};
+  } catch(e) { progress = {}; }
+}
+
+function saveProgress() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); } catch(e) {}
+}
+
+function getP(word) {
+  if (!progress[word]) progress[word] = { correct: 0, skipped: false };
+  return progress[word];
+}
+
+function recordCorrect(wordR) {
+  const p = getP(wordR);
+  p.correct = (p.correct || 0) + 1;
+  saveProgress();
+}
+
+function isSkipped(wordR) { return getP(wordR).skipped; }
+
+function toggleSkip(wordR) {
+  const p = getP(wordR);
+  p.skipped = !p.skipped;
+  saveProgress();
+}
+
+function getMilestone(wordR) {
+  const c = getP(wordR).correct || 0;
+  if (c >= 5) return 5;
+  if (c >= 3) return 3;
+  return 0;
+}
+
+function getClassProgress(classNum) {
+  const words = ALL_WORDS.filter(w => w.c === classNum);
+  if (!words.length) return { pct3: 0, pct5: 0, count3: 0, count5: 0, total: 0 };
+  const c3 = words.filter(w => getMilestone(w.r) >= 3).length;
+  const c5 = words.filter(w => getMilestone(w.r) >= 5).length;
+  return { pct3: Math.round(c3/words.length*100), pct5: Math.round(c5/words.length*100),
+           count3: c3, count5: c5, total: words.length };
+}
+
+// ── Fill the Blank ──────────────────────────────────
+let fillQ = null;   // {word, sentIdx, sentence:{ru,en}}
+let fillAnswered = false;
+
+function getFillQuestion() {
+  // pick a word that has sentences, from current deck
+  const pool = deck.filter(w => SENTENCES[w.r]);
+  if (!pool.length) return null;
+  const w = pool[Math.floor(Math.random() * pool.length)];
+  const sents = SENTENCES[w.r];
+  const sent = sents[Math.floor(Math.random() * sents.length)];
+  return { word: w, sentence: sent };
+}
+
+function renderFill() {
+  if (deck.length === 0) return;
+  fillQ = getFillQuestion();
+  fillAnswered = false;
+  const wrap = document.getElementById('fillWrap');
+  const sentEl = document.getElementById('fillSentence');
+  const chipsEl = document.getElementById('fillChips');
+  const reveal = document.getElementById('fillReveal');
+  reveal.style.display = 'none';
+  document.getElementById('feedback').textContent = '';
+
+  if (!fillQ) {
+    sentEl.textContent = 'No sentences available for selected classes.';
+    chipsEl.innerHTML = '';
+    return;
+  }
+
+  const { word, sentence } = fillQ;
+  const ru = sentence.ru;
+  const escaped = word.r.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const blanked = ru.replace(new RegExp(escaped, 'i'), '<span id="fillBlank" style="color:var(--accent2);font-weight:500">____</span>');
+  sentEl.innerHTML = blanked;
+
+  // Build 5 chips: 1 correct + 4 distractors
+  const distractors = shuffle(ALL_WORDS.filter(w2 => w2.r !== word.r && w2.c === word.c || w2.r !== word.r)).slice(0, 4);
+  const options = shuffle([word, ...distractors.slice(0,4)]);
+
+  chipsEl.innerHTML = '';
+  options.forEach(opt => {
+    const chip = document.createElement('button');
+    chip.className = 'choice-btn';
+    chip.style.fontSize = '0.95rem';
+    chip.style.padding = '10px 14px';
+    chip.textContent = opt.r;
+    chip.onclick = () => {
+      if (fillAnswered) return;
+      const correct = opt.r === word.r;
+      if (correct) {
+        fillAnswered = true;
+        chip.classList.add('correct');
+        chipsEl.querySelectorAll('button').forEach(b => b.disabled = true);
+        recordCorrect(word.r);
+        buildClassChips();
+        // Show translation only after correct
+        reveal.style.display = 'block';
+        document.getElementById('fillTranslation').innerHTML =
+          '<strong>' + word.r + '</strong> = ' + word.e + '<br><span style="color:var(--muted);font-size:0.85rem">' + sentence.en + '</span>';
+        setFeedback('✓ Правильно!', true);
+      } else {
+        // Just turn red, don't reveal, don't lock
+        chip.classList.add('wrong');
+        chip.disabled = true;
+        setTimeout(() => { chip.classList.remove('wrong'); chip.style.opacity='0.35'; }, 500);
+      }
+    };
+    chipsEl.appendChild(chip);
+  });
+}
+
+// ── Word List Screen ──────────────────────────────────
+let wlActiveClass = CLASSES[0];
+let wlFilter = 'all';
+
+function openWordList() {
+  document.getElementById('wordlistScreen').classList.add('open');
+  renderWlTabs();
+  renderWlList();
+}
+
+function closeWordList() {
+  document.getElementById('wordlistScreen').classList.remove('open');
+}
+
+function setWlFilter(f, btn) {
+  wlFilter = f;
+  document.querySelectorAll('.wls-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWlList();
+}
+
+function renderWlTabs() {
+  const tabs = document.getElementById('wlTabs');
+  tabs.innerHTML = '';
+  // "All Classes" tab
+  const allBtn = document.createElement('button');
+  allBtn.className = 'wl-tab' + (wlActiveClass === 'all' ? ' active' : '');
+  allBtn.textContent = 'All';
+  allBtn.onclick = () => { wlActiveClass = 'all'; renderWlTabs(); renderWlList(); };
+  tabs.appendChild(allBtn);
+
+  CLASSES.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'wl-tab' + (c === wlActiveClass ? ' active' : '');
+    const prog = getClassProgress(c);
+    btn.textContent = `Class ${c}`;
+    if (prog.pct5 > 0) btn.textContent += ` 🌟${prog.pct5}%`;
+    else if (prog.pct3 > 0) btn.textContent += ` ⭐${prog.pct3}%`;
+    btn.onclick = () => { wlActiveClass = c; renderWlTabs(); renderWlList(); };
+    tabs.appendChild(btn);
+  });
+}
+
+function renderWlList() {
+  const list = document.getElementById('wlList');
+  list.innerHTML = '';
+  let words = wlActiveClass === 'all' ? [...ALL_WORDS] : ALL_WORDS.filter(w => w.c === wlActiveClass);
+
+  // Apply filter
+  if (wlFilter === 'learned3') words = words.filter(w => getMilestone(w.r) >= 3);
+  else if (wlFilter === 'learned5') words = words.filter(w => getMilestone(w.r) >= 5);
+  else if (wlFilter === 'skipped') words = words.filter(w => isSkipped(w.r));
+
+  if (words.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--muted);text-align:center;padding:32px;font-size:0.9rem;';
+    empty.textContent = 'No words in this category yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  words.forEach(w => {
+    const p = getP(w.r);
+    const milestone = getMilestone(w.r);
+    const skipped = isSkipped(w.r);
+
+    const item = document.createElement('div');
+    item.className = 'wl-item' + (skipped ? ' skipped' : '');
+
+    // Checkbox
+    const cb = document.createElement('div');
+    cb.className = 'wl-checkbox' + (skipped ? ' checked' : '');
+    cb.title = skipped ? 'Uncheck to include in training' : 'Check to skip in training';
+    cb.onclick = () => {
+      toggleSkip(w.r);
+      // Re-render to reflect change
+      renderWlList();
+      buildClassChips(); // update chip progress
+    };
+
+    // Word info
+    const info = document.createElement('div');
+    info.className = 'wl-word-info';
+    info.innerHTML = `<div class="wl-ru">${w.r}</div><div class="wl-en">${w.e}</div>`;
+
+    // Badges
+    const badges = document.createElement('div');
+    badges.className = 'wl-badges';
+    if (milestone >= 5) {
+      const b = document.createElement('span');
+      b.className = 'wl-badge b5';
+      b.textContent = '🌟 5×';
+      badges.appendChild(b);
+    } else if (milestone >= 3) {
+      const b = document.createElement('span');
+      b.className = 'wl-badge b3';
+      b.textContent = '⭐ 3×';
+      badges.appendChild(b);
+    } else if ((p.correct || 0) > 0) {
+      const b = document.createElement('span');
+      b.className = 'wl-badge seen';
+      b.textContent = `${p.correct}×`;
+      badges.appendChild(b);
+    }
+
+    item.appendChild(cb);
+    item.appendChild(info);
+    item.appendChild(badges);
+    list.appendChild(item);
+  });
+}
+
+// ── Init ──
+function buildClassChips() {
+  const el = document.getElementById('classSelector');
+  el.innerHTML = '';
+  CLASSES.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'class-chip' + (selectedClasses.has(c) ? ' selected' : '');
     const prog = getClassProgress(c);
     let label = `Class ${c}`;
     if (prog.total > 0) {
