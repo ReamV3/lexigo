@@ -1958,6 +1958,9 @@ function renderType(){
   hintBtn.type='button';
   hintBtn.title='Hint';
   hintBtn.setAttribute('tabindex','-1');
+  // Prevent the button from ever taking focus (which would blur the input and shift the keyboard)
+  hintBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+  hintBtn.addEventListener('pointerdown',(e)=>e.preventDefault());
   wordRow.appendChild(promptEl);
   wordRow.appendChild(hintBtn);
 
@@ -2081,8 +2084,7 @@ function renderType(){
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  hintBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doHint();},{passive:false});
-  hintBtn.addEventListener('click',doHint);
+  hintBtn.addEventListener('click', doHint);
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
   setProg(idx+1,deck.length);
