@@ -679,6 +679,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <button class="bottom-btn" onclick="document.getElementById('importFileInput').click()">↑ import bank</button>
   <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)">
 </div>
+<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.0</div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -1958,9 +1959,10 @@ function renderType(){
   hintBtn.type='button';
   hintBtn.title='Hint';
   hintBtn.setAttribute('tabindex','-1');
-  // Prevent the button from ever taking focus (which would blur the input and shift the keyboard)
-  hintBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-  hintBtn.addEventListener('pointerdown',(e)=>e.preventDefault());
+  // Prevent ALL default pointer/mouse/focus behavior so input never loses focus
+  ['mousedown','pointerdown','touchstart'].forEach(ev=>
+    hintBtn.addEventListener(ev,(e)=>e.preventDefault(),{passive:false})
+  );
   wordRow.appendChild(promptEl);
   wordRow.appendChild(hintBtn);
 
@@ -2084,7 +2086,14 @@ function renderType(){
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  hintBtn.addEventListener('click', doHint);
+  // touchend fires reliably after touchstart preventDefault; refocus ensures keyboard stays
+  hintBtn.addEventListener('touchend',(e)=>{
+    e.preventDefault();
+    doHint();
+    // Small delay then refocus — restores keyboard if it briefly shifted
+    setTimeout(()=>{ try{ inputEl.focus(); }catch(err){} }, 50);
+  },{passive:false});
+  hintBtn.addEventListener('click', doHint); // desktop fallback
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
   setProg(idx+1,deck.length);
