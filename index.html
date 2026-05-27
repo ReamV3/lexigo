@@ -209,96 +209,48 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .c-btn.wrong{border-color:var(--red);background:rgba(248,113,113,.08);color:var(--red);}
 .c-btn.locked{cursor:not-allowed;opacity:.45;}
 
-/* MATCH — wheel picker */
+/* MATCH — card pairs game */
 .match-wrap{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:0;}
-.match-score{text-align:center;font-size:.78rem;color:var(--muted);letter-spacing:.08em;margin-bottom:12px;}
-.wheels-container{
-  width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-  position:relative;margin-bottom:18px;
+.match-score{text-align:center;font-size:.78rem;color:var(--muted);letter-spacing:.08em;margin-bottom:10px;}
+.match-board{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.match-col-lbl{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  text-align:center;margin-bottom:4px;}
+.match-col-lbls{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:8px;margin-bottom:2px;}
+.mcard{
+  min-height:58px;padding:12px 10px;border-radius:14px;
+  border:1.5px solid var(--border);background:var(--surface);
+  color:var(--text);font-family:'Inter',sans-serif;font-weight:500;font-size:.88rem;
+  cursor:pointer;transition:border-color .15s,background .15s,opacity .3s,transform .25s;
+  text-align:center;display:flex;align-items:center;justify-content:center;
+  line-height:1.3;word-break:break-word;
+  user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+  position:relative;
 }
-.wheel-label{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
-  text-align:center;margin-bottom:6px;}
-.wheel-col{display:flex;flex-direction:column;align-items:center;flex:1;max-width:46%;}
-.wheel-outer{
-  position:relative;width:100%;height:300px;overflow:hidden;
-  border-radius:18px;border:1px solid var(--border);background:var(--surface);
-  cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;
+.mcard.blank{
+  background:var(--bg);border:1.5px dashed var(--border);
+  color:var(--muted);font-size:.75rem;letter-spacing:.08em;cursor:default;
+  pointer-events:none;opacity:.5;
 }
-.wheel-outer:active{cursor:grabbing;}
-/* top/bottom fade masks */
-.wheel-outer::before,.wheel-outer::after{
-  content:'';position:absolute;left:0;right:0;height:90px;z-index:3;pointer-events:none;
+.mcard.selected{
+  border-color:#a78bfa;background:rgba(167,139,250,.15);color:#a78bfa;
+  transform:scale(1.03);
 }
-.wheel-outer::before{top:0;background:linear-gradient(to bottom,var(--surface) 0%,transparent 100%);}
-.wheel-outer::after{bottom:0;background:linear-gradient(to top,var(--surface) 0%,transparent 100%);}
-/* center highlight band */
-.wheel-center-band{
-  position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
-  height:60px;pointer-events:none;z-index:2;
-  border-top:1.5px solid var(--accent2);border-bottom:1.5px solid var(--accent2);
-  background:rgba(124,158,255,.06);
+.mcard.correct-flash{
+  border-color:var(--green) !important;background:rgba(110,231,183,.18) !important;
+  color:var(--green) !important;animation:mcardPop .4s cubic-bezier(.34,1.56,.64,1);
 }
-.wheel-track{
-  position:absolute;left:0;right:0;top:0;
-  will-change:transform;
+.mcard.wrong-flash{
+  border-color:var(--red) !important;background:rgba(248,113,113,.1) !important;
+  color:var(--red) !important;animation:mcardShake .4s ease;
 }
-.wheel-item{
-  height:60px;display:flex;align-items:center;justify-content:center;
-  padding:0 12px;text-align:center;
-  font-family:'Inter',sans-serif;font-size:.88rem;font-weight:500;color:var(--muted);
-  transition:color .15s, font-size .15s, font-weight .15s;
-  line-height:1.3;
-}
-.wheel-item.center{
-  color:var(--text);font-size:1.05rem;font-weight:700;
-}
-.wheel-item.near{color:var(--text);opacity:.7;font-size:.92rem;}
-.wheel-divider{
-  font-size:.9rem;color:var(--muted);align-self:center;flex-shrink:0;
-  padding-top:24px;/* offset for label */
-}
-/* check button */
-.wheel-check-btn{
-  width:100%;max-width:320px;padding:18px 0;border-radius:18px;
-  border:none;background:var(--accent2);color:#fff;
-  font-family:'DM Mono',monospace;font-size:1rem;font-weight:700;letter-spacing:.08em;
-  cursor:pointer;transition:opacity .18s,transform .1s;
-  box-shadow:0 4px 18px rgba(124,158,255,.3);
-}
-.wheel-check-btn:active{opacity:.85;transform:scale(.98);}
-.wheel-check-btn:disabled{opacity:.4;cursor:default;}
-/* streak */
-.wheel-streak{
-  font-family:'DM Mono',monospace;font-size:.75rem;color:var(--accent);
-  letter-spacing:.08em;min-height:20px;margin-bottom:4px;
-}
-/* flash animations */
-@keyframes wheelCorrect{
-  0%{background:rgba(110,231,183,.0);}
-  30%{background:rgba(110,231,183,.25);}
-  100%{background:rgba(110,231,183,.0);}
-}
-@keyframes wheelWrong{
-  0%{transform:translateX(0);}
-  20%{transform:translateX(-10px);}
-  40%{transform:translateX(10px);}
-  60%{transform:translateX(-7px);}
-  80%{transform:translateX(7px);}
-  100%{transform:translateX(0);}
-}
-.wheel-flash-correct{animation:wheelCorrect .6s ease both;}
-.wheel-flash-wrong{animation:wheelWrong .4s ease both;}
-/* victory */
-@keyframes victoryPop{
-  0%{transform:scale(0);opacity:0;}
-  60%{transform:scale(1.1);opacity:1;}
-  100%{transform:scale(1);opacity:1;}
-}
-.victory-msg{
-  font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;
-  color:var(--accent);text-align:center;
-  animation:victoryPop .5s cubic-bezier(.34,1.56,.64,1) both;
-}
+.mcard.fading{opacity:0;transform:scale(.85);pointer-events:none;transition:opacity .35s ease,transform .35s ease;}
+@keyframes mcardPop{0%{transform:scale(1);}50%{transform:scale(1.07);}100%{transform:scale(1);}}
+@keyframes mcardShake{0%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}100%{transform:translateX(0);}}
+.mcard-touch-active{border-color:var(--accent2) !important;background:rgba(124,158,255,.1) !important;}
+.match-streak{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--accent);
+  letter-spacing:.08em;min-height:20px;margin-bottom:4px;text-align:center;}
+
 
 /* ── CORRECT BUTTON ANIMATIONS ── */
 @keyframes correctPop{
@@ -813,26 +765,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <div id="choiceWrap" style="display:none;width:100%;max-width:520px;margin-bottom:20px;"></div>
 
   <div id="matchWrap" class="match-wrap" style="display:none">
-    <div class="wheel-streak" id="wheelStreak"></div>
+    <div class="match-streak" id="matchStreak"></div>
     <div class="match-score" id="matchScore"></div>
-    <div class="wheels-container">
-      <div class="wheel-col">
-        <div class="wheel-label">word</div>
-        <div class="wheel-outer" id="wheelLeft">
-          <div class="wheel-center-band"></div>
-          <div class="wheel-track" id="trackLeft"></div>
-        </div>
-      </div>
-      <div class="wheel-divider">↔</div>
-      <div class="wheel-col">
-        <div class="wheel-label">translation</div>
-        <div class="wheel-outer" id="wheelRight">
-          <div class="wheel-center-band"></div>
-          <div class="wheel-track" id="trackRight"></div>
-        </div>
-      </div>
+    <div class="match-col-lbls">
+      <div class="match-col-lbl" id="matchLblLeft">word</div>
+      <div class="match-col-lbl" id="matchLblRight">translation</div>
     </div>
-    <button class="wheel-check-btn" id="wheelCheckBtn" onclick="wheelCheck()">CHECK IT</button>
+    <div class="match-board" id="matchBoard"></div>
   </div>
 
   <div id="typeWrap"></div>
@@ -964,6 +903,10 @@ let wsActiveTab='all'; // 'all' or class number
 
 let exercise=null, deck=[], idx=0, flipped=false, choiceAnswered=false;
 let matchSel=null, matchDone=new Set(), matchPairs=[];
+// New match card pairs state
+let mcPairs=[], mcPool=[], mcSolved=0, mcTotal=0, mcStreak=0;
+let mcSelLeft=null, mcSelRight=null, mcSelLeftKey=null, mcSelRightKey=null;
+let mcNextFillSide='left';
 let choiceCountdownTimer=null;
 let choiceSpeedSecs=3;
 const LS_SPEED='vt2_speed';
@@ -1477,8 +1420,6 @@ function startGame(ex){
 function exitGame(){
   document.getElementById('gameArea').classList.remove('open');
   exercise=null;
-  if(wLeft){ wLeft.destroy(); wLeft=null; }
-  if(wRight){ wRight.destroy(); wRight=null; }
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(typeVVListener){
     window.visualViewport?.removeEventListener('resize', typeVVListener);
@@ -1486,11 +1427,12 @@ function exitGame(){
     typeVVListener=null;
   }
   choiceStreak=0;
+  mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
   const tw=document.getElementById('typeWrap');
-  tw.style.display='none'; tw.className=''; tw.innerHTML='';
-  ['cardWrap','choiceWrap','matchWrap'].forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById('emptyMsg').style.display='none';
-  document.getElementById('navRow').style.display='none';
+  if(tw){ tw.style.display='none'; tw.className=''; tw.innerHTML=''; }
+  ['cardWrap','choiceWrap','matchWrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  const em=document.getElementById('emptyMsg'); if(em) em.style.display='none';
+  const nr=document.getElementById('navRow'); if(nr) nr.style.display='none';
 }
 function setProg(cur,tot){
   document.getElementById('progTxt').textContent=cur+' / '+tot;
@@ -1736,337 +1678,204 @@ function showStreak(msg){
   setTimeout(()=>el.remove(),900);
 }
 
-// MATCH — WHEEL PICKER GAME
-// ── State ──
-let wLeft=null, wRight=null; // wheel controllers
-let wheelPairs=[];    // active pairs [{w,t}]
-let wheelPool=[];     // remaining unseen pairs
-let wheelStreak=0;
-let wheelSolved=0;
-let wheelTotal=0;
-const ITEM_H=60;      // px per item
-const VISIBLE=5;      // items visible
-
+// MATCH — CARD PAIRS GAME
 function renderMatch(){
   hideGamePanels();
-  document.getElementById('feedback').textContent='';
   document.getElementById('matchWrap').style.display='flex';
+  document.getElementById('feedback').textContent='';
+  document.getElementById('matchStreak').textContent='';
 
-  // Build pair pool from deck
   const allPairs=deck.filter(w=>!isExcluded(w.w)).map(w=>({w:w.w,t:w.t}));
-  if(allPairs.length<2){ document.getElementById('emptyMsg').style.display='block'; document.getElementById('matchWrap').style.display='none'; return; }
+  if(allPairs.length<2){document.getElementById('emptyMsg').style.display='block';document.getElementById('matchWrap').style.display='none';return;}
 
-  wheelTotal=allPairs.length;
-  wheelSolved=0; wheelStreak=0;
-  // Start with up to 8 active, rest in pool
+  mcTotal=allPairs.length; mcSolved=0; mcStreak=0; mcNextFillSide='left';
   const shuffled=shuffle([...allPairs]);
-  wheelPairs=shuffled.slice(0,Math.min(8,shuffled.length));
-  wheelPool=shuffled.slice(Math.min(8,shuffled.length));
+  // Start with MC_ROWS active pairs, rest in pool
+  mcPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length)).map(p=>({...p,matched:false,leftBlank:false,rightBlank:false}));
+  mcPool=shuffled.slice(Math.min(MC_ROWS,shuffled.length));
+  mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
 
-  document.getElementById('matchScore').textContent='0 / '+wheelTotal+' matched';
-  document.getElementById('wheelStreak').textContent='';
-  document.getElementById('wheelCheckBtn').disabled=false;
+  // Set column labels from actual words
+  const hasLeft=mcPairs.length>0;
+  document.getElementById('matchLblLeft').textContent= hasLeft?'word':'—';
+  document.getElementById('matchLblRight').textContent= hasLeft?'translation':'—';
 
-  // Shuffle each side independently so they don't start aligned
-  const leftItems=shuffle([...wheelPairs]).map(p=>p.w);
-  const rightItems=shuffle([...wheelPairs]).map(p=>p.t);
-
-  if(wLeft) wLeft.destroy();
-  if(wRight) wRight.destroy();
-  wLeft=createWheel('wheelLeft','trackLeft',leftItems);
-  wRight=createWheel('wheelRight','trackRight',rightItems);
-
-  setProg(wheelSolved,wheelTotal);
+  document.getElementById('matchScore').textContent='0 / '+mcTotal+' matched';
+  setProg(0,mcTotal);
+  renderMatchBoard();
 }
 
-function createWheel(outerId, trackId, items){
-  const outer=document.getElementById(outerId);
-  const track=document.getElementById(trackId);
-  track.innerHTML='';
+function renderMatchBoard(){
+  const board=document.getElementById('matchBoard');
+  board.innerHTML='';
+  // Shuffle display order for each side independently, keeping blanks at bottom
+  const active=mcPairs.filter(p=>!p.matched);
+  const leftOrder=shuffle([...active]);
+  const rightOrder=shuffle([...active]);
 
-  // We render 3x the items for circular feel: [items, items, items]
-  // Offset so middle copy is shown initially
-  const tripple=[...items,...items,...items];
-  tripple.forEach(txt=>{
+  leftOrder.forEach(pair=>{
     const el=document.createElement('div');
-    el.className='wheel-item';
-    el.textContent=txt;
-    track.appendChild(el);
+    if(pair.leftBlank){
+      el.className='mcard blank';
+      el.textContent='· · ·';
+    } else {
+      el.className='mcard';
+      el.textContent=pair.w;
+      el.dataset.key=pair.w;
+      el.dataset.side='left';
+      attachMCardHandlers(el,'left',pair.w);
+    }
+    pair.leftEl=el;
+    board.appendChild(el);
   });
-
-  const totalItems=tripple.length;
-  const centerOffset=150-(ITEM_H/2); // center band at 150px from top
-  // Position so middle copy center item is in view
-  const midStart=items.length*ITEM_H;
-  let baseOffset=-(midStart)+(centerOffset);
-  let curOffset=baseOffset;
-
-  // Start at a random item in the middle copy
-  const startIdx=Math.floor(Math.random()*items.length);
-  curOffset=-(midStart+startIdx*ITEM_H)+(centerOffset);
-  baseOffset=curOffset;
-
-  function applyTransform(y, transition){
-    track.style.transition=transition||'none';
-    track.style.transform='translateY('+y+'px)';
-    highlightCenter(y);
-  }
-  applyTransform(curOffset,'none');
-
-  function highlightCenter(y){
-    const els=track.querySelectorAll('.wheel-item');
-    const center=-y+150; // px from top of track that maps to wheel center
-    els.forEach((el,i)=>{
-      const elCenter=i*ITEM_H+ITEM_H/2;
-      const dist=Math.abs(elCenter-center);
-      el.classList.remove('center','near');
-      if(dist<ITEM_H*0.5) el.classList.add('center');
-      else if(dist<ITEM_H*1.5) el.classList.add('near');
-    });
-  }
-
-  function snap(y){
-    // snap to nearest item
-    const raw= -(y-centerOffset);
-    const rounded=Math.round(raw/ITEM_H)*ITEM_H;
-    return -(rounded)+centerOffset;
-  }
-
-  function wrap(y){
-    // If we've scrolled past first or last copy, jump silently
-    const range=items.length*ITEM_H;
-    let newY=y;
-    if(-y+centerOffset > (items.length*2)*ITEM_H){
-      newY=y+(range);
-    } else if(-y+centerOffset < 0){
-      newY=y-(range);
+  rightOrder.forEach(pair=>{
+    const el=document.createElement('div');
+    if(pair.rightBlank){
+      el.className='mcard blank';
+      el.textContent='· · ·';
+    } else {
+      el.className='mcard';
+      el.textContent=pair.t;
+      el.dataset.key=pair.w;
+      el.dataset.side='right';
+      attachMCardHandlers(el,'right',pair.w);
     }
-    return newY;
-  }
-
-  function getSelectedText(){
-    const els=track.querySelectorAll('.wheel-item');
-    let bestEl=null, bestDist=Infinity;
-    const center=(-curOffset+150);
-    els.forEach((el,i)=>{
-      const elCenter=i*ITEM_H+ITEM_H/2;
-      const dist=Math.abs(elCenter-center);
-      if(dist<bestDist){ bestDist=dist; bestEl=el; }
-    });
-    return bestEl ? bestEl.textContent : '';
-  }
-
-  // Touch / pointer handling with inertia
-  let startY=0, startOffset=0, lastY=0, lastT=0, velY=0;
-  let rafId=null, isDragging=false;
-
-  function onDown(e){
-    e.preventDefault();
-    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
-    isDragging=true;
-    startY=e.touches?e.touches[0].clientY:e.clientY;
-    startOffset=curOffset;
-    lastY=startY; lastT=performance.now(); velY=0;
-    track.style.transition='none';
-    // Safe pointer capture — only for pointer events, not touch
-    if(e.pointerId!=null && !e.touches){
-      try{ outer.setPointerCapture(e.pointerId); }catch(err){}
-    }
-  }
-  function onMove(e){
-    if(!isDragging) return;
-    e.preventDefault();
-    const cy=e.touches?e.touches[0].clientY:e.clientY;
-    const dy=cy-startY;
-    curOffset=wrap(startOffset+dy);
-    const now=performance.now();
-    const dt=now-lastT;
-    if(dt>0) velY=(cy-lastY)/dt*16;
-    lastY=cy; lastT=now;
-    applyTransform(curOffset,'none');
-    tickWheel(curOffset);
-  }
-  function onUp(e){
-    if(!isDragging) return;
-    isDragging=false;
-    e.preventDefault();
-    // Inertia with gentle deceleration
-    let vy=Math.max(-28, Math.min(28, velY)); // cap velocity
-    const decay=0.92; // slower decay = more fluid glide
-    const minVel=0.15;
-    function inertiaFrame(){
-      vy*=decay;
-      if(Math.abs(vy)<minVel){
-        // Soft spring snap — ease-out not cubic snap
-        const snapped=snap(curOffset);
-        curOffset=wrap(snapped);
-        applyTransform(curOffset,'transform .35s cubic-bezier(.25,.8,.25,1)');
-        return;
-      }
-      curOffset=wrap(curOffset+vy);
-      applyTransform(curOffset,'none');
-      rafId=requestAnimationFrame(inertiaFrame);
-    }
-    rafId=requestAnimationFrame(inertiaFrame);
-  }
-
-  outer.addEventListener('touchstart',onDown,{passive:false});
-  outer.addEventListener('touchmove',onMove,{passive:false});
-  outer.addEventListener('touchend',onUp,{passive:false});
-  outer.addEventListener('touchcancel',onUp,{passive:false});
-  outer.addEventListener('mousedown',onDown);
-  outer.addEventListener('mousemove',(e)=>{ if(isDragging) onMove(e); });
-  outer.addEventListener('mouseup',onUp);
-  outer.addEventListener('mouseleave',(e)=>{ if(isDragging) onUp(e); });
-
-  let lastTickSnap=null;
-  function tickWheel(y){
-    const snapped=snap(y);
-    if(snapped!==lastTickSnap){
-      lastTickSnap=snapped;
-      // micro haptic feel: tiny scale pulse on center item
-      const center=track.querySelector('.center');
-      if(center){
-        center.style.transition='transform .06s';
-        center.style.transform='scale(1.04)';
-        setTimeout(()=>{ center.style.transform=''; },80);
-      }
-    }
-  }
-
-  function flashCorrect(cb){
-    outer.classList.add('wheel-flash-correct');
-    outer.addEventListener('animationend',()=>{ outer.classList.remove('wheel-flash-correct'); if(cb)cb(); },{once:true});
-  }
-  function flashWrong(){
-    outer.classList.add('wheel-flash-wrong');
-    outer.addEventListener('animationend',()=>outer.classList.remove('wheel-flash-wrong'),{once:true});
-  }
-  function updateItems(newItems){
-    // Rebuild with new items, preserve approximate scroll position
-    const prevSelected=getSelectedText();
-    track.innerHTML='';
-    const tripple=[...newItems,...newItems,...newItems];
-    tripple.forEach(txt=>{
-      const el=document.createElement('div');
-      el.className='wheel-item';
-      el.textContent=txt;
-      track.appendChild(el);
-    });
-    // Try to keep same selected, fallback to random
-    const midStart=newItems.length*ITEM_H;
-    let targetIdx=newItems.indexOf(prevSelected);
-    if(targetIdx<0) targetIdx=Math.floor(Math.random()*newItems.length);
-    curOffset=-(midStart+targetIdx*ITEM_H)+centerOffset;
-    applyTransform(curOffset,'none');
-  }
-
-  function destroy(){
-    outer.removeEventListener('touchstart',onDown);
-    outer.removeEventListener('touchmove',onMove);
-    outer.removeEventListener('touchend',onUp);
-    outer.removeEventListener('mousedown',onDown);
-    outer.removeEventListener('mouseup',onUp);
-    outer.removeEventListener('mouseleave',onUp);
-    if(rafId) cancelAnimationFrame(rafId);
-  }
-
-  return { getSelectedText, flashCorrect, flashWrong, updateItems, destroy };
+    pair.rightEl=el;
+    board.appendChild(el);
+  });
 }
 
-function wheelCheck(){
-  if(!wLeft||!wRight) return;
-  const selW=wLeft.getSelectedText();
-  const selT=wRight.getSelectedText();
-  if(!selW||!selT) return;
+function attachMCardHandlers(el, side, key){
+  let touchActive=false;
+  el.addEventListener('touchstart',(e)=>{
+    e.preventDefault();
+    touchActive=true;
+    el.classList.add('mcard-touch-active');
+  },{passive:false});
+  el.addEventListener('touchend',(e)=>{
+    e.preventDefault();
+    el.classList.remove('mcard-touch-active');
+    if(touchActive){ touchActive=false; onMCardTap(el,side,key); }
+  },{passive:false});
+  el.addEventListener('touchcancel',()=>{ touchActive=false; el.classList.remove('mcard-touch-active'); },{passive:true});
+  el.addEventListener('click',()=>onMCardTap(el,side,key));
+}
 
-  // Find matching pair
-  const pair=wheelPairs.find(p=>p.w===selW && p.t===selT);
-  const btn=document.getElementById('wheelCheckBtn');
+function onMCardTap(el,side,key){
+  if(el.classList.contains('blank')||el.classList.contains('fading')||el.classList.contains('matched')) return;
 
-  if(pair){
-    // ✅ Correct
-    playDing();
-    wheelStreak++;
-    wheelSolved++;
-    recordCorrect(pair.w); renderWords();
-
-    wLeft.flashCorrect();
-    wRight.flashCorrect(()=>{
-      // Remove matched pair from active
-      wheelPairs=wheelPairs.filter(p=>p.w!==pair.w);
-
-      // Add new pair from pool if available
-      if(wheelPool.length>0){
-        const next=wheelPool.shift();
-        wheelPairs.push(next);
-      }
-
-      const leftItems=shuffle([...wheelPairs]).map(p=>p.w);
-      const rightItems=shuffle([...wheelPairs]).map(p=>p.t);
-      wLeft.updateItems(leftItems);
-      wRight.updateItems(rightItems);
-
-      document.getElementById('matchScore').textContent=wheelSolved+' / '+wheelTotal+' matched';
-      setProg(wheelSolved,wheelTotal);
-
-      // Streak text
-      if(wheelStreak>=3){
-        const streakEl=document.getElementById('wheelStreak');
-        const msgs=['🔥 '+wheelStreak+' streak!','🔥🔥 On fire!','🌟 Unstoppable!'];
-        streakEl.textContent=wheelStreak>=10?'🌟 '+wheelStreak+' streak!':msgs[Math.min(wheelStreak-3,2)];
-        setTimeout(()=>{ if(streakEl) streakEl.textContent=''; },1200);
-      }
-
-      // Sparkle
-      spawnSparkles();
-
-      if(wheelPairs.length===0){
-        // Victory
-        document.getElementById('matchScore').textContent='';
-        document.getElementById('wheelCheckBtn').disabled=true;
-        const fb=document.getElementById('feedback');
-        fb.innerHTML='<div class="victory-msg">🎉 All matched!</div>';
-        fb.className='feedback ok';
-        spawnSparkles(); spawnSparkles();
-        setTimeout(()=>{ renderMatch(); },2000);
-      }
-    });
-    setFB('✓ Correct!',true);
+  if(side==='left'){
+    // Deselect if already selected
+    if(mcSelLeft===el){ mcSelLeft.classList.remove('selected'); mcSelLeft=mcSelLeftKey=null; return; }
+    if(mcSelLeft){ mcSelLeft.classList.remove('selected'); }
+    mcSelLeft=el; mcSelLeftKey=key;
+    el.classList.add('selected');
   } else {
-    // ❌ Wrong
-    playWrong();
-    wheelStreak=0;
-    document.getElementById('wheelStreak').textContent='';
-    wLeft.flashWrong();
-    wRight.flashWrong();
-    setFB('✗ Keep trying',false);
+    if(mcSelRight===el){ mcSelRight.classList.remove('selected'); mcSelRight=mcSelRightKey=null; return; }
+    if(mcSelRight){ mcSelRight.classList.remove('selected'); }
+    mcSelRight=el; mcSelRightKey=key;
+    el.classList.add('selected');
+  }
+
+  // Both sides selected — evaluate
+  if(mcSelLeft && mcSelRight){
+    const lKey=mcSelLeftKey; const rKey=mcSelRightKey;
+    const lEl=mcSelLeft; const rEl=mcSelRight;
+    mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
+    lEl.classList.remove('selected'); rEl.classList.remove('selected');
+
+    if(lKey===rKey){
+      // ✅ Correct
+      mcStreak++; mcSolved++;
+      recordCorrect(lKey); renderWords();
+      [lEl,rEl].forEach(e=>{ e.classList.add('correct-flash'); });
+      playDing();
+      mcCardSparkle(lEl); mcCardSparkle(rEl);
+      if(mcStreak>=3) showMatchStreak(mcStreak);
+      document.getElementById('matchScore').textContent=mcSolved+' / '+mcTotal+' matched';
+      setProg(mcSolved,mcTotal);
+
+      setTimeout(()=>{
+        [lEl,rEl].forEach(e=>e.classList.add('fading'));
+        setTimeout(()=>{
+          // Find and mark pair
+          const pair=mcPairs.find(p=>p.w===lKey);
+          if(pair) pair.matched=true;
+
+          // Refill logic: alternate sides
+          if(mcPool.length>0){
+            const newPair=mcPool.shift();
+            if(mcNextFillSide==='left'){
+              // Add new word to left only; right gets blank placeholder
+              mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
+              mcNextFillSide='right';
+            } else {
+              // Find a blank-right pair and fill its right side
+              const blankRight=mcPairs.find(p=>!p.matched&&p.rightBlank);
+              if(blankRight){
+                blankRight.rightBlank=false;
+                // Also merge in new pair concept: replace the matched slot
+                mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
+              } else {
+                mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:false});
+              }
+              mcNextFillSide='left';
+            }
+          }
+
+          // Check victory
+          const remaining=mcPairs.filter(p=>!p.matched);
+          if(remaining.length===0){
+            setFB('🎉 All matched!',true);
+            setTimeout(()=>renderMatch(),1600);
+            return;
+          }
+          renderMatchBoard();
+        },380);
+      },500);
+    } else {
+      // ❌ Wrong
+      mcStreak=0;
+      document.getElementById('matchStreak').textContent='';
+      playWrong();
+      [lEl,rEl].forEach(e=>{ e.classList.add('wrong-flash'); setTimeout(()=>e.classList.remove('wrong-flash'),450); });
+    }
   }
 }
 
-function spawnSparkles(){
+function showMatchStreak(n){
+  const el=document.getElementById('matchStreak');
+  const msgs={3:'🔥 3 in a row!',5:'🔥🔥 On fire!',10:'🌟 Unstoppable!'};
+  el.textContent=msgs[n]||(n+'🌟 streak!');
+  setTimeout(()=>{ if(el) el.textContent=''; },1200);
+}
+
+function mcCardSparkle(el){
   const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc'];
-  const wrap=document.getElementById('matchWrap');
-  const rect=wrap.getBoundingClientRect();
-  for(let i=0;i<10;i++){
-    const angle=Math.random()*Math.PI*2;
-    const dist=40+Math.random()*80;
+  const rect=el.getBoundingClientRect();
+  const board=document.getElementById('matchBoard');
+  const bRect=board.getBoundingClientRect();
+  const cx=rect.left-bRect.left+rect.width/2;
+  const cy=rect.top-bRect.top+rect.height/2;
+  board.style.position='relative';
+  for(let i=0;i<7;i++){
+    const angle=(i/7)*Math.PI*2;
+    const dist=22+Math.random()*18;
     const tx=Math.cos(angle)*dist; const ty=Math.sin(angle)*dist;
-    const size=7+Math.random()*8;
+    const size=6+Math.random()*6;
     const color=COLS[Math.floor(Math.random()*COLS.length)];
-    const cx=rect.width/2; const cy=rect.height*0.45;
     const s=document.createElement('span');
     s.className='spark-star';
     s.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;pointer-events:none;z-index:20;--tx:${tx}px;--ty:${ty}px;margin-left:${-size/2}px;margin-top:${-size/2}px;`;
     s.innerHTML=`<svg width="${size}" height="${size}" viewBox="0 0 20 20" fill="none"><path d="M10 1 C10.6 6,10.6 6,15 10 C10.6 14,10.6 14,10 19 C9.4 14,9.4 14,5 10 C9.4 6,9.4 6,10 1Z" fill="${color}"/></svg>`;
-    wrap.style.position='relative';
-    wrap.appendChild(s);
+    board.appendChild(s);
     setTimeout(()=>s.remove(),900);
   }
 }
 
 function makeMatchBtn(){} // legacy stub
 function matchClick(){} // legacy stub
+
 
 
 // TYPE IT GAME
@@ -2234,7 +2043,7 @@ function renderType(){
       fbEl.style.opacity='1';
       playDing();
       requestAnimationFrame(positionElements);
-      // Add next button as absolutely positioned element, replacing input bar
+      // Replace inputBar with nextBtn at the exact same position
       inputBar.style.display='none';
       const nextBtn=document.createElement('button');
       nextBtn.textContent='next →';
@@ -2244,16 +2053,14 @@ function renderType(){
       const goNext=()=>{ advanceDeck(1); renderType(); };
       nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
       nextBtn.addEventListener('click',goNext);
+      // Insert right after inputBar so positionElements handles it via same top value
       wrap.appendChild(nextBtn);
-      // Position it via positionElements
-      const origPosition=positionElements;
-      positionElements=()=>{
-        origPosition();
-        const vv=window.visualViewport;
-        const vvTop=vv?vv.offsetTop:0;
-        const vvHeight=vv?vv.height:window.innerHeight;
-        nextBtn.style.top=(vvTop+vvHeight-70)+'px';
+      // Copy inputBar's current top to nextBtn and keep in sync
+      const syncNextBtn=()=>{
+        if(inputBar.style.top) nextBtn.style.top=inputBar.style.top;
       };
+      const origPosition=positionElements;
+      positionElements=()=>{ origPosition(); syncNextBtn(); };
       requestAnimationFrame(positionElements);
     }
   };
@@ -2650,31 +2457,49 @@ ob2Btn.addEventListener('click',()=>{
   });
 });
 
-// Game cards — touchstart+preventDefault kills iOS tap highlight & sticky :hover
+
+// ── safeTap: visual on touchstart, action only on touchend inside element ──
+function safeTap(el, onAction, onDown){
+  let active=false;
+  el.addEventListener('touchstart',(e)=>{
+    e.preventDefault();
+    active=true;
+    if(onDown) onDown(el);
+    else el.classList.add('mcard-touch-active');
+  },{passive:false});
+  el.addEventListener('touchend',(e)=>{
+    e.preventDefault();
+    if(!active) return;
+    active=false;
+    el.classList.remove('mcard-touch-active');
+    // Check finger is still roughly over element
+    const t=e.changedTouches[0];
+    const r=el.getBoundingClientRect();
+    const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
+    if(inside) onAction();
+  },{passive:false});
+  el.addEventListener('touchcancel',()=>{ active=false; el.classList.remove('mcard-touch-active'); },{passive:true});
+  el.addEventListener('click', onAction); // desktop fallback
+}
+
+// Game cards — safeTap: visual on press, action on release
 [['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type']].forEach(([id,ex])=>{
   const card=document.getElementById(id);
   if(!card) return;
-  let handled=false;
-  card.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
-    handled=true;
-    startGame(ex);
-  },{passive:false});
-  card.addEventListener('click',()=>{
-    if(handled){handled=false;return;}
-    startGame(ex);
-  });
+  safeTap(card,
+    ()=>startGame(ex),
+    (el)=>{ el.style.borderColor='var(--accent2)'; el.style.background='rgba(124,158,255,.07)'; setTimeout(()=>{ el.style.borderColor=''; el.style.background=''; },300); }
+  );
 });
 
-// Nav buttons — touchstart for iOS fix + yellow flash feedback
+// Nav buttons — safeTap with flash
 ['navPrev','navNext'].forEach(id=>{
   const btn=document.getElementById(id);
   const action=id==='navPrev'?prevCard:nextCard;
-  const flashBtn=b=>{ b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); b.addEventListener('animationend',()=>b.classList.remove('flash'),{once:true}); };
-  let handled=false;
-  btn.addEventListener('touchstart',(e)=>{ e.preventDefault(); handled=true; flashBtn(btn); action(); },{passive:false});
-  btn.addEventListener('click',()=>{ if(handled){handled=false;return;} flashBtn(btn); action(); });
+  const doFlash=b=>{ b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); b.addEventListener('animationend',()=>b.classList.remove('flash'),{once:true}); };
+  safeTap(btn, ()=>{ doFlash(btn); action(); }, (b)=>doFlash(b));
 });
+
 </script>
 </body>
 </html>
