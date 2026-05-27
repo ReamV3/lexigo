@@ -2084,14 +2084,9 @@ function renderType(){
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  // touchstart preventDefault is the only reliable way to keep keyboard on iOS/Android.
-  // It blocks the tap from ever blurring the input. No refocus needed.
-  hintBtn.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    doHint();
-  },{passive:false});
-  hintBtn.addEventListener('click', doHint); // desktop
+  // Hint button: just click. Global touchend handler no longer blurs inputs,
+  // and pointerdown preventDefault (set earlier) blocks focus stealing on the button itself.
+  hintBtn.addEventListener('click', doHint);
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
   setProg(idx+1,deck.length);
@@ -2256,8 +2251,14 @@ function updateThemeBtn(){
 }
 
 // ── iOS sticky-focus nuclear fix ──
-// After every touch, immediately blur whatever got focus so no button stays highlighted
-document.addEventListener('touchend', ()=>{ if(document.activeElement&&document.activeElement!==document.body) document.activeElement.blur(); }, {passive:true});
+// After every touch, blur sticky button focus — but NEVER blur inputs/textareas
+// (they need focus to keep the keyboard open)
+document.addEventListener('touchend', ()=>{
+  const a=document.activeElement;
+  if(!a||a===document.body) return;
+  if(a.tagName==='INPUT'||a.tagName==='TEXTAREA') return; // keep keyboard alive
+  a.blur();
+}, {passive:true});
 
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
