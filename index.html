@@ -228,11 +228,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   -webkit-tap-highlight-color:rgba(0,0,0,0);
   position:relative;
 }
-.mcard.blank{
-  background:var(--bg);border:1.5px dashed var(--border);
-  color:var(--muted);font-size:.75rem;letter-spacing:.08em;cursor:default;
-  pointer-events:none;opacity:.5;
-}
 .mcard.selected{
   border-color:#a78bfa;background:rgba(167,139,250,.15);color:#a78bfa;
   transform:scale(1.03);
@@ -683,7 +678,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 <!-- PRACTICE HEADER ROW -->
 <div style="width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
   <div style="font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);">Practice Vocabulary</div>
-  <button class="class-pill" id="classPill" onclick="classPillClick()" style="margin:0;">
+  <button class="class-pill" id="classPill" style="margin:0;">
     <span class="ico">＋</span><span id="classPillLabel">No class</span>
   </button>
 </div>
@@ -1690,18 +1685,14 @@ function renderMatch(){
   const allPairs=deck.filter(w=>!isExcluded(w.w)).map(w=>({w:w.w,t:w.t}));
   if(allPairs.length<2){document.getElementById('emptyMsg').style.display='block';document.getElementById('matchWrap').style.display='none';return;}
 
-  mcTotal=allPairs.length; mcSolved=0; mcStreak=0; mcNextFillSide='left';
+  mcTotal=allPairs.length; mcSolved=0; mcStreak=0;
   const shuffled=shuffle([...allPairs]);
-  // Start with MC_ROWS active pairs, rest in pool
-  mcPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length)).map(p=>({...p,matched:false,leftBlank:false,rightBlank:false}));
+  mcPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length)).map(p=>({...p,matched:false}));
   mcPool=shuffled.slice(Math.min(MC_ROWS,shuffled.length));
   mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
 
-  // Set column labels from actual words
-  const hasLeft=mcPairs.length>0;
-  document.getElementById('matchLblLeft').textContent= hasLeft?'word':'—';
-  document.getElementById('matchLblRight').textContent= hasLeft?'translation':'—';
-
+  document.getElementById('matchLblLeft').textContent='word';
+  document.getElementById('matchLblRight').textContent='translation';
   document.getElementById('matchScore').textContent='0 / '+mcTotal+' matched';
   setProg(0,mcTotal);
   renderMatchBoard();
@@ -1710,63 +1701,39 @@ function renderMatch(){
 function renderMatchBoard(){
   const board=document.getElementById('matchBoard');
   board.innerHTML='';
-
-  // Two strict columns — left and right always same count
-  const leftCol=document.createElement('div');
-  leftCol.className='match-col-cards';
-  const rightCol=document.createElement('div');
-  rightCol.className='match-col-cards';
-  board.appendChild(leftCol);
-  board.appendChild(rightCol);
+  const leftCol=document.createElement('div'); leftCol.className='match-col-cards';
+  const rightCol=document.createElement('div'); rightCol.className='match-col-cards';
+  board.appendChild(leftCol); board.appendChild(rightCol);
 
   const active=mcPairs.filter(p=>!p.matched);
-  // Shuffle each side independently
+  // Shuffle each column independently — creates the unpredictable mixing
   const leftOrder=shuffle([...active]);
   const rightOrder=shuffle([...active]);
 
   leftOrder.forEach(pair=>{
     const el=document.createElement('div');
-    if(pair.leftBlank){
-      el.className='mcard blank';
-      el.textContent='· · ·';
-    } else {
-      el.className='mcard';
-      el.textContent=pair.w;
-      el.dataset.key=pair.w;
-      el.dataset.side='left';
-      attachMCardHandlers(el,'left',pair.w);
-    }
-    pair.leftEl=el;
-    leftCol.appendChild(el);
+    el.className='mcard'; el.textContent=pair.w;
+    el.dataset.key=pair.w; el.dataset.side='left';
+    attachMCardHandlers(el,'left',pair.w);
+    pair.leftEl=el; leftCol.appendChild(el);
   });
-
   rightOrder.forEach(pair=>{
     const el=document.createElement('div');
-    if(pair.rightBlank){
-      el.className='mcard blank';
-      el.textContent='· · ·';
-    } else {
-      el.className='mcard';
-      el.textContent=pair.t;
-      el.dataset.key=pair.w;
-      el.dataset.side='right';
-      attachMCardHandlers(el,'right',pair.w);
-    }
-    pair.rightEl=el;
-    rightCol.appendChild(el);
+    el.className='mcard'; el.textContent=pair.t;
+    el.dataset.key=pair.w; el.dataset.side='right';
+    attachMCardHandlers(el,'right',pair.w);
+    pair.rightEl=el; rightCol.appendChild(el);
   });
 }
 
 function attachMCardHandlers(el, side, key){
   let touchActive=false;
   el.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
-    touchActive=true;
+    e.preventDefault(); touchActive=true;
     el.classList.add('mcard-touch-active');
   },{passive:false});
   el.addEventListener('touchend',(e)=>{
-    e.preventDefault();
-    el.classList.remove('mcard-touch-active');
+    e.preventDefault(); el.classList.remove('mcard-touch-active');
     if(touchActive){ touchActive=false; onMCardTap(el,side,key); }
   },{passive:false});
   el.addEventListener('touchcancel',()=>{ touchActive=false; el.classList.remove('mcard-touch-active'); },{passive:true});
@@ -1774,25 +1741,21 @@ function attachMCardHandlers(el, side, key){
 }
 
 function onMCardTap(el,side,key){
-  if(el.classList.contains('blank')||el.classList.contains('fading')||el.classList.contains('matched')) return;
+  if(el.classList.contains('fading')) return;
 
   if(side==='left'){
-    // Deselect if already selected
     if(mcSelLeft===el){ mcSelLeft.classList.remove('selected'); mcSelLeft=mcSelLeftKey=null; return; }
-    if(mcSelLeft){ mcSelLeft.classList.remove('selected'); }
-    mcSelLeft=el; mcSelLeftKey=key;
-    el.classList.add('selected');
+    if(mcSelLeft) mcSelLeft.classList.remove('selected');
+    mcSelLeft=el; mcSelLeftKey=key; el.classList.add('selected');
   } else {
     if(mcSelRight===el){ mcSelRight.classList.remove('selected'); mcSelRight=mcSelRightKey=null; return; }
-    if(mcSelRight){ mcSelRight.classList.remove('selected'); }
-    mcSelRight=el; mcSelRightKey=key;
-    el.classList.add('selected');
+    if(mcSelRight) mcSelRight.classList.remove('selected');
+    mcSelRight=el; mcSelRightKey=key; el.classList.add('selected');
   }
 
-  // Both sides selected — evaluate
   if(mcSelLeft && mcSelRight){
-    const lKey=mcSelLeftKey; const rKey=mcSelRightKey;
-    const lEl=mcSelLeft; const rEl=mcSelRight;
+    const lKey=mcSelLeftKey, rKey=mcSelRightKey;
+    const lEl=mcSelLeft, rEl=mcSelRight;
     mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
     lEl.classList.remove('selected'); rEl.classList.remove('selected');
 
@@ -1800,9 +1763,8 @@ function onMCardTap(el,side,key){
       // ✅ Correct
       mcStreak++; mcSolved++;
       recordCorrect(lKey); renderWords();
-      [lEl,rEl].forEach(e=>{ e.classList.add('correct-flash'); });
-      playDing();
-      mcCardSparkle(lEl); mcCardSparkle(rEl);
+      [lEl,rEl].forEach(e=>e.classList.add('correct-flash'));
+      playDing(); mcCardSparkle(lEl); mcCardSparkle(rEl);
       if(mcStreak>=3) showMatchStreak(mcStreak);
       document.getElementById('matchScore').textContent=mcSolved+' / '+mcTotal+' matched';
       setProg(mcSolved,mcTotal);
@@ -1810,63 +1772,17 @@ function onMCardTap(el,side,key){
       setTimeout(()=>{
         [lEl,rEl].forEach(e=>e.classList.add('fading'));
         setTimeout(()=>{
-          // Mark pair matched
           const pair=mcPairs.find(p=>p.w===lKey);
           if(pair) pair.matched=true;
 
-          // ── Safe refill ──
-          // Strategy: stagger reveal with max 1 half-blank at a time.
-          // This preserves uncertainty without creating unsolvable states.
-
           if(mcPool.length>0){
-            // Always add a full pair — but one side is initially blank
-            // The blank side gets revealed on the NEXT correct match
+            // Add new full pair from pool — reshuffle makes it impossible to spot which is new
             const newPair=mcPool.shift();
-
-            // Check if there's already a waiting half-blank that needs completing
-            const pendingLeft=mcPairs.find(p=>!p.matched&&p.leftBlank);
-            const pendingRight=mcPairs.find(p=>!p.matched&&p.rightBlank);
-
-            if(pendingRight){
-              // Fill the pending right blank — complete that pair
-              pendingRight.rightBlank=false;
-              // Then add new pair with left blank (alternate)
-              mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
-              mcNextFillSide='right';
-            } else if(pendingLeft){
-              // Fill the pending left blank
-              pendingLeft.leftBlank=false;
-              // Add new pair with right blank
-              mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
-              mcNextFillSide='left';
-            } else {
-              // No pending blanks — add new pair with one blank side for mystery
-              if(mcNextFillSide==='left'){
-                mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
-                mcNextFillSide='right';
-              } else {
-                mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
-                mcNextFillSide='left';
-              }
-            }
-          } else {
-            // Pool empty — fill any remaining blanks to guarantee solvability
-            mcPairs.forEach(p=>{
-              if(!p.matched){ p.leftBlank=false; p.rightBlank=false; }
-            });
+            mcPairs.push({...newPair,matched:false});
           }
+          // When pool empty: board naturally shrinks (6→5→4→3→2→1)
 
-          // Safety check: ensure at least one complete pair is visible
-          // If all visible pairs have a blank side, force-reveal one full pair
           const active=mcPairs.filter(p=>!p.matched);
-          const completePairs=active.filter(p=>!p.leftBlank&&!p.rightBlank);
-          if(completePairs.length===0 && active.length>0){
-            // Reveal blanks on first available incomplete pair
-            const toReveal=active.find(p=>p.leftBlank||p.rightBlank);
-            if(toReveal){ toReveal.leftBlank=false; toReveal.rightBlank=false; }
-          }
-
-          // Check victory
           if(active.length===0){
             setFB('🎉 All matched!',true);
             setTimeout(()=>renderMatch(),1600);
@@ -1875,6 +1791,7 @@ function onMCardTap(el,side,key){
           renderMatchBoard();
         },380);
       },500);
+
     } else {
       // ❌ Wrong
       mcStreak=0;
@@ -2509,6 +2426,16 @@ function safeTap(el, onAction, onDown, onUp){
     else el.classList.remove('mcard-touch-active');
   },{passive:true});
   el.addEventListener('click', onAction); // desktop fallback
+}
+
+// Class pill — safeTap consistent with all other buttons
+const classPillEl=document.getElementById('classPill');
+if(classPillEl){
+  safeTap(classPillEl,
+    ()=>classPillClick(),
+    (b)=>{ b.style.borderColor='var(--accent2)'; b.style.background='rgba(124,158,255,.18)'; },
+    (b)=>{ b.style.borderColor=''; b.style.background=''; }
+  );
 }
 
 // Sound + Theme buttons — use safeTap for consistent hold-highlight behavior
