@@ -660,7 +660,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div><div class="game-name">Type It</div><div class="game-desc">Type the answer from memory</div></div>
       <div class="game-arrow">›</div>
     </div>
-    <button class="card-inline-toggle" id="typeDirToggle" onclick="toggleTypeDir(event)" title="Toggle direction"><span class="tog-hint">dir</span><span class="tog-val" id="typeDirLabel">RU→EN</span></button>
+    <button class="card-inline-toggle" id="typeDirToggle" onclick="toggleTypeDir(event)" title="Toggle direction"><span class="tog-hint">dir</span><span class="tog-val" id="typeDirLabel">→</span></button>
   </div>
   <div class="game-card-row" style="margin-bottom:10px;">
     <div class="game-card" id="gc-flash">
@@ -1198,10 +1198,8 @@ function confirmAdd(){
     const w=parts[0].trim();
     const t=parts.slice(1).join(' ').trim();
     if(!w||!t){ skipped++; return; }
-    // Word must be non-Latin, translation must be Latin (English)
-    const wScript=detectScript(w);
-    const tScript=detectScript(t);
-    if(wScript==='latin'||tScript!=='latin'){
+    // Just require the two sides to be different (basic sanity check)
+    if(w.toLowerCase()===t.toLowerCase()){
       sameLangSkipped++;
       return;
     }
@@ -1217,7 +1215,7 @@ function confirmAdd(){
     save();
     document.getElementById('addText').value='';
     renderAddClassChips();
-    updateClassPill(); buildDeck();
+    updateClassPill(); buildDeck(); updateTypeDirBtn();
     // Refresh list screen if it's open
     if(document.getElementById('listScreen').classList.contains('open')){
       renderWsTabs(); renderWsList();
@@ -1228,7 +1226,7 @@ function confirmAdd(){
     const tail=extras.length?' · '+extras.join(', ')+' skipped':'';
     showToast('✓ Added '+added+' word'+(added!==1?'s':'')+' to Class '+target+tail);
   } else {
-    if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — translation must be English`);
+    if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — word and translation must differ`);
     else if(skipped>0) showToast(`⚠ ${skipped} line(s) skipped — need: word – english translation`);
     else showToast('⚠ No valid words found');
   }
@@ -1985,7 +1983,7 @@ function renderType(){
   const inputEl=document.createElement('input');
   inputEl.type='text';
   inputEl.className='type-input';
-  inputEl.placeholder=typeDir==='ru-en'?'type English...':'type Russian...';
+  inputEl.placeholder=typeDir==='ru-en'?'type meaning...':'type word...';
   inputEl.autocomplete='off'; inputEl.autocorrect='off';
   inputEl.autocapitalize='off'; inputEl.spellcheck=false;
   const submitBtn=document.createElement('button');
@@ -2086,14 +2084,14 @@ function renderType(){
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  // touchend fires reliably after touchstart preventDefault; refocus ensures keyboard stays
-  hintBtn.addEventListener('touchend',(e)=>{
+  // touchstart preventDefault is the only reliable way to keep keyboard on iOS/Android.
+  // It blocks the tap from ever blurring the input. No refocus needed.
+  hintBtn.addEventListener('touchstart',(e)=>{
     e.preventDefault();
+    e.stopPropagation();
     doHint();
-    // Small delay then refocus — restores keyboard if it briefly shifted
-    setTimeout(()=>{ try{ inputEl.focus(); }catch(err){} }, 50);
   },{passive:false});
-  hintBtn.addEventListener('click', doHint); // desktop fallback
+  hintBtn.addEventListener('click', doHint); // desktop
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
   setProg(idx+1,deck.length);
@@ -2105,7 +2103,24 @@ function toggleSpeed(e){ if(e)e.stopPropagation(); choiceSpeedSecs=choiceSpeedSe
 function updateSpeedBtn(){ const el=document.getElementById('speedLabel'); if(el) el.textContent=choiceSpeedSecs+'s'; }
 function loadSpeed(){ const v=parseInt(localStorage.getItem(LS_SPEED)||'3'); choiceSpeedSecs=(v===5)?5:3; updateSpeedBtn(); }
 function toggleTypeDir(e){ if(e)e.stopPropagation(); typeDir=typeDir==='ru-en'?'en-ru':'ru-en'; localStorage.setItem(LS_TYPEDIR,typeDir); updateTypeDirBtn(); }
-function updateTypeDirBtn(){ const el=document.getElementById('typeDirLabel'); if(el) el.textContent=typeDir==='ru-en'?'RU→EN':'EN→RU'; }
+function scriptToCode(script){ return {cyrillic:'RU',hebrew:'HE',arabic:'AR',greek:'GR',japanese:'JA',cjk:'ZH',latin:'EN'}[script]||'?'; }
+function detectWordLang(){
+  // Sample up to 10 words from bank to find dominant script of the "word" side
+  const sample=bank.words.slice(0,10).map(w=>w.w).join(' ');
+  if(!sample) return {word:'word',meaning:'meaning'};
+  const script=detectScript(sample);
+  const wCode=scriptToCode(script);
+  // Translation side is always the other — sample it too
+  const tSample=bank.words.slice(0,10).map(w=>w.t).join(' ');
+  const tScript=detectScript(tSample);
+  const tCode=scriptToCode(tScript);
+  return {word:wCode, meaning:tCode};
+}
+function updateTypeDirBtn(){
+  const el=document.getElementById('typeDirLabel'); if(!el) return;
+  const {word,meaning}=detectWordLang();
+  el.textContent=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
+}
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
 
 // ── Theme/Sound blink only ──
