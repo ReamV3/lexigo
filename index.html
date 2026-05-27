@@ -1810,34 +1810,64 @@ function onMCardTap(el,side,key){
       setTimeout(()=>{
         [lEl,rEl].forEach(e=>e.classList.add('fading'));
         setTimeout(()=>{
-          // Find and mark pair
+          // Mark pair matched
           const pair=mcPairs.find(p=>p.w===lKey);
           if(pair) pair.matched=true;
 
-          // Refill logic: alternate sides
+          // ── Safe refill ──
+          // Strategy: stagger reveal with max 1 half-blank at a time.
+          // This preserves uncertainty without creating unsolvable states.
+
           if(mcPool.length>0){
+            // Always add a full pair — but one side is initially blank
+            // The blank side gets revealed on the NEXT correct match
             const newPair=mcPool.shift();
-            if(mcNextFillSide==='left'){
-              // Add new word to left only; right gets blank placeholder
-              mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
+
+            // Check if there's already a waiting half-blank that needs completing
+            const pendingLeft=mcPairs.find(p=>!p.matched&&p.leftBlank);
+            const pendingRight=mcPairs.find(p=>!p.matched&&p.rightBlank);
+
+            if(pendingRight){
+              // Fill the pending right blank — complete that pair
+              pendingRight.rightBlank=false;
+              // Then add new pair with left blank (alternate)
+              mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
               mcNextFillSide='right';
-            } else {
-              // Find a blank-right pair and fill its right side
-              const blankRight=mcPairs.find(p=>!p.matched&&p.rightBlank);
-              if(blankRight){
-                blankRight.rightBlank=false;
-                // Also merge in new pair concept: replace the matched slot
-                mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
-              } else {
-                mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:false});
-              }
+            } else if(pendingLeft){
+              // Fill the pending left blank
+              pendingLeft.leftBlank=false;
+              // Add new pair with right blank
+              mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
               mcNextFillSide='left';
+            } else {
+              // No pending blanks — add new pair with one blank side for mystery
+              if(mcNextFillSide==='left'){
+                mcPairs.push({...newPair,matched:false,leftBlank:false,rightBlank:true});
+                mcNextFillSide='right';
+              } else {
+                mcPairs.push({...newPair,matched:false,leftBlank:true,rightBlank:false});
+                mcNextFillSide='left';
+              }
             }
+          } else {
+            // Pool empty — fill any remaining blanks to guarantee solvability
+            mcPairs.forEach(p=>{
+              if(!p.matched){ p.leftBlank=false; p.rightBlank=false; }
+            });
+          }
+
+          // Safety check: ensure at least one complete pair is visible
+          // If all visible pairs have a blank side, force-reveal one full pair
+          const active=mcPairs.filter(p=>!p.matched);
+          const completePairs=active.filter(p=>!p.leftBlank&&!p.rightBlank);
+          if(completePairs.length===0 && active.length>0){
+            // Reveal blanks on first available incomplete pair
+            const toReveal=active.find(p=>p.leftBlank||p.rightBlank);
+            if(toReveal){ toReveal.leftBlank=false; toReveal.rightBlank=false; }
           }
 
           // Check victory
-          const remaining=mcPairs.filter(p=>!p.matched);
-          if(remaining.length===0){
+          if(active.length===0){
             setFB('🎉 All matched!',true);
             setTimeout(()=>renderMatch(),1600);
             return;
@@ -2449,23 +2479,6 @@ ob2Btn.addEventListener('click',()=>{
 });
 
 
-// Sound + Theme buttons — touchstart+preventDefault kills sticky :active/:focus on mobile
-[['soundBtn', ()=>toggleSound()], ['themeBtn', ()=>toggleTheme()]].forEach(([id, action])=>{
-  const btn=document.getElementById(id);
-  if(!btn) return;
-  let handled=false;
-  btn.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
-    handled=true;
-    action();
-    flashBtn(id);
-  },{passive:false});
-  btn.addEventListener('click',()=>{
-    if(handled){handled=false;return;}
-    action();
-    flashBtn(id);
-  });
-});
 
 
 // ── safeTap: highlight stays while finger held, action on touchend inside element ──
@@ -2498,6 +2511,16 @@ function safeTap(el, onAction, onDown, onUp){
   el.addEventListener('click', onAction); // desktop fallback
 }
 
+// Sound + Theme buttons — use safeTap for consistent hold-highlight behavior
+[['soundBtn', ()=>toggleSound()], ['themeBtn', ()=>toggleTheme()]].forEach(([id, action])=>{
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  safeTap(btn,
+    ()=>{ action(); flashBtn(id); },
+    (b)=>{ b.style.borderColor='var(--accent)'; b.style.color='var(--accent)'; },
+    (b)=>{ b.style.borderColor=''; b.style.color=''; }
+  );
+});
 // Game cards — highlight persists while held, clears on release
 [['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type']].forEach(([id,ex])=>{
   const card=document.getElementById(id);
