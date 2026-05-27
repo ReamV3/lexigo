@@ -42,18 +42,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .app-title{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--accent);}
 .app-sub{font-size:0.68rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:2px;}
 .theme-btn{width:42px;height:42px;border-radius:12px;border:1.5px solid var(--border);
-  background:var(--surface);color:var(--muted);cursor:pointer;
+  background:var(--surface);color:var(--muted);cursor:pointer;transition:all .18s;
   display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;}
-@media (hover:hover){
-  .theme-btn{transition:all .22s;}
-  .theme-btn:hover{border-color:var(--accent);color:var(--accent);}
-  .theme-btn:hover svg{color:var(--accent);stroke:var(--accent);}
-}
 .theme-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
 @media (hover:hover){
-  .theme-btn svg{transition:all .22s;}
+  .theme-btn:hover{border-color:var(--accent);color:var(--accent);}
 }
+.theme-btn:active{transform:scale(.95);}
+.theme-btn.flash{animation:navFlash .15s ease both;}
 /* Moon icon fill */
 .theme-btn .moon-fill{fill:currentColor;stroke:none;}
 
@@ -440,20 +437,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* GAME CARD inline toggle (speed, direction) */
 .game-card-row{display:flex;align-items:stretch;gap:0;width:100%;max-width:520px;margin-bottom:10px;}
-.game-card-row .game-card{flex:1;margin-bottom:0;border-radius:var(--radius) 0 0 var(--radius);border-right:none;}
-.game-card-row .game-card:only-child{border-radius:var(--radius);border-right:1px solid var(--border);}
+.game-card-row .game-card{flex:1;margin-bottom:0;}
 .card-inline-toggle{
   width:72px;min-width:72px;
-  border-radius:0 var(--radius) var(--radius) 0;
-  border:1px solid var(--border);border-left:1px solid rgba(124,158,255,.25);
-  background:rgba(124,158,255,.08);
-  cursor:pointer;transition:background .18s;
+  margin-left:8px;
+  border-radius:var(--radius);
+  border:1.5px solid var(--accent2);
+  background:rgba(124,158,255,.1);
+  cursor:pointer;transition:background .18s, transform .15s;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   white-space:nowrap;flex-shrink:0;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;
   user-select:none;-webkit-user-select:none;
+  box-shadow:0 0 0 0 rgba(124,158,255,0);
 }
-.card-inline-toggle:active{background:rgba(124,158,255,.2);}
+.card-inline-toggle:active{background:rgba(124,158,255,.25);transform:scale(.95);}
 .card-inline-toggle .tog-hint{font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace;}
 .card-inline-toggle .tog-val{font-size:.82rem;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace;letter-spacing:.03em;}
 
@@ -617,16 +615,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
-  <button class="theme-btn" id="soundBtn" onclick="toggleSound()" title="Toggle sound">
-    <!-- Sound on icon -->
+  <button class="theme-btn" id="soundBtn" tabindex="-1" onclick="toggleSound()" title="Toggle sound">
     <svg id="iconSoundOn" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-    <!-- Sound off icon -->
     <svg id="iconSoundOff" viewBox="0 0 24 24" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
   </button>
-  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">
-    <!-- Sun icon (shown in dark mode) -->
+  <button class="theme-btn" id="themeBtn" tabindex="-1" onclick="toggleTheme()" title="Toggle theme">
     <svg id="iconSun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/></svg>
-    <!-- Moon icon (shown in light mode) -->
     <svg id="iconMoon" viewBox="0 0 24 24" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" class="moon-fill"/></svg>
   </button>
   </div>
@@ -687,7 +681,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <button class="bottom-btn" onclick="document.getElementById('importFileInput').click()">↑ import bank</button>
   <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)">
 </div>
-<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.1</div>
+<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.0</div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -2172,9 +2166,28 @@ function updateTypeDirBtn(){
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
 
 // ── Theme/Sound blink only ──
-function toggleTheme(){ document.body.classList.toggle('light'); localStorage.setItem(LS_THEME,document.body.classList.contains('light')?'light':'dark'); updateThemeBtn(); document.getElementById('themeBtn').blur(); }
-function toggleSound(){ soundEnabled=!soundEnabled; localStorage.setItem(LS_SOUND,soundEnabled?'on':'off'); updateSoundBtn(); document.getElementById('soundBtn').blur(); }
-function blinkBtn(id){} // no-op (removed blink animation)
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  localStorage.setItem(LS_THEME,document.body.classList.contains('light')?'light':'dark');
+  updateThemeBtn();
+  flashBtn('themeBtn');
+}
+function toggleSound(){
+  soundEnabled=!soundEnabled;
+  localStorage.setItem(LS_SOUND,soundEnabled?'on':'off');
+  updateSoundBtn();
+  flashBtn('soundBtn');
+}
+function flashBtn(id){
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  btn.classList.remove('flash');
+  void btn.offsetWidth;
+  btn.classList.add('flash');
+  btn.blur();
+  setTimeout(()=>btn.classList.remove('flash'),200);
+}
+function blinkBtn(id){} // legacy stub
 
 function hideGamePanels(){
   ['cardWrap','choiceWrap','matchWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
