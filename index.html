@@ -45,6 +45,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   background:var(--surface);color:var(--muted);cursor:pointer;transition:all .22s;
   display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;}
+/* Defeat sticky :focus / :active on mobile — force default state */
+.theme-btn:focus,.theme-btn:active,.theme-btn:focus-visible{
+  border-color:var(--border) !important;
+  color:var(--muted) !important;
+  background:var(--surface) !important;
+  outline:none !important;
+  box-shadow:none !important;
+}
+/* But still allow blink animation to override these */
+.theme-btn.theme-btn-blink,
+.theme-btn.theme-btn-blink:focus,
+.theme-btn.theme-btn-blink:active{
+  animation:btnBlink .55s ease both !important;
+}
 @media (hover:hover){
   .theme-btn:hover{border-color:var(--accent);color:var(--accent);}
   .theme-btn:hover svg{color:var(--accent);stroke:var(--accent);}
@@ -2170,7 +2184,15 @@ function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updat
 // ── Theme/Sound blink only ──
 function toggleTheme(){ document.body.classList.toggle('light'); localStorage.setItem(LS_THEME,document.body.classList.contains('light')?'light':'dark'); updateThemeBtn(); blinkBtn('themeBtn'); document.getElementById('themeBtn').blur(); }
 function toggleSound(){ soundEnabled=!soundEnabled; localStorage.setItem(LS_SOUND,soundEnabled?'on':'off'); updateSoundBtn(); blinkBtn('soundBtn'); document.getElementById('soundBtn').blur(); }
-function blinkBtn(id){ const btn=document.getElementById(id); if(!btn)return; btn.classList.remove('theme-btn-blink'); void btn.offsetWidth; btn.classList.add('theme-btn-blink'); btn.addEventListener('animationend',()=>btn.classList.remove('theme-btn-blink'),{once:true}); }
+function blinkBtn(id){
+  const btn=document.getElementById(id);
+  if(!btn) return;
+  btn.classList.remove('theme-btn-blink');
+  void btn.offsetWidth;
+  btn.classList.add('theme-btn-blink');
+  // Force cleanup via setTimeout (animationend is unreliable on mobile)
+  setTimeout(()=>{ btn.classList.remove('theme-btn-blink'); btn.blur(); }, 600);
+}
 
 function hideGamePanels(){
   ['cardWrap','choiceWrap','matchWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
