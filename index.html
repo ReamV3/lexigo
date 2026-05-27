@@ -1391,19 +1391,6 @@ function flipCard(){
 }
 
 // CHOICE — with mandatory countdown
-function toggleSpeed(){
-  choiceSpeedSecs=choiceSpeedSecs===3?5:3;
-  localStorage.setItem(LS_SPEED,choiceSpeedSecs);
-  updateSpeedBtn();
-}
-function updateSpeedBtn(){
-  document.getElementById('speedLabel').textContent=choiceSpeedSecs+'s';
-}
-function loadSpeed(){
-  const v=parseInt(localStorage.getItem(LS_SPEED)||'3');
-  choiceSpeedSecs=(v===5)?5:3;
-  updateSpeedBtn();
-}
 
 function renderChoice(){
   hideGamePanels();
@@ -1427,7 +1414,43 @@ function renderChoice(){
   const total=choiceSpeedSecs;
   const ringStart=Date.now();
 
-  // ── Phase 1: Word + ring around it ──
+  // ── No-timer mode: word is tappable, no countdown ──
+  if(total===0){
+    const cdWrap=document.createElement('div');
+    cdWrap.className='choice-countdown-wrap';
+    const wordRingWrap=document.createElement('div');
+    wordRingWrap.style.cssText='position:relative;display:inline-flex;align-items:center;justify-content:center;padding:20px 32px;cursor:pointer;user-select:none;-webkit-user-select:none;';
+    const wordEl=document.createElement('div');
+    wordEl.className='choice-word-big';
+    wordEl.textContent=w.w;
+    wordEl.style.position='relative'; wordEl.style.zIndex='1';
+    // Static pill border (no animation)
+    const staticBorder=document.createElement('div');
+    staticBorder.style.cssText='position:absolute;inset:-6px;border:2.5px dashed var(--accent2);border-radius:9999px;pointer-events:none;opacity:.55;';
+    // Tap hint label
+    const tapHint=document.createElement('div');
+    tapHint.textContent='tap to see options';
+    tapHint.style.cssText='font-family:DM Mono,monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:18px;text-align:center;';
+    wordRingWrap.appendChild(staticBorder);
+    wordRingWrap.appendChild(wordEl);
+    cdWrap.appendChild(wordRingWrap);
+    cdWrap.appendChild(tapHint);
+    wrap.appendChild(cdWrap);
+    setProg(choiceCarouselIdx+1, choiceCarousel.length);
+    // Tap handler — anywhere on the word block reveals answers
+    let revealed=false;
+    const revealFn=(e)=>{
+      if(revealed) return;
+      revealed=true;
+      if(e&&e.preventDefault) e.preventDefault();
+      showChoiceButtons(wrap, w, Date.now()); // ringStart = now, so no "fast" bonus possible
+    };
+    wordRingWrap.addEventListener('touchstart',revealFn,{passive:false});
+    wordRingWrap.addEventListener('click',revealFn);
+    return;
+  }
+
+  // ── Timer mode: word + animated ring ──
   const cdWrap=document.createElement('div');
   cdWrap.className='choice-countdown-wrap';
 
@@ -2094,9 +2117,33 @@ function renderType(){
 }
 
 // ── Toggles ──
-function toggleSpeed(e){ if(e)e.stopPropagation(); choiceSpeedSecs=choiceSpeedSecs===3?5:3; localStorage.setItem(LS_SPEED,choiceSpeedSecs); updateSpeedBtn(); }
-function updateSpeedBtn(){ const el=document.getElementById('speedLabel'); if(el) el.textContent=choiceSpeedSecs+'s'; }
-function loadSpeed(){ const v=parseInt(localStorage.getItem(LS_SPEED)||'3'); choiceSpeedSecs=(v===5)?5:3; updateSpeedBtn(); }
+function toggleSpeed(e){
+  if(e)e.stopPropagation();
+  // Cycle: 3 → 5 → 0 (infinity / no timer) → 3
+  if(choiceSpeedSecs===3) choiceSpeedSecs=5;
+  else if(choiceSpeedSecs===5) choiceSpeedSecs=0;
+  else choiceSpeedSecs=3;
+  localStorage.setItem(LS_SPEED,choiceSpeedSecs);
+  updateSpeedBtn();
+}
+function updateSpeedBtn(){
+  const el=document.getElementById('speedLabel');
+  if(!el) return;
+  if(choiceSpeedSecs===0){
+    el.textContent='∞';
+    el.style.fontSize='1.5rem';
+    el.style.lineHeight='1';
+  } else {
+    el.textContent=choiceSpeedSecs+'s';
+    el.style.fontSize='';
+    el.style.lineHeight='';
+  }
+}
+function loadSpeed(){
+  const v=parseInt(localStorage.getItem(LS_SPEED)||'3');
+  choiceSpeedSecs=(v===5||v===0)?v:3;
+  updateSpeedBtn();
+}
 function toggleTypeDir(e){ if(e)e.stopPropagation(); typeDir=typeDir==='ru-en'?'en-ru':'ru-en'; localStorage.setItem(LS_TYPEDIR,typeDir); updateTypeDirBtn(); }
 function scriptToCode(script){ return {cyrillic:'RU',hebrew:'HE',arabic:'AR',greek:'GR',japanese:'JA',cjk:'ZH',latin:'EN'}[script]||'?'; }
 function detectWordLang(){
@@ -2131,12 +2178,23 @@ function hideGamePanels(){
 function nextCard(){
   if(!deck.length) return;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
+  if(exercise==='choice'){
+    // Choice game uses its own carousel
+    choiceCarouselIdx++;
+    renderChoice();
+    return;
+  }
   advanceDeck(1);
   exercise==='flash'?renderFlash():renderChoice();
 }
 function prevCard(){
   if(!deck.length) return;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
+  if(exercise==='choice'){
+    choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1);
+    renderChoice();
+    return;
+  }
   advanceDeck(-1);
   exercise==='flash'?renderFlash():renderChoice();
 }
