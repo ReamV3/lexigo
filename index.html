@@ -42,28 +42,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .app-title{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--accent);}
 .app-sub{font-size:0.68rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:2px;}
 .theme-btn{width:42px;height:42px;border-radius:12px;border:1.5px solid var(--border);
-  background:var(--surface);color:var(--muted);cursor:pointer;transition:all .22s;
+  background:var(--surface);color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;}
-/* Defeat sticky :focus / :active on mobile — force default state */
-.theme-btn:focus,.theme-btn:active,.theme-btn:focus-visible{
-  border-color:var(--border) !important;
-  color:var(--muted) !important;
-  background:var(--surface) !important;
-  outline:none !important;
-  box-shadow:none !important;
-}
-/* But still allow blink animation to override these */
-.theme-btn.theme-btn-blink,
-.theme-btn.theme-btn-blink:focus,
-.theme-btn.theme-btn-blink:active{
-  animation:btnBlink .55s ease both !important;
-}
 @media (hover:hover){
+  .theme-btn{transition:all .22s;}
   .theme-btn:hover{border-color:var(--accent);color:var(--accent);}
   .theme-btn:hover svg{color:var(--accent);stroke:var(--accent);}
 }
-.theme-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;transition:all .22s;}
+.theme-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+@media (hover:hover){
+  .theme-btn svg{transition:all .22s;}
+}
 /* Moon icon fill */
 .theme-btn .moon-fill{fill:currentColor;stroke:none;}
 
@@ -697,7 +687,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <button class="bottom-btn" onclick="document.getElementById('importFileInput').click()">↑ import bank</button>
   <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)">
 </div>
-<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.0</div>
+<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.1</div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -2182,17 +2172,9 @@ function updateTypeDirBtn(){
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
 
 // ── Theme/Sound blink only ──
-function toggleTheme(){ document.body.classList.toggle('light'); localStorage.setItem(LS_THEME,document.body.classList.contains('light')?'light':'dark'); updateThemeBtn(); blinkBtn('themeBtn'); document.getElementById('themeBtn').blur(); }
-function toggleSound(){ soundEnabled=!soundEnabled; localStorage.setItem(LS_SOUND,soundEnabled?'on':'off'); updateSoundBtn(); blinkBtn('soundBtn'); document.getElementById('soundBtn').blur(); }
-function blinkBtn(id){
-  const btn=document.getElementById(id);
-  if(!btn) return;
-  btn.classList.remove('theme-btn-blink');
-  void btn.offsetWidth;
-  btn.classList.add('theme-btn-blink');
-  // Force cleanup via setTimeout (animationend is unreliable on mobile)
-  setTimeout(()=>{ btn.classList.remove('theme-btn-blink'); btn.blur(); }, 600);
-}
+function toggleTheme(){ document.body.classList.toggle('light'); localStorage.setItem(LS_THEME,document.body.classList.contains('light')?'light':'dark'); updateThemeBtn(); document.getElementById('themeBtn').blur(); }
+function toggleSound(){ soundEnabled=!soundEnabled; localStorage.setItem(LS_SOUND,soundEnabled?'on':'off'); updateSoundBtn(); document.getElementById('soundBtn').blur(); }
+function blinkBtn(id){} // no-op (removed blink animation)
 
 function hideGamePanels(){
   ['cardWrap','choiceWrap','matchWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
