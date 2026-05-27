@@ -35,7 +35,8 @@ a:focus,a:active,a:focus-visible{
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;
 }
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;
-  display:flex;flex-direction:column;align-items:center;padding:28px 16px 60px;transition:background .3s,color .3s;}
+  display:flex;flex-direction:column;align-items:center;padding:28px 16px 60px;transition:background .3s,color .3s;
+  opacity:0;}
 
 /* TOP BAR */
 .top-bar{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;}
@@ -601,7 +602,106 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   #fab:hover{background:var(--accent);box-shadow:0 3px 12px rgba(232,184,109,.35);}
   .add-confirm:hover, .m-ok:hover{background:var(--accent);opacity:1;}
 }
-</style>
+
+/* ── ONBOARDING ── */
+#onboardScreen{
+  display:none;position:fixed;inset:0;z-index:900;
+  background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 28px 60px;
+}
+#onboardScreen.open{display:flex;}
+.ob-glow{
+  position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(232,184,109,.14) 0%,transparent 70%);
+  pointer-events:none;
+}
+.ob-icon{
+  width:80px;height:80px;border-radius:28px;
+  background:linear-gradient(135deg,rgba(232,184,109,.2),rgba(124,158,255,.15));
+  border:1.5px solid rgba(232,184,109,.35);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:32px;
+  box-shadow:0 0 40px rgba(232,184,109,.12);
+  animation:obFloat 3.2s ease-in-out infinite;
+}
+.ob-icon svg{width:40px;height:40px;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+@keyframes obFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+.ob-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(1.55rem,5vw,2rem);font-weight:700;
+  color:var(--text);text-align:center;line-height:1.25;margin-bottom:14px;
+}
+.ob-subtitle{
+  font-family:'Inter',sans-serif;font-size:1rem;
+  color:var(--accent2);text-align:center;margin-bottom:16px;font-weight:500;
+}
+.ob-body{
+  font-family:'Inter',sans-serif;font-size:.9rem;
+  color:var(--muted);text-align:center;line-height:1.75;
+  max-width:300px;margin-bottom:48px;
+}
+.ob-cta{
+  padding:20px 38px;border-radius:50px;border:none;
+  background:var(--accent);color:#0e0e12;
+  font-family:'Inter',sans-serif;font-size:1.05rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;gap:10px;
+  box-shadow:0 0 0 0 rgba(232,184,109,.45),0 8px 28px rgba(232,184,109,.22);
+  animation:obPulse 2.2s ease-in-out infinite;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+  transition:transform .1s;
+}
+.ob-cta:active{transform:scale(.96);}
+.ob-cta-plus{
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(14,14,18,.14);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;line-height:1;font-weight:300;
+}
+@keyframes obPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(232,184,109,.45),0 8px 28px rgba(232,184,109,.22);}
+  50%{box-shadow:0 0 0 14px rgba(232,184,109,.0),0 8px 32px rgba(232,184,109,.32);}
+}
+/* ── ONBOARDING STEP 2 MODAL ── */
+#ob2Screen{
+  display:none;position:fixed;inset:0;z-index:950;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:24px;
+}
+#ob2Screen.open{display:flex;}
+.ob2-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:28px;padding:36px 28px 32px;
+  width:100%;max-width:400px;
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;overflow:hidden;
+  animation:ob2In .45s cubic-bezier(.34,1.3,.64,1) both;
+}
+@keyframes ob2In{from{opacity:0;transform:scale(.85) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.ob2-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.ob2-emoji{font-size:3rem;margin-bottom:16px;animation:ob2Bounce .6s cubic-bezier(.34,1.56,.64,1) .2s both;}
+@keyframes ob2Bounce{from{transform:scale(0) rotate(-15deg);}to{transform:scale(1) rotate(0deg);}}
+.ob2-title{
+  font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;
+  color:var(--accent);text-align:center;margin-bottom:14px;
+}
+.ob2-msg{
+  font-family:'Inter',sans-serif;font-size:.95rem;color:var(--muted);
+  text-align:center;line-height:1.7;margin-bottom:32px;
+}
+.ob2-cta{
+  width:100%;padding:18px 0;border-radius:50px;border:none;
+  background:var(--accent);color:#0e0e12;
+  font-family:'Inter',sans-serif;font-size:1.05rem;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 6px 24px rgba(232,184,109,.35);
+  animation:obPulse 2.2s ease-in-out infinite;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+  transition:transform .1s;
+}
+.ob2-cta:active{transform:scale(.97);}
+.ob2-cta-icon{font-size:1.1rem;}</style>
 </head>
 <body>
 
@@ -752,7 +852,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 <!-- ═══════════ WORDS SCREEN (Add page) ═══════════ -->
 <div id="wordsScreen">
   <div class="ws-header">
-    <button class="ws-back" onclick="closeWordsScreen()"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg></button>
+    <button class="ws-back" id="wordsBackBtn" onclick="closeWordsScreen()"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg></button>
     <div class="ws-title">Add Words</div>
   </div>
 
@@ -820,9 +920,38 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- ═══════════ ONBOARDING SCREEN ═══════════ -->
+<div id="onboardScreen">
+  <div class="ob-glow"></div>
+  <div class="ob-icon">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+  </div>
+  <div class="ob-title">Welcome to Vocabulary<br>Practice Trainer</div>
+  <div class="ob-subtitle">Practice vocabulary in any language you want.</div>
+  <div class="ob-body">Create your own word groups and train them through fun mini-games and exercises.</div>
+  <button class="ob-cta" id="obCtaBtn">
+    <span class="ob-cta-plus">＋</span>
+    Let's Add Some Words
+  </button>
+</div>
+
+<!-- ═══════════ ONBOARDING STEP 2 ═══════════ -->
+<div id="ob2Screen">
+  <div class="ob2-card" id="ob2Card">
+    <div class="ob2-confetti" id="ob2Confetti"></div>
+    <div class="ob2-emoji">🎉</div>
+    <div class="ob2-title">Great job!</div>
+    <div class="ob2-msg">Practice makes progress.<br>Your vocabulary journey starts now — small daily sessions create real results.</div>
+    <button class="ob2-cta" id="ob2CtaBtn">
+      <span class="ob2-cta-icon">🚀</span>
+      Let's Start
+    </button>
+  </div>
+</div>
+
 <script>
 // ── Storage ──
-const LS_BANK='vt2_bank', LS_SEL='vt2_sel', LS_THEME='vt2_theme', LS_SOUND='vt2_sound';
+const LS_BANK='vt2_bank', LS_SEL='vt2_sel', LS_THEME='vt2_theme', LS_SOUND='vt2_sound', LS_ONBOARD='vt2_onboarded';
 
 let soundEnabled=true;
 let audioCtx=null;
@@ -987,9 +1116,16 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<'
 function openWordsScreen(){
   renderAddClassChips();
   document.getElementById('addText').value='';
+  // Hide back button if user has no words yet (can't go back to empty main screen)
+  const backBtn=document.getElementById('wordsBackBtn');
+  if(backBtn) backBtn.style.visibility=bank.classes.length>0?'visible':'hidden';
   document.getElementById('wordsScreen').classList.add('open');
 }
-function closeWordsScreen(){ document.getElementById('wordsScreen').classList.remove('open'); }
+function closeWordsScreen(){
+  // Block closing if no words exist yet
+  if(bank.classes.length===0) return;
+  document.getElementById('wordsScreen').classList.remove('open');
+}
 
 // ── LIST SCREEN (manage existing words) ──
 function openListScreen(){
@@ -1218,6 +1354,13 @@ function confirmAdd(){
     document.getElementById('addText').value='';
     renderAddClassChips();
     updateClassPill(); buildDeck(); updateTypeDirBtn();
+    // Mark onboarding done on first word group creation
+    if(!localStorage.getItem(LS_ONBOARD)) localStorage.setItem(LS_ONBOARD,'1');
+    // Unhide back button now that words exist
+    const backBtn=document.getElementById('wordsBackBtn');
+    if(backBtn) backBtn.style.visibility='visible';
+    // Show step 2 celebration if this is the very first class
+    triggerOb2IfFirst();
     // Refresh list screen if it's open
     if(document.getElementById('listScreen').classList.contains('open')){
       renderWsTabs(); renderWsList();
@@ -2078,7 +2221,11 @@ function renderType(){
 
     // All letters revealed — auto-correct, wait for user to tap next
     if(revealedCount+1>=dots.length){
-      dotsRow.querySelectorAll('.type-dot').forEach(d=>d.classList.add('revealed'));
+      dotsRow.innerHTML='';
+      const ansEl=document.createElement('div');
+      ansEl.textContent=answer;
+      ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
+      dotsRow.appendChild(ansEl);
       inputEl.classList.add('correct');
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
       recordCorrect(w.w); renderWords();
@@ -2087,17 +2234,26 @@ function renderType(){
       fbEl.style.opacity='1';
       playDing();
       requestAnimationFrame(positionElements);
-      // Show a "next →" button instead of auto-advancing
+      // Add next button as absolutely positioned element, replacing input bar
+      inputBar.style.display='none';
       const nextBtn=document.createElement('button');
       nextBtn.textContent='next →';
-      nextBtn.style.cssText='margin-top:12px;padding:12px 28px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:.9rem;font-weight:600;cursor:pointer;pointer-events:auto;';
+      nextBtn.style.cssText='position:absolute;left:16px;right:16px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;';
       nextBtn.type='button';
       nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
       const goNext=()=>{ advanceDeck(1); renderType(); };
       nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
       nextBtn.addEventListener('click',goNext);
-      // Add below input bar — find it in wrap
-      inputBar.after(nextBtn);
+      wrap.appendChild(nextBtn);
+      // Position it via positionElements
+      const origPosition=positionElements;
+      positionElements=()=>{
+        origPosition();
+        const vv=window.visualViewport;
+        const vvTop=vv?vv.offsetTop:0;
+        const vvHeight=vv?vv.height:window.innerHeight;
+        nextBtn.style.top=(vvTop+vvHeight-70)+'px';
+      };
       requestAnimationFrame(positionElements);
     }
   };
@@ -2110,7 +2266,11 @@ function renderType(){
     fbEl.style.opacity='1';
     if(correct){
       inputEl.classList.add('correct');
-      dotsRow.querySelectorAll('.type-dot').forEach(d=>d.classList.add('revealed'));
+      dotsRow.innerHTML='';
+      const ansEl=document.createElement('div');
+      ansEl.textContent=answer;
+      ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
+      dotsRow.appendChild(ansEl);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
@@ -2371,6 +2531,106 @@ function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.
 
 // ── Boot ──
 load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); updateThemeBtn(); updateSoundBtn();
+// Reveal body now that state is loaded — prevents flash of main screen before onboarding
+document.body.style.opacity='1';
+
+// ── Onboarding ──
+// Trigger based ONLY on whether classes exist — no localStorage flag dependency.
+// This means: no classes → always onboard. Classes exist → skip.
+
+function showOnboarding(){
+  document.getElementById('onboardScreen').classList.add('open');
+}
+function hideOnboarding(cb){
+  const el=document.getElementById('onboardScreen');
+  el.style.transition='opacity .3s ease';
+  el.style.opacity='0';
+  setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
+}
+
+function showOb2(){
+  const el=document.getElementById('ob2Screen');
+  el.classList.add('open');
+  spawnOb2Confetti();
+}
+function hideOb2(cb){
+  const el=document.getElementById('ob2Screen');
+  el.style.transition='opacity .3s ease';
+  el.style.opacity='0';
+  setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
+}
+
+// Called from confirmAdd when first class is created
+function triggerOb2IfFirst(){
+  // Only show if this is the very first class ever
+  if(bank.classes.length===1){
+    // Close wordsScreen silently (bypass the guard), then show step 2
+    document.getElementById('wordsScreen').classList.remove('open');
+    setTimeout(showOb2, 200);
+  }
+}
+
+function spawnOb2Confetti(){
+  const container=document.getElementById('ob2Confetti');
+  if(!container) return;
+  const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc','#f87171','#34d399'];
+  const N=40;
+  for(let i=0;i<N;i++){
+    const el=document.createElement('div');
+    const size=5+Math.random()*7;
+    const x=Math.random()*100;
+    const delay=Math.random()*0.6;
+    const dur=1.2+Math.random()*0.8;
+    const col=COLS[Math.floor(Math.random()*COLS.length)];
+    const rot=Math.random()*360;
+    el.style.cssText=`position:absolute;left:${x}%;top:-10px;
+      width:${size}px;height:${size}px;border-radius:${Math.random()>0.5?'50%':'2px'};
+      background:${col};opacity:0;
+      animation:confettiFall ${dur}s ease-in ${delay}s forwards;
+      transform:rotate(${rot}deg);`;
+    container.appendChild(el);
+  }
+  // Inject keyframe if not already present
+  if(!document.getElementById('confettiStyle')){
+    const s=document.createElement('style');
+    s.id='confettiStyle';
+    s.textContent=`@keyframes confettiFall{
+      0%{opacity:1;transform:translateY(0) rotate(0deg);}
+      100%{opacity:0;transform:translateY(320px) rotate(720deg);}
+    }`;
+    document.head.appendChild(s);
+  }
+}
+
+// Boot decision: no classes → onboard; classes exist → normal
+if(bank.classes.length===0){
+  showOnboarding();
+}
+
+// Step 1 CTA — go to add words
+const obBtn=document.getElementById('obCtaBtn');
+let obHandled=false;
+obBtn.addEventListener('touchstart',(e)=>{
+  e.preventDefault(); obHandled=true;
+  hideOnboarding(openWordsScreen);
+},{passive:false});
+obBtn.addEventListener('click',()=>{
+  if(obHandled){obHandled=false;return;}
+  hideOnboarding(openWordsScreen);
+});
+
+// Step 2 CTA — go to main dashboard
+const ob2Btn=document.getElementById('ob2CtaBtn');
+let ob2Handled=false;
+ob2Btn.addEventListener('touchstart',(e)=>{
+  e.preventDefault(); ob2Handled=true;
+  hideOb2();
+},{passive:false});
+ob2Btn.addEventListener('click',()=>{
+  if(ob2Handled){ob2Handled=false;return;}
+  hideOb2();
+});
+
 
 // Sound + Theme buttons — touchstart+preventDefault kills sticky :active/:focus on mobile
 [['soundBtn', ()=>toggleSound()], ['themeBtn', ()=>toggleTheme()]].forEach(([id, action])=>{
