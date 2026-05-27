@@ -486,58 +486,63 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
 
 /* TYPE GAME */
-/* typeWrap fills available space and centers word block vertically above input */
-#typeWrap{display:none;width:100%;max-width:520px;flex-direction:column;align-items:center;}
-#typeWrap.open{display:flex;}
-.type-wrap{
-  width:100%;max-width:520px;
-  display:flex;flex-direction:column;align-items:center;gap:14px;
-  /* Push input to bottom, center word block in remaining space */
+/* typeWrap — full fixed overlay that responds to keyboard */
+#typeWrap{
+  display:none;
+  position:fixed;inset:0;
+  z-index:210;
+  background:var(--bg);
+  flex-direction:column;
+  align-items:center;
+  padding:0 16px;
 }
-.type-cls{font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;align-self:flex-start;}
-/* Word + hint button on same line */
+#typeWrap.topen{display:flex;}
+/* The word+dots block: absolutely centered in the space above the input */
+.type-word-block{
+  position:absolute;
+  left:16px;right:16px;
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+  pointer-events:none;
+}
+.type-cls{font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
 .type-word-row{
-  width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-  /* This area is vertically centered via flex spacers */
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  pointer-events:auto;
 }
 .type-prompt{
   font-family:'Inter',sans-serif;font-weight:700;
-  font-size:clamp(2rem,8vw,3.2rem);
+  font-size:clamp(1.8rem,7vw,3rem);
   text-align:center;color:var(--text);line-height:1.15;
   letter-spacing:-.02em;
 }
-/* Hint button — compact, inline with word */
 .type-hint-btn{
   padding:7px 12px;border-radius:50px;flex-shrink:0;
-  border:1px solid var(--border);background:transparent;
+  border:1px solid var(--border);background:var(--surface);
   color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem;
-  cursor:pointer;transition:all .18s;
-  align-self:center;
+  cursor:pointer;transition:all .18s;pointer-events:auto;
 }
-.type-hint-btn:hover{border-color:var(--accent);color:var(--accent);}
-.type-hint-btn:active{background:rgba(232,184,109,.1);}
+.type-hint-btn:active{background:rgba(232,184,109,.1);border-color:var(--accent);color:var(--accent);}
 .type-hint-btn:disabled{opacity:.35;cursor:default;}
-/* Dots hint row — under the word */
 .type-dots{
   display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;
-  min-height:14px;
+  min-height:14px;pointer-events:none;
 }
 .type-dot{
-  width:10px;height:10px;border-radius:50%;
-  background:var(--border);
-  transition:background .2s, transform .2s;
-  flex-shrink:0;
+  width:10px;height:10px;border-radius:50%;background:var(--border);
+  transition:background .25s, transform .25s;flex-shrink:0;
 }
 .type-dot.revealed{background:var(--accent2);transform:scale(1.2);}
-.type-dot.space{background:transparent;width:10px;}
-/* Spacer pushes input toward bottom */
-.type-spacer{flex:1;min-height:12px;}
-/* Input row */
-.type-input-row{width:100%;display:flex;gap:10px;align-items:stretch;}
+.type-dot.space{background:transparent;width:14px;}
+/* Input bar — pinned to bottom of visual viewport */
+.type-input-bar{
+  position:absolute;
+  left:16px;right:16px;
+  display:flex;gap:10px;align-items:stretch;
+}
 .type-input{
   flex:1;padding:16px 18px;border-radius:14px;
   border:1.5px solid var(--border);background:var(--surface);
-  color:var(--text);font-family:'Inter',sans-serif;font-size:1.2rem;font-weight:500;
+  color:var(--text);font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:500;
   outline:none;transition:border-color .2s;
   -webkit-appearance:none;appearance:none;
 }
@@ -551,6 +556,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   cursor:pointer;transition:opacity .18s;flex-shrink:0;
 }
 .type-submit:active{opacity:.8;}
+/* Type game header bar */
+.type-header{
+  width:100%;max-width:520px;
+  display:flex;align-items:center;gap:12px;
+  position:absolute;top:24px;left:16px;right:16px;
+}
+.type-prog-bar{
+  flex:1;height:3px;background:var(--border);border-radius:3px;overflow:hidden;
+}
+.type-prog-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease;}
 
 
 
@@ -717,7 +732,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <button class="wheel-check-btn" id="wheelCheckBtn" onclick="wheelCheck()">CHECK IT</button>
   </div>
 
-  <div id="typeWrap" style="display:none;width:100%;max-width:520px;flex:1;flex-direction:column;align-items:center;"></div>
+  <div id="typeWrap"></div>
 
   <div class="empty-state" id="emptyMsg" style="display:none">
     <strong>No words to practice</strong><br>
@@ -828,6 +843,7 @@ let typeDir='ru-en'; // 'ru-en' or 'en-ru'
 const LS_TYPEDIR='vt2_typedir';
 let typeHintsGiven=0;
 let typeAnswer='';
+let typeVVListener=null;
 // streak / carousel
 let choiceStreak=0;
 let choiceCarousel=[]; // infinite ordered list
@@ -1320,8 +1336,15 @@ function exitGame(){
   if(wLeft){ wLeft.destroy(); wLeft=null; }
   if(wRight){ wRight.destroy(); wRight=null; }
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
+  if(typeVVListener){
+    window.visualViewport?.removeEventListener('resize', typeVVListener);
+    window.visualViewport?.removeEventListener('scroll', typeVVListener);
+    typeVVListener=null;
+  }
   choiceStreak=0;
-  ['cardWrap','choiceWrap','matchWrap','typeWrap'].forEach(id=>document.getElementById(id).style.display='none');
+  const tw=document.getElementById('typeWrap');
+  tw.style.display='none'; tw.className=''; tw.innerHTML='';
+  ['cardWrap','choiceWrap','matchWrap'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('emptyMsg').style.display='none';
   document.getElementById('navRow').style.display='none';
 }
@@ -1882,10 +1905,14 @@ function matchClick(){} // legacy stub
 // TYPE IT GAME
 function renderType(){
   hideGamePanels();
-  const wrap=document.getElementById('typeWrap');
-  wrap.innerHTML=''; wrap.style.display='flex';
   typeHintsGiven=0;
   document.getElementById('feedback').textContent='';
+
+  const wrap=document.getElementById('typeWrap');
+  wrap.innerHTML='';
+  wrap.style.display='flex';
+  wrap.className='topen';
+
   if(deck.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
   const w=deck[idx];
   const prompt = typeDir==='ru-en' ? w.w : w.t;
@@ -1893,44 +1920,120 @@ function renderType(){
   typeAnswer=answer;
   const answerLetters=[...answer];
 
-  const container=document.createElement('div');
-  container.className='type-wrap';
-  container.style.flex='1';
-
-  // 1. Class label
+  // ── Header: back button + class + progress ──
+  const hdr=document.createElement('div');
+  hdr.className='type-header';
+  const backBtn=document.createElement('button');
+  backBtn.className='g-back';
+  backBtn.style.flexShrink='0';
+  backBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>';
+  backBtn.addEventListener('click', exitGame);
   const clsEl=document.createElement('div');
   clsEl.className='type-cls';
   clsEl.textContent='Class '+w.c;
+  const progBar=document.createElement('div');
+  progBar.className='type-prog-bar';
+  const progFill=document.createElement('div');
+  progFill.className='type-prog-fill';
+  progFill.style.width=(deck.length>0?(idx/deck.length*100):0)+'%';
+  progBar.appendChild(progFill);
+  hdr.appendChild(backBtn);
+  hdr.appendChild(clsEl);
+  hdr.appendChild(progBar);
+  wrap.appendChild(hdr);
 
-  // Top spacer
-  const spacerTop=document.createElement('div');
-  spacerTop.className='type-spacer';
+  // ── Word block (positioned absolutely, centered between header and input) ──
+  const wordBlock=document.createElement('div');
+  wordBlock.className='type-word-block';
+  wordBlock.id='typeWordBlock';
 
-  // 2. Word + hint button on same row
   const wordRow=document.createElement('div');
   wordRow.className='type-word-row';
   const promptEl=document.createElement('div');
   promptEl.className='type-prompt';
   promptEl.textContent=prompt;
-
-  // 3. Dots under word
-  const dotsRow=document.createElement('div');
-  dotsRow.className='type-dots';
-  answerLetters.forEach((ch)=>{
-    const dot=document.createElement('div');
-    dot.className=ch===' '?'type-dot space':'type-dot';
-    dot.dataset.ch=ch;
-    dotsRow.appendChild(dot);
-  });
-
-  // Hint button inline next to word
   const hintBtn=document.createElement('button');
   hintBtn.className='type-hint-btn';
   hintBtn.textContent='💡';
   hintBtn.type='button';
   hintBtn.title='Hint';
   hintBtn.setAttribute('tabindex','-1');
+  wordRow.appendChild(promptEl);
+  wordRow.appendChild(hintBtn);
 
+  const dotsRow=document.createElement('div');
+  dotsRow.className='type-dots';
+  answerLetters.forEach(ch=>{
+    const dot=document.createElement('div');
+    dot.className=ch===' '?'type-dot space':'type-dot';
+    dotsRow.appendChild(dot);
+  });
+
+  wordBlock.appendChild(wordRow);
+  wordBlock.appendChild(dotsRow);
+  wrap.appendChild(wordBlock);
+
+  // ── Input bar (positioned absolutely, sits just above keyboard) ──
+  const inputBar=document.createElement('div');
+  inputBar.className='type-input-bar';
+  inputBar.id='typeInputBar';
+  const inputEl=document.createElement('input');
+  inputEl.type='text';
+  inputEl.className='type-input';
+  inputEl.placeholder=typeDir==='ru-en'?'type English...':'type Russian...';
+  inputEl.autocomplete='off'; inputEl.autocorrect='off';
+  inputEl.autocapitalize='off'; inputEl.spellcheck=false;
+  const submitBtn=document.createElement('button');
+  submitBtn.className='type-submit';
+  submitBtn.textContent='→';
+  submitBtn.type='button';
+  inputBar.appendChild(inputEl);
+  inputBar.appendChild(submitBtn);
+  wrap.appendChild(inputBar);
+
+  // ── Feedback label ──
+  const fbEl=document.createElement('div');
+  fbEl.id='typeFeedback';
+  fbEl.style.cssText='position:absolute;left:16px;right:16px;text-align:center;font-size:1rem;font-weight:600;letter-spacing:.04em;transition:opacity .2s;opacity:0;';
+  wrap.appendChild(fbEl);
+
+  // ── Position function: called on load and on keyboard open/close ──
+  function positionElements(){
+    const vv = window.visualViewport;
+    const vvTop = vv ? vv.offsetTop : 0;
+    const vvHeight = vv ? vv.height : window.innerHeight;
+    const inputBarH = 60; // approx height of input bar
+    const gap = 12;
+    const hdrBottom = 80; // header height + padding
+
+    // Input bar sits at bottom of visible viewport
+    const inputBottom = vvTop + vvHeight - gap;
+    inputBar.style.top = (inputBottom - inputBarH) + 'px';
+
+    // Feedback just above input
+    fbEl.style.top = (inputBottom - inputBarH - 32) + 'px';
+
+    // Word block centered in the space between header and input bar
+    const availTop = hdrBottom;
+    const availBot = inputBottom - inputBarH - 40;
+    const availMid = availTop + (availBot - availTop) / 2;
+    const wordH = wordBlock.offsetHeight || 80;
+    const wordTop = Math.max(availTop, availMid - wordH / 2);
+    wordBlock.style.top = wordTop + 'px';
+  }
+
+  // Position after DOM renders
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(positionElements);
+  });
+
+  // Listen to visual viewport changes (keyboard open/close)
+  if(typeVVListener) window.visualViewport?.removeEventListener('resize', typeVVListener);
+  typeVVListener = positionElements;
+  window.visualViewport?.addEventListener('resize', typeVVListener);
+  window.visualViewport?.addEventListener('scroll', typeVVListener);
+
+  // ── Hint logic ──
   const doHint=()=>{
     const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
     const revealedCount=dots.filter(d=>d.classList.contains('revealed')).length;
@@ -1945,50 +2048,35 @@ function renderType(){
     }).join('');
     inputEl.value=filled;
     try{ inputEl.setSelectionRange(filled.length,filled.length); }catch(e){}
-    // Do NOT call focus — keeps keyboard exactly where it is
+    // Reposition in case word block size changed
+    requestAnimationFrame(positionElements);
   };
 
-  wordRow.appendChild(promptEl);
-  wordRow.appendChild(hintBtn);
-
-  // Bottom spacer
-  const spacerBot=document.createElement('div');
-  spacerBot.className='type-spacer';
-
-  // 4. Input + submit
-  const inputRow=document.createElement('div');
-  inputRow.className='type-input-row';
-  const inputEl=document.createElement('input');
-  inputEl.type='text';
-  inputEl.className='type-input';
-  inputEl.placeholder=typeDir==='ru-en'?'type English...':'type Russian...';
-  inputEl.autocomplete='off'; inputEl.autocorrect='off';
-  inputEl.autocapitalize='off'; inputEl.spellcheck=false;
-  const submitBtn=document.createElement('button');
-  submitBtn.className='type-submit';
-  submitBtn.textContent='check';
-  submitBtn.type='button';
-
+  // ── Submit logic ──
   const doSubmit=()=>{
     const val=inputEl.value.trim();
     if(!val) return;
     const correct=val.toLowerCase()===answer.toLowerCase();
+    fbEl.style.opacity='1';
     if(correct){
       inputEl.classList.add('correct');
       dotsRow.querySelectorAll('.type-dot').forEach(d=>d.classList.add('revealed'));
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
-      setFB('Correct!'+hintNote,true);
+      fbEl.textContent='✓ Correct!'+hintNote;
+      fbEl.style.color='var(--green)';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      setTimeout(()=>{ advanceDeck(1); renderType(); },900);
+      setTimeout(()=>{ advanceDeck(1); renderType(); }, 900);
     } else {
       inputEl.classList.add('wrong');
       trigShake(inputEl);
       playWrong();
-      setFB('Try again',false);
-      setTimeout(()=>{ inputEl.classList.remove('wrong'); inputEl.select(); },500);
+      fbEl.textContent='✗ Try again';
+      fbEl.style.color='var(--red)';
+      setTimeout(()=>{ inputEl.classList.remove('wrong'); fbEl.style.opacity='0'; inputEl.select(); }, 700);
     }
+    requestAnimationFrame(positionElements);
   };
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
@@ -1997,16 +2085,6 @@ function renderType(){
   hintBtn.addEventListener('click',doHint);
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
-  inputRow.appendChild(inputEl);
-  inputRow.appendChild(submitBtn);
-
-  container.appendChild(clsEl);
-  container.appendChild(spacerTop);
-  container.appendChild(wordRow);
-  container.appendChild(dotsRow);
-  container.appendChild(spacerBot);
-  container.appendChild(inputRow);
-  wrap.appendChild(container);
   setProg(idx+1,deck.length);
   requestAnimationFrame(()=>inputEl.focus());
 }
@@ -2025,7 +2103,9 @@ function toggleSound(){ soundEnabled=!soundEnabled; localStorage.setItem(LS_SOUN
 function blinkBtn(id){ const btn=document.getElementById(id); if(!btn)return; btn.classList.remove('theme-btn-blink'); void btn.offsetWidth; btn.classList.add('theme-btn-blink'); btn.addEventListener('animationend',()=>btn.classList.remove('theme-btn-blink'),{once:true}); }
 
 function hideGamePanels(){
-  ['cardWrap','choiceWrap','matchWrap','typeWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
+  ['cardWrap','choiceWrap','matchWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
+  const tw=document.getElementById('typeWrap');
+  if(tw){ tw.style.display='none'; tw.className=''; }
 }
 function nextCard(){
   if(!deck.length) return;
