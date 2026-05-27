@@ -107,7 +107,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* GAME AREA */
 #gameArea{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;
-  flex-direction:column;align-items:center;padding:24px 16px 220px;overflow-y:auto;}
+  flex-direction:column;align-items:center;padding:24px 16px 48px;overflow-y:auto;}
 #gameArea.open{display:flex;}
 .g-header{width:100%;max-width:520px;display:flex;align-items:center;gap:12px;margin-bottom:20px;}
 .g-back{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
@@ -433,24 +433,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
 /* GAME CARD inline toggle (speed, direction) */
-.game-card-row{display:flex;align-items:center;gap:0;width:100%;max-width:520px;margin-bottom:10px;}
+.game-card-row{display:flex;align-items:stretch;gap:0;width:100%;max-width:520px;margin-bottom:10px;}
 .game-card-row .game-card{flex:1;margin-bottom:0;border-radius:var(--radius) 0 0 var(--radius);border-right:none;}
 .game-card-row .game-card:only-child{border-radius:var(--radius);border-right:1px solid var(--border);}
 .card-inline-toggle{
-  width:auto;min-width:72px;padding:0 14px;height:100%;min-height:76px;
+  width:72px;min-width:72px;
   border-radius:0 var(--radius) var(--radius) 0;
   border:1px solid var(--border);border-left:1px solid rgba(124,158,255,.25);
   background:rgba(124,158,255,.08);
-  color:var(--accent2);font-family:'DM Mono',monospace;font-size:.72rem;font-weight:700;
-  cursor:pointer;transition:background .18s, border-color .18s;
+  cursor:pointer;transition:background .18s;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  white-space:nowrap;flex-shrink:0;letter-spacing:.03em;
+  white-space:nowrap;flex-shrink:0;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;
   user-select:none;-webkit-user-select:none;
 }
 .card-inline-toggle:active{background:rgba(124,158,255,.2);}
-.card-inline-toggle .tog-hint{font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;}
-.card-inline-toggle .tog-val{font-size:.82rem;font-weight:700;color:var(--accent2);}
+.card-inline-toggle .tog-hint{font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace;}
+.card-inline-toggle .tog-val{font-size:.82rem;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace;letter-spacing:.03em;}
 
 @keyframes btnBlink{
   0%{border-color:var(--accent);color:var(--accent);}
@@ -487,15 +486,38 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
 
 /* TYPE GAME */
-.type-wrap{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+/* typeWrap fills available space and centers word block vertically above input */
+#typeWrap{display:none;width:100%;max-width:520px;flex-direction:column;align-items:center;}
+#typeWrap.open{display:flex;}
+.type-wrap{
+  width:100%;max-width:520px;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  /* Push input to bottom, center word block in remaining space */
+}
 .type-cls{font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;align-self:flex-start;}
+/* Word + hint button on same line */
+.type-word-row{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+  /* This area is vertically centered via flex spacers */
+}
 .type-prompt{
   font-family:'Inter',sans-serif;font-weight:700;
-  font-size:clamp(2.2rem,8vw,3.4rem);
+  font-size:clamp(2rem,8vw,3.2rem);
   text-align:center;color:var(--text);line-height:1.15;
-  letter-spacing:-.02em;width:100%;
+  letter-spacing:-.02em;
 }
-/* Dots hint row — sits right under the word */
+/* Hint button — compact, inline with word */
+.type-hint-btn{
+  padding:7px 12px;border-radius:50px;flex-shrink:0;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem;
+  cursor:pointer;transition:all .18s;
+  align-self:center;
+}
+.type-hint-btn:hover{border-color:var(--accent);color:var(--accent);}
+.type-hint-btn:active{background:rgba(232,184,109,.1);}
+.type-hint-btn:disabled{opacity:.35;cursor:default;}
+/* Dots hint row — under the word */
 .type-dots{
   display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;
   min-height:14px;
@@ -507,7 +529,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   flex-shrink:0;
 }
 .type-dot.revealed{background:var(--accent2);transform:scale(1.2);}
-.type-dot.space{background:transparent;width:6px;}
+.type-dot.space{background:transparent;width:10px;}
+/* Spacer pushes input toward bottom */
+.type-spacer{flex:1;min-height:12px;}
 /* Input row */
 .type-input-row{width:100%;display:flex;gap:10px;align-items:stretch;}
 .type-input{
@@ -527,15 +551,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   cursor:pointer;transition:opacity .18s;flex-shrink:0;
 }
 .type-submit:active{opacity:.8;}
-/* Hint button — text style, below dots */
-.type-hint-btn{
-  padding:8px 16px;border-radius:50px;
-  border:1px solid var(--border);background:transparent;
-  color:var(--muted);font-family:'DM Mono',monospace;font-size:.75rem;
-  cursor:pointer;transition:all .18s;align-self:center;
-}
-.type-hint-btn:hover{border-color:var(--accent);color:var(--accent);}
-.type-hint-btn:disabled{opacity:.35;cursor:default;}
 
 
 
@@ -702,7 +717,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <button class="wheel-check-btn" id="wheelCheckBtn" onclick="wheelCheck()">CHECK IT</button>
   </div>
 
-  <div id="typeWrap" style="display:none;width:100%;max-width:520px;"></div>
+  <div id="typeWrap" style="display:none;width:100%;max-width:520px;flex:1;flex-direction:column;align-items:center;"></div>
 
   <div class="empty-state" id="emptyMsg" style="display:none">
     <strong>No words to practice</strong><br>
@@ -1868,7 +1883,7 @@ function matchClick(){} // legacy stub
 function renderType(){
   hideGamePanels();
   const wrap=document.getElementById('typeWrap');
-  wrap.innerHTML=''; wrap.style.display='block';
+  wrap.innerHTML=''; wrap.style.display='flex';
   typeHintsGiven=0;
   document.getElementById('feedback').textContent='';
   if(deck.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
@@ -1880,79 +1895,79 @@ function renderType(){
 
   const container=document.createElement('div');
   container.className='type-wrap';
+  container.style.flex='1';
 
-  // 1. Class label at very top
+  // 1. Class label
   const clsEl=document.createElement('div');
   clsEl.className='type-cls';
   clsEl.textContent='Class '+w.c;
 
-  // 2. Big word
+  // Top spacer
+  const spacerTop=document.createElement('div');
+  spacerTop.className='type-spacer';
+
+  // 2. Word + hint button on same row
+  const wordRow=document.createElement('div');
+  wordRow.className='type-word-row';
   const promptEl=document.createElement('div');
   promptEl.className='type-prompt';
   promptEl.textContent=prompt;
 
-  // 3. Dots under word (one per letter, spaces shown as gaps)
+  // 3. Dots under word
   const dotsRow=document.createElement('div');
   dotsRow.className='type-dots';
   answerLetters.forEach((ch)=>{
     const dot=document.createElement('div');
-    if(ch===' '){ dot.className='type-dot space'; }
-    else { dot.className='type-dot'; }
+    dot.className=ch===' '?'type-dot space':'type-dot';
     dot.dataset.ch=ch;
     dotsRow.appendChild(dot);
   });
 
-  // 4. Input + submit on same row
+  // Hint button inline next to word
+  const hintBtn=document.createElement('button');
+  hintBtn.className='type-hint-btn';
+  hintBtn.textContent='💡';
+  hintBtn.type='button';
+  hintBtn.title='Hint';
+  hintBtn.setAttribute('tabindex','-1');
+
+  const doHint=()=>{
+    const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
+    const revealedCount=dots.filter(d=>d.classList.contains('revealed')).length;
+    if(revealedCount>=dots.length) return;
+    dots[revealedCount].classList.add('revealed');
+    typeHintsGiven++;
+    let nonSpaceIdx=0;
+    const filled=answerLetters.map(ch=>{
+      if(ch===' ') return ' ';
+      const i=nonSpaceIdx++;
+      return i<revealedCount+1 ? ch : '';
+    }).join('');
+    inputEl.value=filled;
+    try{ inputEl.setSelectionRange(filled.length,filled.length); }catch(e){}
+    // Do NOT call focus — keeps keyboard exactly where it is
+  };
+
+  wordRow.appendChild(promptEl);
+  wordRow.appendChild(hintBtn);
+
+  // Bottom spacer
+  const spacerBot=document.createElement('div');
+  spacerBot.className='type-spacer';
+
+  // 4. Input + submit
   const inputRow=document.createElement('div');
   inputRow.className='type-input-row';
   const inputEl=document.createElement('input');
   inputEl.type='text';
   inputEl.className='type-input';
-  inputEl.placeholder=typeDir==='ru-en'?'type English…':'type Russian…';
+  inputEl.placeholder=typeDir==='ru-en'?'type English...':'type Russian...';
   inputEl.autocomplete='off'; inputEl.autocorrect='off';
   inputEl.autocapitalize='off'; inputEl.spellcheck=false;
-  // Don't set tabindex=-1 — let it be naturally focusable
   const submitBtn=document.createElement('button');
   submitBtn.className='type-submit';
-  submitBtn.textContent='→';
+  submitBtn.textContent='check';
   submitBtn.type='button';
-
-  // 5. Hint button below input
-  const hintBtn=document.createElement('button');
-  hintBtn.className='type-hint-btn';
-  hintBtn.textContent='💡 hint';
-  hintBtn.type='button';
-  hintBtn.setAttribute('tabindex','-1');
-
-  const doHint=()=>{
-    const dots=dotsRow.querySelectorAll('.type-dot:not(.space)');
-    let revealedCount=0;
-    dots.forEach(d=>{ if(d.classList.contains('revealed')) revealedCount++; });
-    // Reveal next letter
-    let nonSpaceIdx=0;
-    for(let i=0;i<answerLetters.length;i++){
-      if(answerLetters[i]===' ') continue;
-      if(nonSpaceIdx===revealedCount){
-        // Reveal this dot
-        const dot=dots[nonSpaceIdx];
-        if(dot) dot.classList.add('revealed');
-        typeHintsGiven++;
-        // Fill input up to and including revealed letters
-        const filled=answerLetters.map((ch,j)=>{
-          if(ch===' ') return ' ';
-          // Count non-space index for j
-          let ns=0;
-          for(let k=0;k<j;k++) if(answerLetters[k]!==' ') ns++;
-          if(ns<=revealedCount) return ch;
-          return '';
-        }).join('');
-        inputEl.value=filled;
-        inputEl.focus();
-        break;
-      }
-      nonSpaceIdx++;
-    }
-  };
 
   const doSubmit=()=>{
     const val=inputEl.value.trim();
@@ -1960,41 +1975,39 @@ function renderType(){
     const correct=val.toLowerCase()===answer.toLowerCase();
     if(correct){
       inputEl.classList.add('correct');
-      // Reveal all dots green
       dotsRow.querySelectorAll('.type-dot').forEach(d=>d.classList.add('revealed'));
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
-      setFB('✓ Correct!'+hintNote,true);
+      setFB('Correct!'+hintNote,true);
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
       setTimeout(()=>{ advanceDeck(1); renderType(); },900);
     } else {
       inputEl.classList.add('wrong');
       trigShake(inputEl);
       playWrong();
-      setFB('✗ Try again',false);
+      setFB('Try again',false);
       setTimeout(()=>{ inputEl.classList.remove('wrong'); inputEl.select(); },500);
     }
   };
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
   hintBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doHint();},{passive:false});
   hintBtn.addEventListener('click',doHint);
+  inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
   inputRow.appendChild(inputEl);
   inputRow.appendChild(submitBtn);
 
   container.appendChild(clsEl);
-  container.appendChild(promptEl);
+  container.appendChild(spacerTop);
+  container.appendChild(wordRow);
   container.appendChild(dotsRow);
+  container.appendChild(spacerBot);
   container.appendChild(inputRow);
-  container.appendChild(hintBtn);
   wrap.appendChild(container);
   setProg(idx+1,deck.length);
-
-  // Focus input immediately — keyboard stays up between words
   requestAnimationFrame(()=>inputEl.focus());
 }
 
