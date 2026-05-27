@@ -212,7 +212,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* MATCH — card pairs game */
 .match-wrap{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:0;}
 .match-score{text-align:center;font-size:.78rem;color:var(--muted);letter-spacing:.08em;margin-bottom:10px;}
-.match-board{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.match-board{width:100%;display:flex;gap:8px;margin-bottom:16px;}
+.match-col-cards{display:flex;flex-direction:column;gap:6px;flex:1;}
 .match-col-lbl{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
   text-align:center;margin-bottom:4px;}
 .match-col-lbls{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:8px;margin-bottom:2px;}
@@ -907,6 +908,7 @@ let matchSel=null, matchDone=new Set(), matchPairs=[];
 let mcPairs=[], mcPool=[], mcSolved=0, mcTotal=0, mcStreak=0;
 let mcSelLeft=null, mcSelRight=null, mcSelLeftKey=null, mcSelRightKey=null;
 let mcNextFillSide='left';
+const MC_ROWS=6;
 let choiceCountdownTimer=null;
 let choiceSpeedSecs=3;
 const LS_SPEED='vt2_speed';
@@ -1708,8 +1710,17 @@ function renderMatch(){
 function renderMatchBoard(){
   const board=document.getElementById('matchBoard');
   board.innerHTML='';
-  // Shuffle display order for each side independently, keeping blanks at bottom
+
+  // Two strict columns — left and right always same count
+  const leftCol=document.createElement('div');
+  leftCol.className='match-col-cards';
+  const rightCol=document.createElement('div');
+  rightCol.className='match-col-cards';
+  board.appendChild(leftCol);
+  board.appendChild(rightCol);
+
   const active=mcPairs.filter(p=>!p.matched);
+  // Shuffle each side independently
   const leftOrder=shuffle([...active]);
   const rightOrder=shuffle([...active]);
 
@@ -1726,8 +1737,9 @@ function renderMatchBoard(){
       attachMCardHandlers(el,'left',pair.w);
     }
     pair.leftEl=el;
-    board.appendChild(el);
+    leftCol.appendChild(el);
   });
+
   rightOrder.forEach(pair=>{
     const el=document.createElement('div');
     if(pair.rightBlank){
@@ -1741,7 +1753,7 @@ function renderMatchBoard(){
       attachMCardHandlers(el,'right',pair.w);
     }
     pair.rightEl=el;
-    board.appendChild(el);
+    rightCol.appendChild(el);
   });
 }
 
@@ -2042,26 +2054,24 @@ function renderType(){
       fbEl.style.color='var(--green)';
       fbEl.style.opacity='1';
       playDing();
-      requestAnimationFrame(positionElements);
-      // Replace inputBar with nextBtn at the exact same position
-      inputBar.style.display='none';
-      const nextBtn=document.createElement('button');
-      nextBtn.textContent='next →';
-      nextBtn.style.cssText='position:absolute;left:16px;right:16px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;';
-      nextBtn.type='button';
-      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-      const goNext=()=>{ advanceDeck(1); renderType(); };
-      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-      nextBtn.addEventListener('click',goNext);
-      // Insert right after inputBar so positionElements handles it via same top value
-      wrap.appendChild(nextBtn);
-      // Copy inputBar's current top to nextBtn and keep in sync
-      const syncNextBtn=()=>{
-        if(inputBar.style.top) nextBtn.style.top=inputBar.style.top;
-      };
-      const origPosition=positionElements;
-      positionElements=()=>{ origPosition(); syncNextBtn(); };
-      requestAnimationFrame(positionElements);
+      // Snapshot inputBar position BEFORE hiding it
+      requestAnimationFrame(()=>{
+        positionElements(); // ensure inputBar.style.top is fresh
+        const capturedTop=inputBar.style.top||'';
+        inputBar.style.display='none';
+        const nextBtn=document.createElement('button');
+        nextBtn.textContent='next →';
+        nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
+        nextBtn.type='button';
+        nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+        const goNext=()=>{ advanceDeck(1); renderType(); };
+        nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+        nextBtn.addEventListener('click',goNext);
+        wrap.appendChild(nextBtn);
+        // Keep in sync if viewport resizes (keyboard changes)
+        const origPosition=positionElements;
+        positionElements=()=>{ origPosition(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
+      });
     }
   };
 
@@ -2458,8 +2468,8 @@ ob2Btn.addEventListener('click',()=>{
 });
 
 
-// ── safeTap: visual on touchstart, action only on touchend inside element ──
-function safeTap(el, onAction, onDown){
+// ── safeTap: highlight stays while finger held, action on touchend inside element ──
+function safeTap(el, onAction, onDown, onUp){
   let active=false;
   el.addEventListener('touchstart',(e)=>{
     e.preventDefault();
@@ -2471,33 +2481,44 @@ function safeTap(el, onAction, onDown){
     e.preventDefault();
     if(!active) return;
     active=false;
-    el.classList.remove('mcard-touch-active');
-    // Check finger is still roughly over element
+    // Remove highlight first
+    if(onUp) onUp(el);
+    else el.classList.remove('mcard-touch-active');
+    // Fire action only if finger released inside element
     const t=e.changedTouches[0];
     const r=el.getBoundingClientRect();
     const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
     if(inside) onAction();
   },{passive:false});
-  el.addEventListener('touchcancel',()=>{ active=false; el.classList.remove('mcard-touch-active'); },{passive:true});
+  el.addEventListener('touchcancel',()=>{
+    active=false;
+    if(onUp) onUp(el);
+    else el.classList.remove('mcard-touch-active');
+  },{passive:true});
   el.addEventListener('click', onAction); // desktop fallback
 }
 
-// Game cards — safeTap: visual on press, action on release
+// Game cards — highlight persists while held, clears on release
 [['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type']].forEach(([id,ex])=>{
   const card=document.getElementById(id);
   if(!card) return;
   safeTap(card,
     ()=>startGame(ex),
-    (el)=>{ el.style.borderColor='var(--accent2)'; el.style.background='rgba(124,158,255,.07)'; setTimeout(()=>{ el.style.borderColor=''; el.style.background=''; },300); }
+    (el)=>{ el.style.borderColor='var(--accent2)'; el.style.background='rgba(124,158,255,.1)'; },
+    (el)=>{ el.style.borderColor=''; el.style.background=''; }
   );
 });
 
-// Nav buttons — safeTap with flash
+// Nav buttons — safeTap with flash on release
 ['navPrev','navNext'].forEach(id=>{
   const btn=document.getElementById(id);
   const action=id==='navPrev'?prevCard:nextCard;
   const doFlash=b=>{ b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); b.addEventListener('animationend',()=>b.classList.remove('flash'),{once:true}); };
-  safeTap(btn, ()=>{ doFlash(btn); action(); }, (b)=>doFlash(b));
+  safeTap(btn,
+    ()=>{ doFlash(btn); action(); },
+    (b)=>{ b.style.borderColor='var(--accent)'; b.style.color='var(--accent)'; },
+    (b)=>{ b.style.borderColor=''; b.style.color=''; }
+  );
 });
 
 </script>
