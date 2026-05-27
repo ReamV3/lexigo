@@ -2074,8 +2074,32 @@ function renderType(){
     }).join('');
     inputEl.value=filled;
     try{ inputEl.setSelectionRange(filled.length,filled.length); }catch(e){}
-    // Reposition in case word block size changed
     requestAnimationFrame(positionElements);
+
+    // All letters revealed — auto-correct, wait for user to tap next
+    if(revealedCount+1>=dots.length){
+      dotsRow.querySelectorAll('.type-dot').forEach(d=>d.classList.add('revealed'));
+      inputEl.classList.add('correct');
+      inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
+      recordCorrect(w.w); renderWords();
+      fbEl.textContent='✓ Revealed! ('+typeHintsGiven+' hints)';
+      fbEl.style.color='var(--green)';
+      fbEl.style.opacity='1';
+      playDing();
+      requestAnimationFrame(positionElements);
+      // Show a "next →" button instead of auto-advancing
+      const nextBtn=document.createElement('button');
+      nextBtn.textContent='next →';
+      nextBtn.style.cssText='margin-top:12px;padding:12px 28px;border-radius:12px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:.9rem;font-weight:600;cursor:pointer;pointer-events:auto;';
+      nextBtn.type='button';
+      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+      const goNext=()=>{ advanceDeck(1); renderType(); };
+      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+      nextBtn.addEventListener('click',goNext);
+      // Add below input bar — find it in wrap
+      inputBar.after(nextBtn);
+      requestAnimationFrame(positionElements);
+    }
   };
 
   // ── Submit logic ──
