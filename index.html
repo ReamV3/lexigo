@@ -512,7 +512,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   cursor:pointer;transition:opacity .18s;flex-shrink:0;
 }
 .type-submit:active{opacity:.8;}
-/* Type game header bar */
+/* Type It nav arrows */
+.type-nav-row{
+  position:absolute;left:16px;right:16px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.type-nav-btn{
+  width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:border-color .15s,color .15s,opacity .15s;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.type-nav-btn:disabled{opacity:.28;cursor:default;}
+.type-nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+.type-nav-prog{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:.06em;}
 .type-header{
   width:100%;max-width:520px;
   display:flex;align-items:center;gap:12px;
@@ -894,6 +909,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- DELETE WORD MODAL -->
+<div class="overlay" id="deleteWordModal">
+  <div class="modal">
+    <div class="m-title">Delete this word?</div>
+    <div class="m-sub" id="deleteWordSub"></div>
+    <div class="m-actions">
+      <button class="m-cancel" onclick="closeDeleteWordModal()">cancel</button>
+      <button class="m-ok danger" onclick="confirmDeleteWord()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <!-- FILL GAP MODAL -->
 <div class="overlay" id="fillGapModal">
   <div class="modal">
@@ -1097,11 +1124,41 @@ function makeWlItem(w){
   const s=strikes(w.w); const m=mastered(w.w);
   const item=document.createElement('div');
   item.className='wl-item'+(excl?' excl':'');
+  item.style.cursor='pointer';
+  item.title='Hold to delete';
+
+  // Long-press to delete (700ms, same as class chip)
+  let pressTimer=null;
+  let longPressed=false;
+  item.addEventListener('pointerdown',(e)=>{
+    longPressed=false;
+    pressTimer=setTimeout(()=>{
+      longPressed=true;
+      pressTimer=null;
+      // Visual feedback during long press
+      item.style.background='rgba(248,113,113,.1)';
+      item.style.borderColor='var(--red)';
+      setTimeout(()=>{ item.style.background=''; item.style.borderColor=''; },300);
+      openDeleteWordModal(w.w);
+    },700);
+  });
+  const cancelPress=()=>{
+    if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
+  };
+  item.addEventListener('pointerup', cancelPress);
+  item.addEventListener('pointerleave', cancelPress);
+  item.addEventListener('pointercancel', cancelPress);
+  // Prevent text selection during long press
+  item.addEventListener('selectstart',(e)=>e.preventDefault());
+
   const tog=document.createElement('button');
   tog.className='wl-toggle '+(excl?'off':'on');
   tog.textContent=excl?'✕':'✓';
   tog.title=excl?'Include':'Exclude';
+  // Stop long-press from triggering when tapping the toggle
+  tog.addEventListener('pointerdown',(e)=>e.stopPropagation());
   tog.onclick=()=>toggleExclude(w.w);
+
   const info=document.createElement('div');
   info.style.flex='1';
   info.innerHTML=`<span class="wl-word">${escapeHtml(w.w)}</span> <span class="wl-tr">— ${escapeHtml(w.t)}</span>`;
@@ -1279,6 +1336,40 @@ function confirmDeleteClass(){
     showToast(`Class ${c} deleted`);
   }
 }
+
+// ── Delete Word ──
+let deleteTargetWord=null;
+function openDeleteWordModal(wordKey){
+  deleteTargetWord=wordKey;
+  const entry=bank.words.find(x=>x.w===wordKey);
+  if(!entry) return;
+  document.getElementById('deleteWordSub').textContent=
+    `"${entry.w}" — ${entry.t}`;
+  document.getElementById('deleteWordModal').classList.add('open');
+}
+function closeDeleteWordModal(){
+  document.getElementById('deleteWordModal').classList.remove('open');
+  deleteTargetWord=null;
+}
+function confirmDeleteWord(){
+  const key=deleteTargetWord;
+  closeDeleteWordModal();
+  if(!key) return;
+  bank.words=bank.words.filter(x=>x.w!==key);
+  // Clean up progress
+  delete bank.progress[key];
+  // If class is now empty, remove it
+  const classesWithWords=new Set(bank.words.map(w=>w.c));
+  bank.classes=bank.classes.filter(c=>classesWithWords.has(c));
+  // Fix selected set
+  selected=new Set([...selected].filter(c=>bank.classes.includes(c)));
+  if(selected.size===0&&bank.classes.length>0) selected=new Set([bank.classes[bank.classes.length-1]]);
+  save(); updateClassPill(); buildDeck(); updateTypeDirBtn();
+  if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
+  if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
+  showToast('Word deleted');
+}
+
 function confirmFillGap(doFill){
   document.getElementById('fillGapModal').classList.remove('open');
   if(doFill){
@@ -1320,6 +1411,35 @@ function detectScript(s){
   return best;
 }
 
+function isValidVocabEntry(w, t){
+  // ── Layer 1: Length limits ──
+  // Real vocabulary: words/phrases, not sentences
+  if(w.length>60 || t.length>80) return false;
+
+  // ── Layer 2: Word count ──
+  // Allow up to 6 words per side (handles phrases like "to be afraid of")
+  const wWords=w.trim().split(/\s+/).filter(Boolean);
+  const tWords=t.trim().split(/\s+/).filter(Boolean);
+  if(wWords.length>6 || tWords.length>8) return false;
+
+  // ── Layer 3: Digit/number ratio ──
+  // Homework entries are full of numbers (page 106, exercise 2А etc.)
+  // Allow up to 2 digits total across both sides
+  const digits=(w+t).match(/\d/g)||[];
+  if(digits.length>2) return false;
+
+  // ── Layer 4: Punctuation overload ──
+  // Commas, slashes, plus signs in excess = instructions, not vocab
+  const punct=(w+t).match(/[,\/\+\(\)\[\]\{\};!?]/g)||[];
+  if(punct.length>2) return false;
+
+  // ── Layer 5: Known junk keywords (case-insensitive) ──
+  const junkWords=/\b(page|pages|exercise|exercises|homework|workbook|textbook|chapter|lesson|unit|task|tasks)\b/i;
+  if(junkWords.test(w) || junkWords.test(t)) return false;
+
+  return true;
+}
+
 function confirmAdd(){
   const raw=document.getElementById('addText').value;
   let target=addTargetClass;
@@ -1329,7 +1449,7 @@ function confirmAdd(){
   }
   // Parse: ONLY accept lines containing a separator with non-empty word + translation
   const sep=/\s*[-–—→:]\s*/;
-  let added=0, skipped=0, sameLangSkipped=0;
+  let added=0, skipped=0, sameLangSkipped=0, invalidEntry=0;
   raw.split('\n').forEach(line=>{
     line=line.trim();
     if(!line) return;
@@ -1343,6 +1463,11 @@ function confirmAdd(){
     // Just require the two sides to be different (basic sanity check)
     if(w.toLowerCase()===t.toLowerCase()){
       sameLangSkipped++;
+      return;
+    }
+    // Validate it looks like vocabulary, not homework/instructions
+    if(!isValidVocabEntry(w,t)){
+      invalidEntry++;
       return;
     }
     // Skip duplicates
@@ -1370,13 +1495,15 @@ function confirmAdd(){
       renderWsTabs(); renderWsList();
     }
     const extras=[];
-    if(skipped>0) extras.push(skipped+' invalid');
-    if(sameLangSkipped>0) extras.push(sameLangSkipped+' same-language');
+    if(skipped>0) extras.push(skipped+' invalid format');
+    if(sameLangSkipped>0) extras.push(sameLangSkipped+' same text');
+    if(invalidEntry>0) extras.push(invalidEntry+' not vocabulary');
     const tail=extras.length?' · '+extras.join(', ')+' skipped':'';
     showToast('✓ Added '+added+' word'+(added!==1?'s':'')+' to Class '+target+tail);
   } else {
-    if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — word and translation must differ`);
-    else if(skipped>0) showToast(`⚠ ${skipped} line(s) skipped — need: word – english translation`);
+    if(invalidEntry>0) showToast(`⚠ ${invalidEntry} entr${invalidEntry>1?'ies':'y'} skipped — please enter words or short phrases`);
+    else if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — word and translation must differ`);
+    else if(skipped>0) showToast(`⚠ ${skipped} line(s) skipped — need: word – translation`);
     else showToast('⚠ No valid words found');
   }
 }
@@ -2011,35 +2138,101 @@ function renderType(){
   inputBar.appendChild(submitBtn);
   wrap.appendChild(inputBar);
 
+  // ── Nav row (prev/next arrows + word counter) ──
+  const navRow=document.createElement('div');
+  navRow.className='type-nav-row';
+  navRow.id='typeNavRow';
+
+  const navPrevBtn=document.createElement('button');
+  navPrevBtn.className='type-nav-btn';
+  navPrevBtn.innerHTML='<svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>';
+  navPrevBtn.type='button'; navPrevBtn.setAttribute('tabindex','-1');
+
+  const navProgEl=document.createElement('span');
+  navProgEl.className='type-nav-prog';
+  navProgEl.id='typeNavProg';
+
+  const navNextBtn=document.createElement('button');
+  navNextBtn.className='type-nav-btn';
+  navNextBtn.innerHTML='<svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
+  navNextBtn.type='button'; navNextBtn.setAttribute('tabindex','-1');
+
+  navRow.appendChild(navPrevBtn);
+  navRow.appendChild(navProgEl);
+  navRow.appendChild(navNextBtn);
+  wrap.appendChild(navRow);
+
+  function updateNavState(){
+    // Count unresolved words in deck
+    const unresolved=deck.filter(w2=>!isExcluded(w2.w)&&!choiceAnsweredKeys.has(w2.w));
+    const total=deck.filter(w2=>!isExcluded(w2.w)).length;
+    const doneCount=choiceAnsweredKeys.size;
+    navProgEl.textContent=(doneCount)+' / '+total;
+    navPrevBtn.disabled=unresolved.length<=1;
+    navNextBtn.disabled=unresolved.length<=1;
+  }
+  updateNavState();
+
+  // Find next/prev unresolved word index
+  function findAdjacentUnresolved(dir){
+    const total=deck.length;
+    let cur=idx;
+    for(let i=1;i<=total;i++){
+      const next=((cur + dir*i) % total + total) % total;
+      const w2=deck[next];
+      if(w2&&!isExcluded(w2.w)&&!choiceAnsweredKeys.has(w2.w)) return next;
+    }
+    return -1;
+  }
+
+  const goNavPrev=()=>{
+    const ni=findAdjacentUnresolved(-1);
+    if(ni>=0){ idx=ni; renderType(); }
+  };
+  const goNavNext=()=>{
+    const ni=findAdjacentUnresolved(1);
+    if(ni>=0){ idx=ni; renderType(); }
+  };
+
+  navPrevBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+  navNextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+  safeTap(navPrevBtn, goNavPrev,
+    (b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
+    (b)=>{b.style.borderColor='';b.style.color='';}
+  );
+  safeTap(navNextBtn, goNavNext,
+    (b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
+    (b)=>{b.style.borderColor='';b.style.color='';}
+  );
+
   // ── Feedback label ──
   const fbEl=document.createElement('div');
   fbEl.id='typeFeedback';
   fbEl.style.cssText='position:absolute;left:16px;right:16px;text-align:center;font-size:1rem;font-weight:600;letter-spacing:.04em;transition:opacity .2s;opacity:0;';
   wrap.appendChild(fbEl);
 
-  // ── Position function: called on load and on keyboard open/close ──
+  // ── Position function ──
   function positionElements(){
     const vv = window.visualViewport;
     const vvTop = vv ? vv.offsetTop : 0;
     const vvHeight = vv ? vv.height : window.innerHeight;
-    const inputBarH = 60; // approx height of input bar
+    const inputBarH = 60;
+    const navRowH = 56;
     const gap = 12;
-    const hdrBottom = 80; // header height + padding
+    const hdrBottom = 80;
 
-    // Input bar sits at bottom of visible viewport
+    // Input bar at bottom
     const inputBottom = vvTop + vvHeight - gap;
     inputBar.style.top = (inputBottom - inputBarH) + 'px';
-
-    // Feedback just above input
-    fbEl.style.top = (inputBottom - inputBarH - 32) + 'px';
-
-    // Word block centered in the space between header and input bar
-    const availTop = hdrBottom;
-    const availBot = inputBottom - inputBarH - 40;
-    const availMid = availTop + (availBot - availTop) / 2;
+    // Nav row above input bar
+    navRow.style.top = (inputBottom - inputBarH - navRowH - 8) + 'px';
+    // Feedback above nav row
+    fbEl.style.top = (inputBottom - inputBarH - navRowH - 44) + 'px';
+    // Word block centered in remaining space
+    const availBot = inputBottom - inputBarH - navRowH - 48;
+    const availMid = hdrBottom + (availBot - hdrBottom) / 2;
     const wordH = wordBlock.offsetHeight || 80;
-    const wordTop = Math.max(availTop, availMid - wordH / 2);
-    wordBlock.style.top = wordTop + 'px';
+    wordBlock.style.top = Math.max(hdrBottom, availMid - wordH/2) + 'px';
   }
 
   // Position after DOM renders
@@ -2162,7 +2355,15 @@ function renderType(){
         choiceAnsweredKeys.add(w.w);
         const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
         if(allDoneHint){ showExerciseComplete(); }
-        else { advanceDeck(1); renderType(); }
+        else {
+          // Find next unresolved word
+          const total=deck.length;
+          for(let i=1;i<=total;i++){
+            const ni=(idx+i)%total;
+            if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
+          }
+          renderType();
+        }
       };
       nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
       nextBtn.addEventListener('click',goNext);
@@ -2196,17 +2397,34 @@ function renderType(){
       },300);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
-      choiceAnsweredKeys.add(w.w); // reuse same set for cross-game tracking
+      choiceAnsweredKeys.add(w.w);
+      updateNavState();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
       fbEl.textContent='✓ Correct!'+hintNote;
       fbEl.style.color='var(--green)';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-      if(allDoneType){
-        setTimeout(()=>showExerciseComplete(),900);
-      } else {
-        setTimeout(()=>{ advanceDeck(1); renderType(); }, 900);
-      }
+      // Show Next button — no auto advance
+      requestAnimationFrame(()=>{
+        positionElements();
+        const capturedTop=inputBar.style.top||'';
+        inputBar.style.display='none';
+        const nextBtn=document.createElement('button');
+        const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+        nextBtn.textContent=allDoneType?'finish 🎉':'next →';
+        nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
+        nextBtn.type='button';
+        nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+        const goNext=()=>{
+          if(allDoneType){ showExerciseComplete(); }
+          else { advanceDeck(1); renderType(); }
+        };
+        nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+        nextBtn.addEventListener('click',goNext);
+        wrap.appendChild(nextBtn);
+        const origPos=positionElements;
+        positionElements=()=>{ origPos(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
+        requestAnimationFrame(positionElements);
+      });
     } else {
       inputEl.classList.add('wrong');
       trigShake(inputEl);
