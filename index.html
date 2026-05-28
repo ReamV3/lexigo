@@ -487,6 +487,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   transition:background .25s, transform .25s;flex-shrink:0;
 }
 .type-dot.revealed{background:var(--accent2);transform:scale(1.2);}
+.type-dot.user{background:var(--accent);transform:scale(1.1);}
 .type-dot.space{background:transparent;width:14px;}
 /* Input bar — pinned to bottom of visual viewport */
 .type-input-bar{
@@ -2052,62 +2053,127 @@ function renderType(){
   window.visualViewport?.addEventListener('resize', typeVVListener);
   window.visualViewport?.addEventListener('scroll', typeVVListener);
 
+  // ── Sync dots with current input state ──
+  // yellow = user typed correctly, purple = hint revealed, grey = unknown
+  function syncDots(){
+    const typed=[...inputEl.value]; // char array of what user typed
+    const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
+    let nonSpaceIdx=0; // index into answerLetters (skipping spaces)
+    let dotIdx=0;      // index into dots array
+
+    for(let i=0;i<answerLetters.length;i++){
+      if(answerLetters[i]===' ') continue;
+      const dot=dots[dotIdx];
+      if(!dot){ dotIdx++; nonSpaceIdx++; continue; }
+      const typedChar=(typed[i]||'').toLowerCase();
+      const correctChar=answerLetters[i].toLowerCase();
+
+      if(dot.classList.contains('revealed')){
+        // Already hint-revealed — keep purple, don't downgrade
+      } else if(typedChar && typedChar===correctChar){
+        // User typed this correctly — mark yellow
+        dot.classList.remove('revealed');
+        dot.classList.add('user');
+      } else {
+        // Not typed or wrong — reset to grey (but don't remove hint-reveals)
+        dot.classList.remove('user');
+      }
+      dotIdx++;
+    }
+  }
+
   // ── Hint logic ──
   const doHint=()=>{
     const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
-    const revealedCount=dots.filter(d=>d.classList.contains('revealed')).length;
-    if(revealedCount>=dots.length) return;
-    dots[revealedCount].classList.add('revealed');
+
+    // First sync current input so we know what user already got right
+    syncDots();
+
+    // Find first dot that is neither user-correct nor hint-revealed
+    const nextDotIdx=dots.findIndex(d=>!d.classList.contains('revealed')&&!d.classList.contains('user'));
+    if(nextDotIdx===-1){
+      // All dots accounted for — check if all revealed (trigger complete)
+      const allCovered=dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'));
+      if(allCovered) triggerAllRevealed();
+      return;
+    }
+
+    // Reveal next needed letter
+    dots[nextDotIdx].classList.add('revealed');
     typeHintsGiven++;
+
+    // Build filled input: revealed + user-correct letters in their positions
     let nonSpaceIdx=0;
     const filled=answerLetters.map(ch=>{
       if(ch===' ') return ' ';
       const i=nonSpaceIdx++;
-      return i<revealedCount+1 ? ch : '';
+      const dot=dots[i];
+      if(dot&&(dot.classList.contains('revealed')||dot.classList.contains('user'))){
+        return answerLetters.find((_,j)=>{ // find the actual char at this position
+          let ns=0;
+          for(let k=0;k<j;k++) if(answerLetters[k]!==' ') ns++;
+          return ns===i;
+        })||ch;
+      }
+      return '';
+    });
+
+    // Simpler: build filled by position
+    let nsIdx=0;
+    const filledStr=answerLetters.map(ch=>{
+      if(ch===' ') return ' ';
+      const dot=dots[nsIdx++];
+      return (dot&&(dot.classList.contains('revealed')||dot.classList.contains('user')))?ch:'';
     }).join('');
-    inputEl.value=filled;
-    try{ inputEl.setSelectionRange(filled.length,filled.length); }catch(e){}
+
+    inputEl.value=filledStr;
+    try{ inputEl.setSelectionRange(filledStr.length,filledStr.length); }catch(e){}
     requestAnimationFrame(positionElements);
 
-    // All letters revealed — auto-correct, wait for user to tap next
-    if(revealedCount+1>=dots.length){
-      dotsRow.innerHTML='';
-      const ansEl=document.createElement('div');
-      ansEl.textContent=answer;
-      ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
-      dotsRow.appendChild(ansEl);
-      inputEl.classList.add('correct');
-      inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      recordCorrect(w.w); renderWords();
-      fbEl.textContent='✓ Revealed! ('+typeHintsGiven+' hints)';
-      fbEl.style.color='var(--green)';
-      fbEl.style.opacity='1';
-      playDing();
-      // Snapshot inputBar position BEFORE hiding it
-      requestAnimationFrame(()=>{
-        positionElements(); // ensure inputBar.style.top is fresh
-        const capturedTop=inputBar.style.top||'';
-        inputBar.style.display='none';
-        const nextBtn=document.createElement('button');
-        nextBtn.textContent='next →';
-        nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
-        nextBtn.type='button';
-        nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-        const goNext=()=>{
-          choiceAnsweredKeys.add(w.w);
-          const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-          if(allDoneHint){ showExerciseComplete(); }
-          else { advanceDeck(1); renderType(); }
-        };
-        nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-        nextBtn.addEventListener('click',goNext);
-        wrap.appendChild(nextBtn);
-        // Keep in sync if viewport resizes (keyboard changes)
-        const origPosition=positionElements;
-        positionElements=()=>{ origPosition(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
-      });
-    }
+    // Check if all dots now covered
+    const allCovered=dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'));
+    if(allCovered) triggerAllRevealed();
   };
+
+  function triggerAllRevealed(){
+    dotsRow.innerHTML='';
+    const ansEl=document.createElement('div');
+    ansEl.textContent=answer;
+    ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
+    dotsRow.appendChild(ansEl);
+    inputEl.value=answer;
+    inputEl.classList.add('correct');
+    inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
+    recordCorrect(w.w); renderWords();
+    fbEl.textContent='✓ Revealed! ('+typeHintsGiven+' hints)';
+    fbEl.style.color='var(--green)';
+    fbEl.style.opacity='1';
+    playDing();
+    requestAnimationFrame(()=>{
+      positionElements();
+      const capturedTop=inputBar.style.top||'';
+      inputBar.style.display='none';
+      const nextBtn=document.createElement('button');
+      nextBtn.textContent='next →';
+      nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
+      nextBtn.type='button';
+      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+      const goNext=()=>{
+        choiceAnsweredKeys.add(w.w);
+        const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+        if(allDoneHint){ showExerciseComplete(); }
+        else { advanceDeck(1); renderType(); }
+      };
+      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+      nextBtn.addEventListener('click',goNext);
+      wrap.appendChild(nextBtn);
+      const origPosition=positionElements;
+      positionElements=()=>{ origPosition(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
+    });
+  }
+
+  // Live dot sync as user types
+  inputEl.addEventListener('input',syncDots);
 
   // ── Submit logic ──
   const doSubmit=()=>{
@@ -2117,11 +2183,17 @@ function renderType(){
     fbEl.style.opacity='1';
     if(correct){
       inputEl.classList.add('correct');
-      dotsRow.innerHTML='';
-      const ansEl=document.createElement('div');
-      ansEl.textContent=answer;
-      ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
-      dotsRow.appendChild(ansEl);
+      // Flash all dots yellow (user typed them all correctly)
+      dotsRow.querySelectorAll('.type-dot:not(.space)').forEach(d=>{
+        d.classList.remove('revealed'); d.classList.add('user');
+      });
+      setTimeout(()=>{
+        dotsRow.innerHTML='';
+        const ansEl=document.createElement('div');
+        ansEl.textContent=answer;
+        ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent);text-align:center;';
+        dotsRow.appendChild(ansEl);
+      },300);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
       choiceAnsweredKeys.add(w.w); // reuse same set for cross-game tracking
