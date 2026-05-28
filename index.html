@@ -657,6 +657,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   background:rgba(14,14,18,.92);backdrop-filter:blur(8px);
   flex-direction:column;align-items:center;justify-content:center;
   padding:40px 28px;cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
 }
 #exerciseComplete.open{display:flex;}
 .ec-card{
@@ -667,22 +669,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   position:relative;overflow:hidden;
   animation:ob2In .4s cubic-bezier(.34,1.3,.64,1) both;
   pointer-events:none;
+  user-select:none;-webkit-user-select:none;
 }
 .ec-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
 .ec-trophy{font-size:3.2rem;margin-bottom:18px;
-  animation:ob2Bounce .55s cubic-bezier(.34,1.56,.64,1) .15s both;}
+  animation:ob2Bounce .55s cubic-bezier(.34,1.56,.64,1) .15s both;
+  user-select:none;-webkit-user-select:none;}
 .ec-title{
   font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:700;
   color:var(--accent);text-align:center;margin-bottom:12px;
+  user-select:none;-webkit-user-select:none;
 }
 .ec-sub{
   font-family:'Inter',sans-serif;font-size:.92rem;
   color:var(--muted);text-align:center;line-height:1.7;margin-bottom:28px;
+  user-select:none;-webkit-user-select:none;
 }
 .ec-tap{
   font-family:'DM Mono',monospace;font-size:.72rem;
   color:var(--muted);letter-spacing:.12em;text-transform:uppercase;
   animation:ecBlink 1.5s ease-in-out infinite;
+  user-select:none;-webkit-user-select:none;
 }
 @keyframes ecBlink{0%,100%{opacity:.4;}50%{opacity:1;}}
 .ec-stars{
@@ -2230,368 +2237,4 @@ function nextCard(){
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(exercise==='choice'){
     // Choice game uses its own carousel
-    choiceCarouselIdx++;
-    renderChoice();
-    return;
-  }
-  advanceDeck(1);
-  exercise==='flash'?renderFlash():renderChoice();
-}
-function prevCard(){
-  if(!deck.length) return;
-  if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
-  if(exercise==='choice'){
-    choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1);
-    renderChoice();
-    return;
-  }
-  advanceDeck(-1);
-  exercise==='flash'?renderFlash():renderChoice();
-}
-
-// ── Sound ──
-// ── Piano key primitive (short, quiet) ──
-function pianoKey(ac, freq, vel, t){
-  const harmonics=[[1,1.00,0.10],[2,0.45,0.06],[3,0.20,0.04],[4,0.10,0.03],[5,0.05,0.02]];
-  const master=ac.createGain();
-  master.gain.setValueAtTime(vel*0.10,t);
-  master.connect(ac.destination);
-  harmonics.forEach(([mult,rel,tau])=>{
-    const osc=ac.createOscillator(); const env=ac.createGain();
-    osc.type='sine'; osc.frequency.setValueAtTime(freq*mult,t);
-    env.gain.setValueAtTime(0,t);
-    env.gain.linearRampToValueAtTime(rel,t+0.005);
-    env.gain.setTargetAtTime(0,t+0.005,tau);
-    osc.connect(env); env.connect(master);
-    osc.start(t); osc.stop(t+tau*7);
-  });
-}
-
-// ── Correct sound: P3 Tiny Trio — three quick ascending piano taps ──
-// More celebratory: 4 notes, slightly wider spacing, ends on a bright high note
-const P3_SETS=[
-  [[523.25,0],[659.25,0.07],[783.99,0.14],[1046.50,0.22]], // C5 E5 G5 C6
-  [[392.00,0],[493.88,0.07],[587.33,0.14],[783.99,0.22]], // G4 B4 D5 G5
-  [[440.00,0],[523.25,0.07],[659.25,0.14],[880.00,0.22]], // A4 C5 E5 A5
-  [[349.23,0],[440.00,0.07],[523.25,0.14],[698.46,0.22]], // F4 A4 C5 F5
-];
-function playDing(){
-  if(!soundEnabled) return;
-  try{
-    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    const t=audioCtx.currentTime;
-    const set=P3_SETS[Math.floor(Math.random()*P3_SETS.length)];
-    // velocity grows toward the end — builds excitement
-    const vels=[0.80,0.75,0.78,0.90];
-    set.forEach(([freq,delay],i)=>pianoKey(audioCtx,freq,vels[i],t+delay));
-  }catch(e){}
-}
-
-// ── Wrong sound: P6 Soft Landing — descending, quiet, a little deflated ──
-// Minor-ish drop: two notes falling, soft and short, not harsh
-const P6_SETS=[
-  [[523.25,0],[415.30,0.10]], // C5 → Ab4 (minor drop)
-  [[587.33,0],[466.16,0.10]], // D5 → Bb4
-  [[493.88,0],[392.00,0.10]], // B4 → G4
-  [[440.00,0],[349.23,0.10]], // A4 → F4
-];
-function playWrong(){
-  if(!soundEnabled) return;
-  try{
-    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    const t=audioCtx.currentTime;
-    const set=P6_SETS[Math.floor(Math.random()*P6_SETS.length)];
-    // quiet and soft — second note even quieter, sad little droop
-    const vels=[0.55,0.40];
-    set.forEach(([freq,delay],i)=>pianoKey(audioCtx,freq,vels[i],t+delay));
-  }catch(e){}
-}
-
-// ── CELEBRATE BUTTON: bounce scale + sparkles ──
-function celebrateButton(btn){
-  playDing();
-  btn.classList.remove('correct-anim');
-  void btn.offsetWidth;
-  btn.classList.add('correct-anim');
-  btn.addEventListener('animationend',()=>btn.classList.remove('correct-anim'),{once:true});
-
-  // Sparkle layer
-  let layer=btn.querySelector('.btn-spark');
-  if(!layer){ layer=document.createElement('span'); layer.className='btn-spark'; btn.appendChild(layer); }
-  layer.innerHTML='';
-  const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc'];
-  const N=5;
-  for(let i=0;i<N;i++){
-    const angle=(i/N)*Math.PI*2 + Math.random()*0.4;
-    const dist=28+Math.random()*16;
-    const tx=Math.cos(angle)*dist;
-    const ty=Math.sin(angle)*dist;
-    const size=8+Math.random()*6;
-    const color=COLS[Math.floor(Math.random()*COLS.length)];
-    const s=document.createElement('span');
-    s.className='spark-star';
-    s.style.setProperty('--tx',tx+'px');
-    s.style.setProperty('--ty',ty+'px');
-    s.style.marginLeft=(-size/2)+'px';
-    s.style.marginTop=(-size/2)+'px';
-    s.innerHTML=`<svg width="${size}" height="${size}" viewBox="0 0 20 20" fill="none">
-      <path d="M10 1 C10.6 6,10.6 6,15 10 C10.6 14,10.6 14,10 19 C9.4 14,9.4 14,5 10 C9.4 6,9.4 6,10 1Z" fill="${color}"/>
-      <path d="M1 10 C6 10.6,6 10.6,10 15 C14 10.6,14 10.6,19 10 C14 9.4,14 9.4,10 5 C6 9.4,6 9.4,1 10Z" fill="${color}" opacity=".7"/></svg>`;
-    layer.appendChild(s);
-  }
-  setTimeout(()=>{ if(layer) layer.innerHTML=''; },800);
-}
-
-function setFB(msg,ok){ const fb=document.getElementById('feedback'); fb.textContent=msg; fb.className='feedback '+(ok?'ok':'no'); }
-function trigShake(el){ el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); el.addEventListener('animationend',()=>el.classList.remove('shake'),{once:true}); }
-function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
-
-function updateSoundBtn(){
-  document.getElementById('iconSoundOn').style.display=soundEnabled?'block':'none';
-  document.getElementById('iconSoundOff').style.display=soundEnabled?'none':'block';
-}
-function updateThemeBtn(){
-  const light=document.body.classList.contains('light');
-  document.getElementById('iconSun').style.display=light?'none':'block';
-  document.getElementById('iconMoon').style.display=light?'block':'none';
-}
-
-// ── iOS sticky-focus nuclear fix ──
-// After every touch, blur sticky button focus — but NEVER blur inputs/textareas
-// (they need focus to keep the keyboard open)
-document.addEventListener('touchend', ()=>{
-  const a=document.activeElement;
-  if(!a||a===document.body) return;
-  if(a.tagName==='INPUT'||a.tagName==='TEXTAREA') return; // keep keyboard alive
-  a.blur();
-}, {passive:true});
-
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-  if(!exercise) return;
-  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); nextCard(); }
-  if(e.key==='ArrowLeft'){ e.preventDefault(); prevCard(); }
-  if(e.key==='Enter'&&exercise==='flash') flipCard();
-  if(e.key==='Escape') exitGame();
-});
-
-function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
-
-// ── Boot ──
-load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); updateThemeBtn(); updateSoundBtn();
-// Reveal body now that state is loaded — prevents flash of main screen before onboarding
-document.body.style.opacity='1';
-
-// ── Onboarding ──
-// Trigger based ONLY on whether classes exist — no localStorage flag dependency.
-// This means: no classes → always onboard. Classes exist → skip.
-
-function showOnboarding(){
-  document.getElementById('onboardScreen').classList.add('open');
-}
-function hideOnboarding(cb){
-  const el=document.getElementById('onboardScreen');
-  el.style.transition='opacity .3s ease';
-  el.style.opacity='0';
-  setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
-}
-
-// ── Exercise Complete ──
-function showExerciseComplete(){
-  exitGame();
-  const el=document.getElementById('exerciseComplete');
-  el.classList.add('open');
-  spawnEcConfetti();
-  const dismiss=()=>{
-    el.style.transition='opacity .3s ease';
-    el.style.opacity='0';
-    setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; },310);
-    el.removeEventListener('touchstart',dismiss);
-    el.removeEventListener('click',dismiss);
-  };
-  setTimeout(()=>{
-    el.addEventListener('touchstart',dismiss,{passive:true});
-    el.addEventListener('click',dismiss);
-  },600);
-}
-function spawnEcConfetti(){
-  const container=document.getElementById('ecConfetti');
-  if(!container) return;
-  container.innerHTML='';
-  const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc','#f87171','#34d399'];
-  for(let i=0;i<50;i++){
-    const el2=document.createElement('div');
-    const size=4+Math.random()*8;
-    const x=Math.random()*100;
-    const delay=Math.random()*0.8;
-    const dur=1.0+Math.random()*1.0;
-    const col=COLS[Math.floor(Math.random()*COLS.length)];
-    el2.style.cssText=`position:absolute;left:${x}%;top:-10px;width:${size}px;height:${size}px;border-radius:${Math.random()>0.5?'50%':'2px'};background:${col};animation:confettiFall ${dur}s ease-in ${delay}s forwards;transform:rotate(${Math.random()*360}deg);`;
-    container.appendChild(el2);
-  }
-}
-
-function showOb2(){
-  const el=document.getElementById('ob2Screen');
-  el.classList.add('open');
-  spawnOb2Confetti();
-}
-function hideOb2(cb){
-  const el=document.getElementById('ob2Screen');
-  el.style.transition='opacity .3s ease';
-  el.style.opacity='0';
-  setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
-}
-
-// Called from confirmAdd when first class is created
-function triggerOb2IfFirst(){
-  // Only show if this is the very first class ever
-  if(bank.classes.length===1){
-    // Close wordsScreen silently (bypass the guard), then show step 2
-    document.getElementById('wordsScreen').classList.remove('open');
-    setTimeout(showOb2, 200);
-  }
-}
-
-function spawnOb2Confetti(){
-  const container=document.getElementById('ob2Confetti');
-  if(!container) return;
-  const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc','#f87171','#34d399'];
-  const N=40;
-  for(let i=0;i<N;i++){
-    const el=document.createElement('div');
-    const size=5+Math.random()*7;
-    const x=Math.random()*100;
-    const delay=Math.random()*0.6;
-    const dur=1.2+Math.random()*0.8;
-    const col=COLS[Math.floor(Math.random()*COLS.length)];
-    const rot=Math.random()*360;
-    el.style.cssText=`position:absolute;left:${x}%;top:-10px;
-      width:${size}px;height:${size}px;border-radius:${Math.random()>0.5?'50%':'2px'};
-      background:${col};opacity:0;
-      animation:confettiFall ${dur}s ease-in ${delay}s forwards;
-      transform:rotate(${rot}deg);`;
-    container.appendChild(el);
-  }
-  // Inject keyframe if not already present
-  if(!document.getElementById('confettiStyle')){
-    const s=document.createElement('style');
-    s.id='confettiStyle';
-    s.textContent=`@keyframes confettiFall{
-      0%{opacity:1;transform:translateY(0) rotate(0deg);}
-      100%{opacity:0;transform:translateY(320px) rotate(720deg);}
-    }`;
-    document.head.appendChild(s);
-  }
-}
-
-// Boot decision: no classes → onboard; classes exist → normal
-if(bank.classes.length===0){
-  showOnboarding();
-}
-
-// Step 1 CTA — go to add words
-const obBtn=document.getElementById('obCtaBtn');
-let obHandled=false;
-obBtn.addEventListener('touchstart',(e)=>{
-  e.preventDefault(); obHandled=true;
-  hideOnboarding(openWordsScreen);
-},{passive:false});
-obBtn.addEventListener('click',()=>{
-  if(obHandled){obHandled=false;return;}
-  hideOnboarding(openWordsScreen);
-});
-
-// Step 2 CTA — go to main dashboard
-const ob2Btn=document.getElementById('ob2CtaBtn');
-let ob2Handled=false;
-ob2Btn.addEventListener('touchstart',(e)=>{
-  e.preventDefault(); ob2Handled=true;
-  hideOb2();
-},{passive:false});
-ob2Btn.addEventListener('click',()=>{
-  if(ob2Handled){ob2Handled=false;return;}
-  hideOb2();
-});
-
-
-
-
-// ── safeTap: highlight stays while finger held, action on touchend inside element ──
-function safeTap(el, onAction, onDown, onUp){
-  let active=false;
-  el.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
-    active=true;
-    if(onDown) onDown(el);
-    else el.classList.add('mcard-touch-active');
-  },{passive:false});
-  el.addEventListener('touchend',(e)=>{
-    e.preventDefault();
-    if(!active) return;
-    active=false;
-    // Remove highlight first
-    if(onUp) onUp(el);
-    else el.classList.remove('mcard-touch-active');
-    // Fire action only if finger released inside element
-    const t=e.changedTouches[0];
-    const r=el.getBoundingClientRect();
-    const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
-    if(inside) onAction();
-  },{passive:false});
-  el.addEventListener('touchcancel',()=>{
-    active=false;
-    if(onUp) onUp(el);
-    else el.classList.remove('mcard-touch-active');
-  },{passive:true});
-  el.addEventListener('click', onAction); // desktop fallback
-}
-
-// Class pill — safeTap consistent with all other buttons
-const classPillEl=document.getElementById('classPill');
-if(classPillEl){
-  safeTap(classPillEl,
-    ()=>classPillClick(),
-    (b)=>{ b.style.borderColor='var(--accent2)'; b.style.background='rgba(124,158,255,.18)'; },
-    (b)=>{ b.style.borderColor=''; b.style.background=''; }
-  );
-}
-
-// Sound + Theme buttons — use safeTap for consistent hold-highlight behavior
-[['soundBtn', ()=>toggleSound()], ['themeBtn', ()=>toggleTheme()]].forEach(([id, action])=>{
-  const btn=document.getElementById(id);
-  if(!btn) return;
-  safeTap(btn,
-    ()=>{ action(); flashBtn(id); },
-    (b)=>{ b.style.borderColor='var(--accent)'; b.style.color='var(--accent)'; },
-    (b)=>{ b.style.borderColor=''; b.style.color=''; }
-  );
-});
-// Game cards — highlight persists while held, clears on release
-[['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type']].forEach(([id,ex])=>{
-  const card=document.getElementById(id);
-  if(!card) return;
-  safeTap(card,
-    ()=>startGame(ex),
-    (el)=>{ el.style.borderColor='var(--accent2)'; el.style.background='rgba(124,158,255,.1)'; },
-    (el)=>{ el.style.borderColor=''; el.style.background=''; }
-  );
-});
-
-// Nav buttons — safeTap with flash on release
-['navPrev','navNext'].forEach(id=>{
-  const btn=document.getElementById(id);
-  const action=id==='navPrev'?prevCard:nextCard;
-  const doFlash=b=>{ b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); b.addEventListener('animationend',()=>b.classList.remove('flash'),{once:true}); };
-  safeTap(btn,
-    ()=>{ doFlash(btn); action(); },
-    (b)=>{ b.style.borderColor='var(--accent)'; b.style.color='var(--accent)'; },
-    (b)=>{ b.style.borderColor=''; b.style.color=''; }
-  );
-});
-
-</script>
-</body>
-</html>
+    choiceCarouselIdx+
