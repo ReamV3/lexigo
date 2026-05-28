@@ -1618,7 +1618,11 @@ function exitGame(){
   choiceStreak=0;
   mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
   const tw=document.getElementById('typeWrap');
-  if(tw){ tw.style.display='none'; tw.className=''; tw.innerHTML=''; }
+  if(tw){
+    // Remove any floating Next button attached to body
+    if(tw._nextBtn){ tw._nextBtn.remove(); tw._nextBtn=null; }
+    tw.style.display='none'; tw.className=''; tw.innerHTML='';
+  }
   ['cardWrap','choiceWrap','matchWrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
   const em=document.getElementById('emptyMsg'); if(em) em.style.display='none';
   const nr=document.getElementById('navRow'); if(nr) nr.style.display='none';
@@ -2054,6 +2058,8 @@ function renderType(){
   document.getElementById('feedback').textContent='';
 
   const wrap=document.getElementById('typeWrap');
+  // Clean up any floating Next button from previous word
+  if(wrap._nextBtn){ wrap._nextBtn.remove(); wrap._nextBtn=null; }
   wrap.innerHTML='';
   wrap.style.display='flex';
   wrap.className='topen';
@@ -2342,35 +2348,30 @@ function renderType(){
     fbEl.style.color='var(--green)';
     fbEl.style.opacity='1';
     playDing();
-    requestAnimationFrame(()=>{
-      positionElements();
-      const capturedTop=inputBar.style.top||'';
-      inputBar.style.display='none';
-      const nextBtn=document.createElement('button');
-      nextBtn.textContent='next →';
-      nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
-      nextBtn.type='button';
-      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-      const goNext=()=>{
-        choiceAnsweredKeys.add(w.w);
-        const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-        if(allDoneHint){ showExerciseComplete(); }
-        else {
-          // Find next unresolved word
-          const total=deck.length;
-          for(let i=1;i<=total;i++){
-            const ni=(idx+i)%total;
-            if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
-          }
-          renderType();
+    inputBar.style.display='none';
+    const nextBtn=document.createElement('button');
+    nextBtn.textContent='next →';
+    nextBtn.style.cssText='position:fixed;left:16px;right:16px;bottom:12px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;z-index:220;';
+    nextBtn.type='button';
+    nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+    const goNext=()=>{
+      choiceAnsweredKeys.add(w.w);
+      const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+      if(allDoneHint){ showExerciseComplete(); }
+      else {
+        const total=deck.length;
+        for(let i=1;i<=total;i++){
+          const ni=(idx+i)%total;
+          if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
         }
-      };
-      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-      nextBtn.addEventListener('click',goNext);
-      wrap.appendChild(nextBtn);
-      const origPosition=positionElements;
-      positionElements=()=>{ origPosition(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
-    });
+        renderType();
+      }
+    };
+    nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+    nextBtn.addEventListener('click',goNext);
+    document.body.appendChild(nextBtn);
+    // Store ref so exitGame can clean it up
+    wrap._nextBtn=nextBtn;
   }
 
   // Live dot sync as user types
@@ -2403,28 +2404,22 @@ function renderType(){
       fbEl.textContent='✓ Correct!'+hintNote;
       fbEl.style.color='var(--green)';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      // Show Next button — no auto advance
-      requestAnimationFrame(()=>{
-        positionElements();
-        const capturedTop=inputBar.style.top||'';
-        inputBar.style.display='none';
-        const nextBtn=document.createElement('button');
-        const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-        nextBtn.textContent=allDoneType?'finish 🎉':'next →';
-        nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
-        nextBtn.type='button';
-        nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-        const goNext=()=>{
-          if(allDoneType){ showExerciseComplete(); }
-          else { advanceDeck(1); renderType(); }
-        };
-        nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-        nextBtn.addEventListener('click',goNext);
-        wrap.appendChild(nextBtn);
-        const origPos=positionElements;
-        positionElements=()=>{ origPos(); if(inputBar.style.top) nextBtn.style.top=inputBar.style.top; };
-        requestAnimationFrame(positionElements);
-      });
+      // Show Next button fixed to screen bottom — immune to keyboard position
+      inputBar.style.display='none';
+      const nextBtn=document.createElement('button');
+      const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+      nextBtn.textContent=allDoneType?'finish 🎉':'next →';
+      nextBtn.style.cssText='position:fixed;left:16px;right:16px;bottom:12px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;z-index:220;';
+      nextBtn.type='button';
+      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+      const goNext=()=>{
+        if(allDoneType){ showExerciseComplete(); }
+        else { advanceDeck(1); renderType(); }
+      };
+      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
+      nextBtn.addEventListener('click',goNext);
+      document.body.appendChild(nextBtn);
+      wrap._nextBtn=nextBtn;
     } else {
       inputEl.classList.add('wrong');
       trigShake(inputEl);
