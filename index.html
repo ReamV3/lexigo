@@ -649,7 +649,50 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   transition:transform .1s;
 }
 .ob2-cta:active{transform:scale(.97);}
-.ob2-cta-icon{font-size:1.1rem;}</style>
+.ob2-cta-icon{font-size:1.1rem;}
+
+/* ── EXERCISE COMPLETE OVERLAY ── */
+#exerciseComplete{
+  display:none;position:fixed;inset:0;z-index:800;
+  background:rgba(14,14,18,.92);backdrop-filter:blur(8px);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 28px;cursor:pointer;
+}
+#exerciseComplete.open{display:flex;}
+.ec-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:28px;padding:40px 28px 36px;
+  width:100%;max-width:380px;
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;overflow:hidden;
+  animation:ob2In .4s cubic-bezier(.34,1.3,.64,1) both;
+  pointer-events:none;
+}
+.ec-confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.ec-trophy{font-size:3.2rem;margin-bottom:18px;
+  animation:ob2Bounce .55s cubic-bezier(.34,1.56,.64,1) .15s both;}
+.ec-title{
+  font-family:'Playfair Display',serif;font-size:1.75rem;font-weight:700;
+  color:var(--accent);text-align:center;margin-bottom:12px;
+}
+.ec-sub{
+  font-family:'Inter',sans-serif;font-size:.92rem;
+  color:var(--muted);text-align:center;line-height:1.7;margin-bottom:28px;
+}
+.ec-tap{
+  font-family:'DM Mono',monospace;font-size:.72rem;
+  color:var(--muted);letter-spacing:.12em;text-transform:uppercase;
+  animation:ecBlink 1.5s ease-in-out infinite;
+}
+@keyframes ecBlink{0%,100%{opacity:.4;}50%{opacity:1;}}
+.ec-stars{
+  display:flex;gap:6px;margin-bottom:18px;
+}
+.ec-star{font-size:1.6rem;animation:ecStarPop .4s cubic-bezier(.34,1.56,.64,1) both;}
+.ec-star:nth-child(1){animation-delay:.1s;}
+.ec-star:nth-child(2){animation-delay:.22s;}
+.ec-star:nth-child(3){animation-delay:.34s;}
+@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}</style>
 </head>
 <body>
 
@@ -884,6 +927,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- ═══════════ EXERCISE COMPLETE ═══════════ -->
+<div id="exerciseComplete">
+  <div class="ec-card">
+    <div class="ec-confetti" id="ecConfetti"></div>
+    <div class="ec-stars"><span class="ec-star">⭐</span><span class="ec-star">⭐</span><span class="ec-star">⭐</span></div>
+    <div class="ec-trophy">🏆</div>
+    <div class="ec-title">Congrats!</div>
+    <div class="ec-sub">You finished all words in this exercise.<br>Great job practicing your vocabulary.</div>
+    <div class="ec-tap">tap anywhere to continue</div>
+  </div>
+</div>
+
 <script>
 // ── Storage ──
 const LS_BANK='vt2_bank', LS_SEL='vt2_sel', LS_THEME='vt2_theme', LS_SOUND='vt2_sound', LS_ONBOARD='vt2_onboarded';
@@ -918,6 +973,7 @@ let typeAnswer='';
 let typeVVListener=null;
 // streak / carousel
 let choiceStreak=0;
+let choiceAnsweredKeys=new Set(); // track which words answered correctly this session
 let choiceCarousel=[]; // infinite ordered list
 let choiceCarouselIdx=0;
 
@@ -1380,6 +1436,7 @@ function startGame(ex){
   if(bank.classes.length===0){ showToast('Add some words first — tap ＋'); return; }
   exercise=ex; buildDeck();
   choiceStreak=0;
+  choiceAnsweredKeys=new Set();
   // Build infinite carousel for choice game
   if(ex==='choice'){
     choiceCarousel=shuffle([...deck]);
@@ -1469,7 +1526,14 @@ function flipCard(){
   if(exercise!=='flash') return;
   flipped=!flipped;
   document.getElementById('cardInner').classList.toggle('flipped',flipped);
-  if(flipped){ recordCorrect(deck[idx].w); renderWords(); }
+  if(flipped){
+    recordCorrect(deck[idx].w); renderWords();
+    choiceAnsweredKeys.add(deck[idx].w);
+    const allFlipped=deck.filter(w=>!isExcluded(w.w)).every(w=>choiceAnsweredKeys.has(w.w));
+    if(allFlipped){
+      setTimeout(()=>showExerciseComplete(),600);
+    }
+  }
 }
 
 // CHOICE — with mandatory countdown
@@ -1632,6 +1696,7 @@ function showChoiceButtons(wrap, w, ringStart){
         }
         celebrateButton(btn);
         recordCorrect(w.w); renderWords();
+        choiceAnsweredKeys.add(w.w);
         const fbMsg=wasFast?'⚡ Fast! Correct!':'✓ Correct!';
         setFB(fbMsg,true);
         grid.querySelectorAll('.c-btn').forEach(b=>{ if(b!==btn) b.disabled=true; });
@@ -1640,8 +1705,13 @@ function showChoiceButtons(wrap, w, ringStart){
         else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!');
         else if(choiceStreak===10) showStreak('🌟 10 streak!');
         else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!');
-        // Auto-advance to next after brief pause
-        setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 900);
+        // Check if all deck words answered correctly at least once
+        const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+        if(allDone){
+          setTimeout(()=>showExerciseComplete(),900);
+        } else {
+          setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 900);
+        }
       } else {
         // Wrong: shake, reset streak, immediately skip to next word
         trigShake(btn);
@@ -1784,8 +1854,13 @@ function onMCardTap(el,side,key){
 
           const active=mcPairs.filter(p=>!p.matched);
           if(active.length===0){
-            setFB('🎉 All matched!',true);
-            setTimeout(()=>renderMatch(),1600);
+            if(mcSolved>=mcTotal){
+              // All words in the exercise done
+              setTimeout(()=>showExerciseComplete(),400);
+            } else {
+              setFB('🎉 All matched!',true);
+              setTimeout(()=>renderMatch(),1600);
+            }
             return;
           }
           renderMatchBoard();
@@ -2011,7 +2086,12 @@ function renderType(){
         nextBtn.style.cssText=`position:absolute;left:16px;right:16px;top:${capturedTop};padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;`;
         nextBtn.type='button';
         nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-        const goNext=()=>{ advanceDeck(1); renderType(); };
+        const goNext=()=>{
+          choiceAnsweredKeys.add(w.w);
+          const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+          if(allDoneHint){ showExerciseComplete(); }
+          else { advanceDeck(1); renderType(); }
+        };
         nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
         nextBtn.addEventListener('click',goNext);
         wrap.appendChild(nextBtn);
@@ -2037,11 +2117,17 @@ function renderType(){
       dotsRow.appendChild(ansEl);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
+      choiceAnsweredKeys.add(w.w); // reuse same set for cross-game tracking
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
       fbEl.textContent='✓ Correct!'+hintNote;
       fbEl.style.color='var(--green)';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      setTimeout(()=>{ advanceDeck(1); renderType(); }, 900);
+      const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+      if(allDoneType){
+        setTimeout(()=>showExerciseComplete(),900);
+      } else {
+        setTimeout(()=>{ advanceDeck(1); renderType(); }, 900);
+      }
     } else {
       inputEl.classList.add('wrong');
       trigShake(inputEl);
@@ -2310,6 +2396,41 @@ function hideOnboarding(cb){
   el.style.transition='opacity .3s ease';
   el.style.opacity='0';
   setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
+}
+
+// ── Exercise Complete ──
+function showExerciseComplete(){
+  exitGame();
+  const el=document.getElementById('exerciseComplete');
+  el.classList.add('open');
+  spawnEcConfetti();
+  const dismiss=()=>{
+    el.style.transition='opacity .3s ease';
+    el.style.opacity='0';
+    setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; },310);
+    el.removeEventListener('touchstart',dismiss);
+    el.removeEventListener('click',dismiss);
+  };
+  setTimeout(()=>{
+    el.addEventListener('touchstart',dismiss,{passive:true});
+    el.addEventListener('click',dismiss);
+  },600);
+}
+function spawnEcConfetti(){
+  const container=document.getElementById('ecConfetti');
+  if(!container) return;
+  container.innerHTML='';
+  const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc','#f87171','#34d399'];
+  for(let i=0;i<50;i++){
+    const el2=document.createElement('div');
+    const size=4+Math.random()*8;
+    const x=Math.random()*100;
+    const delay=Math.random()*0.8;
+    const dur=1.0+Math.random()*1.0;
+    const col=COLS[Math.floor(Math.random()*COLS.length)];
+    el2.style.cssText=`position:absolute;left:${x}%;top:-10px;width:${size}px;height:${size}px;border-radius:${Math.random()>0.5?'50%':'2px'};background:${col};animation:confettiFall ${dur}s ease-in ${delay}s forwards;transform:rotate(${Math.random()*360}deg);`;
+    container.appendChild(el2);
+  }
 }
 
 function showOb2(){
