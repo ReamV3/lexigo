@@ -70,8 +70,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .icon-match{background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
 .icon-choice{background:rgba(94,200,255,.15);color:#5ec8ff;border:1px solid rgba(94,200,255,.3);}
 .icon-flash{background:rgba(232,184,109,.15);color:var(--accent);border:1px solid rgba(232,184,109,.3);}
-.game-name{font-size:1rem;color:var(--text);margin-bottom:2px;}
+.game-name{font-size:1rem;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
 .game-desc{font-size:.73rem;color:var(--muted);}
+.game-setting-badge{
+  font-family:'DM Mono',monospace;font-size:.72rem;font-weight:700;
+  border-radius:6px;padding:2px 7px;
+  letter-spacing:.03em;white-space:nowrap;
+}
+.game-setting-badge.badge-choice{
+  color:#5ec8ff;background:rgba(94,200,255,.15);border:1.5px solid rgba(94,200,255,.4);
+}
+.game-setting-badge.badge-type{
+  color:var(--green);background:rgba(110,231,183,.15);border:1.5px solid rgba(110,231,183,.4);
+}
 .game-arrow{font-size:1rem;color:var(--muted);margin-left:auto;transition:transform .2s,color .2s;}
 .game-card:hover .game-arrow{transform:translateX(4px);color:var(--accent2);}
 
@@ -126,6 +137,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .g-title-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .g-title-icon svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
 .g-badge{font-size:.7rem;color:var(--muted);letter-spacing:.07em;}
+.g-reset{
+  width:30px;height:30px;border-radius:50%;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);cursor:pointer;
+  display:none;align-items:center;justify-content:center;padding:0;
+  flex-shrink:0;transition:border-color .18s,color .18s,opacity .18s;
+  opacity:.55;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.g-reset.visible{display:flex;}
+.g-reset:active{opacity:1;border-color:var(--red);color:var(--red);}
+.g-reset svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+@media (hover:hover){.g-reset:hover{opacity:1;border-color:var(--red);color:var(--red);}}
 .prog-bar{width:100%;max-width:520px;height:3px;background:var(--border);border-radius:3px;margin-bottom:28px;overflow:hidden;}
 .prog-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease;}
 .feedback{font-size:1.25rem;text-align:center;min-height:28px;margin-bottom:12px;letter-spacing:.04em;font-weight:600;}
@@ -301,6 +325,111 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .ws-back:active{transform:scale(.95);}
 .ws-title{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--accent);flex:1;}
 
+/* ── FIRST-VISIT TIP BANNER ── */
+#firstVisitTip{
+  position:fixed;bottom:0;left:0;right:0;
+  z-index:500;
+  padding:0 16px 20px;
+  transform:translateY(110%);
+  transition:transform .38s cubic-bezier(.34,1.2,.64,1);
+  pointer-events:none;
+}
+#firstVisitTip.show{transform:translateY(0);pointer-events:auto;}
+.fvt-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:18px 18px 14px;
+  box-shadow:0 -4px 32px rgba(0,0,0,.35);
+  max-width:520px;
+  margin:0 auto;
+}
+.fvt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.fvt-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--accent);font-weight:700;}
+.fvt-close{
+  width:26px;height:26px;border-radius:50%;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-size:.8rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.fvt-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.fvt-row{display:flex;align-items:flex-start;gap:10px;}
+.fvt-icon{font-size:.95rem;flex-shrink:0;margin-top:1px;width:20px;text-align:center;}
+.fvt-text{font-family:'Inter',sans-serif;font-size:.82rem;color:var(--muted);line-height:1.55;}
+.fvt-text strong{color:var(--text);}
+.fvt-text code{
+  font-family:'DM Mono',monospace;font-size:.78rem;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;color:var(--accent2);
+}
+.fvt-dismiss{
+  width:100%;padding:10px 0;border-radius:10px;
+  border:none;background:var(--accent);color:#0e0e12;
+  font-family:'DM Mono',monospace;font-size:.82rem;font-weight:600;
+  cursor:pointer;letter-spacing:.04em;
+}
+
+/* Info button in words screen header */
+.ws-info-btn{
+  width:34px;height:34px;border-radius:50%;
+  border:1.5px solid var(--border);background:transparent;
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-left:auto;
+  transition:border-color .18s,color .18s;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.ws-info-btn:active{border-color:var(--accent2);color:var(--accent2);}
+@media(hover:hover){.ws-info-btn:hover{border-color:var(--accent2);color:var(--accent2);}}
+
+/* Export/Import bank row at bottom of words screen */
+.ws-bank-row{
+  display:flex;gap:10px;width:100%;max-width:560px;
+  margin-top:20px;margin-bottom:8px;
+}
+.ws-bank-btn{
+  flex:1;padding:11px 0;border-radius:8px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem;
+  cursor:pointer;transition:all .18s;letter-spacing:.04em;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.ws-bank-btn:active{border-color:var(--accent2);color:var(--accent2);}
+@media(hover:hover){.ws-bank-btn:hover{border-color:var(--accent2);color:var(--accent2);}}
+
+/* Info modal */
+.info-modal{max-height:82vh;overflow-y:auto;padding:22px 20px 20px;}
+.info-close-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.info-close-btn{
+  width:30px;height:30px;border-radius:50%;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-size:.9rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .15s,color .15s;
+}
+.info-close-btn:active{border-color:var(--red);color:var(--red);}
+.info-body{display:flex;flex-direction:column;gap:18px;margin-bottom:20px;}
+.info-section{display:flex;flex-direction:column;gap:8px;}
+.info-section-title{font-family:'Playfair Display',serif;font-size:1rem;color:var(--accent);font-weight:700;}
+.info-section p{font-family:'Inter',sans-serif;font-size:.85rem;color:var(--muted);line-height:1.65;}
+.info-section strong{color:var(--text);}
+.info-section em{color:var(--accent2);font-style:normal;}
+.info-code{
+  font-family:'DM Mono',monospace;font-size:.8rem;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;color:var(--text);
+  line-height:1.8;
+}
+.info-tip{
+  display:flex;align-items:flex-start;gap:10px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;
+}
+.info-tip-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
+.info-tip span:last-child{font-family:'Inter',sans-serif;font-size:.83rem;color:var(--muted);line-height:1.6;}
+.info-tip strong{color:var(--text);}
+
 /* View all button */
 .view-all-btn{width:100%;max-width:560px;padding:14px 18px;border-radius:14px;
   border:1px solid var(--border);background:var(--surface);color:var(--text);
@@ -439,21 +568,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
 
 /* TYPE GAME */
-/* typeWrap — full fixed overlay that responds to keyboard */
+/* typeWrap — sits inside gameArea, below the shared header+progbar */
 #typeWrap{
   display:none;
-  position:fixed;inset:0;
-  z-index:210;
-  background:var(--bg);
+  position:relative;
+  width:100%;max-width:520px;
+  flex:1;
   flex-direction:column;
   align-items:center;
-  padding:0 16px;
+  padding:0;
 }
 #typeWrap.topen{display:flex;}
 /* The word+dots block: absolutely centered in the space above the input */
 .type-word-block{
   position:absolute;
-  left:16px;right:16px;
+  left:0;right:0;
   display:flex;flex-direction:column;align-items:center;gap:12px;
   pointer-events:none;
 }
@@ -492,7 +621,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* Input bar — pinned to bottom of visual viewport */
 .type-input-bar{
   position:absolute;
-  left:16px;right:16px;
+  left:0;right:0;
   display:flex;gap:10px;align-items:stretch;
 }
 .type-input{
@@ -514,7 +643,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .type-submit:active{opacity:.8;}
 /* Type It nav arrows */
 .type-nav-row{
-  position:absolute;left:16px;right:16px;
+  position:absolute;left:0;right:0;
   display:flex;align-items:center;justify-content:space-between;gap:10px;
 }
 .type-nav-btn{
@@ -528,15 +657,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .type-nav-btn:disabled{opacity:.28;cursor:default;}
 .type-nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;}
 .type-nav-prog{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:.06em;}
-.type-header{
-  width:100%;max-width:520px;
-  display:flex;align-items:center;gap:12px;
-  position:absolute;top:24px;left:16px;right:16px;
-}
-.type-prog-bar{
-  flex:1;height:3px;background:var(--border);border-radius:3px;overflow:hidden;
-}
-.type-prog-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease;}
 
 
 
@@ -754,7 +874,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div class="game-icon icon-match">
         <svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/><circle cx="18" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
       </div>
-      <div><div class="game-name">Match</div><div class="game-desc">Tap to connect pairs</div></div>
+      <div><div class="game-name">Match</div><div class="game-desc" id="desc-match">Tap to connect pairs</div></div>
       <div class="game-arrow">›</div>
     </div>
   </div>
@@ -763,7 +883,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div class="game-icon icon-choice">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/><polyline points="9 15 11 17 15 13"/></svg>
       </div>
-      <div><div class="game-name">Multiple Choice</div><div class="game-desc">Pick the right translation</div></div>
+      <div><div class="game-name">Multiple Choice<span class="game-setting-badge badge-choice" id="choice-setting-badge">3s</span></div><div class="game-desc" id="desc-choice">Pick the right translation</div></div>
       <div class="game-arrow">›</div>
     </div>
     <button class="card-inline-toggle" id="speedToggle" onclick="toggleSpeed(event)" title="Countdown speed"><span class="tog-hint">timer</span><span class="tog-val" id="speedLabel">3s</span></button>
@@ -773,7 +893,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div class="game-icon" style="background:rgba(110,231,183,.15);color:var(--green);border:1px solid rgba(110,231,183,.3);">
         <svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
       </div>
-      <div><div class="game-name">Type It</div><div class="game-desc">Type the answer from memory</div></div>
+      <div><div class="game-name">Type It<span class="game-setting-badge badge-type" id="type-setting-badge">→</span></div><div class="game-desc" id="desc-type">Type the answer from memory</div></div>
       <div class="game-arrow">›</div>
     </div>
     <button class="card-inline-toggle" id="typeDirToggle" onclick="toggleTypeDir(event)" title="Toggle direction"><span class="tog-hint">dir</span><span class="tog-val" id="typeDirLabel">→</span></button>
@@ -783,19 +903,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div class="game-icon icon-flash">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>
       </div>
-      <div><div class="game-name">Cards</div><div class="game-desc">Tap to flip — self-paced review</div></div>
+      <div><div class="game-name">Cards</div><div class="game-desc" id="desc-flash">Tap to flip — self-paced review</div></div>
       <div class="game-arrow">›</div>
     </div>
   </div>
 </div>
 
-<!-- BOTTOM ROW -->
-<div class="bottom-row">
-  <button class="bottom-btn" onclick="exportBank()">↓ export bank</button>
-  <button class="bottom-btn" onclick="document.getElementById('importFileInput').click()">↑ import bank</button>
-  <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)">
-</div>
-<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.0.0</div>
+<!-- hidden file input for import, kept at top level -->
+<input type="file" id="importFileInput" accept=".json" onchange="importBank(this)" style="display:none">
+<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.1.0</div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -803,6 +919,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <button class="g-back" tabindex="-1" onclick="exitGame()"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg></button>
     <div class="g-title" id="gTitle"><span class="g-title-icon" id="gTitleIcon"></span><span id="gTitleText"></span></div>
     <div class="g-badge" id="gBadge"></div>
+    <button class="g-reset" id="gReset" tabindex="-1" title="Reset progress">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+    </button>
   </div>
   <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
   <div class="feedback" id="feedback"></div>
@@ -855,6 +974,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <div class="ws-header">
     <button class="ws-back" id="wordsBackBtn" onclick="closeWordsScreen()"><svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg></button>
     <div class="ws-title">Add Words</div>
+    <button class="ws-info-btn" id="wsInfoBtn" onclick="openInfoModal()" title="How it works">
+      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </button>
   </div>
 
   <button class="view-all-btn" onclick="openListScreen()">📋 View all words & manage</button>
@@ -868,6 +990,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <div class="add-actions">
       <button class="add-confirm" onclick="confirmAdd()">Add words</button>
     </div>
+  </div>
+
+  <!-- Export / Import at the bottom of words screen -->
+  <div class="ws-bank-row">
+    <button class="ws-bank-btn" onclick="exportBank()">
+      <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export bank
+    </button>
+    <button class="ws-bank-btn" onclick="document.getElementById('importFileInput').click()">
+      <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import bank
+    </button>
   </div>
 </div>
 
@@ -933,6 +1067,81 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- INFO MODAL -->
+<div class="overlay" id="infoModal" onclick="closeInfoModal()">
+  <div class="modal info-modal" onclick="event.stopPropagation()">
+    <div class="info-close-row">
+      <div class="m-title" style="margin-bottom:0;">How it works</div>
+      <button class="info-close-btn" onclick="closeInfoModal()">✕</button>
+    </div>
+    <div class="info-body">
+
+      <div class="info-section">
+        <div class="info-section-title">📚 Classes</div>
+        <p>Words are grouped into <strong>Classes</strong> (Class 1, Class 2, …). Each class is like a lesson or chapter. You can practice one class at a time or mix several together using the class pill on the main screen.</p>
+      </div>
+
+      <div class="info-section">
+        <div class="info-section-title">➕ Adding Words</div>
+        <p>Paste words one per line. Each line must have the word and its translation separated by a dash or arrow:</p>
+        <div class="info-code">привет – hello<br>спасибо – thank you<br>мир → world</div>
+        <p>You can paste a whole list at once. Choose an existing class or let it create a new one automatically.</p>
+      </div>
+
+      <div class="info-section">
+        <div class="info-section-title">📋 Managing Words</div>
+        <p>Tap <em>"View all words &amp; manage"</em> to see all your words organised by class.</p>
+        <div class="info-tip">
+          <span class="info-tip-icon">☑</span>
+          <span><strong>Checkbox (✓ / ✕)</strong> — tap it to exclude a word from all games. Useful for words you already know well. Tap again to include it back.</span>
+        </div>
+        <div class="info-tip">
+          <span class="info-tip-icon">🗑</span>
+          <span><strong>Delete a word</strong> — hold (long-press) any word row for about 1 second. A delete confirmation will appear.</span>
+        </div>
+        <div class="info-tip">
+          <span class="info-tip-icon">📁</span>
+          <span><strong>Delete a class</strong> — in the Add Words screen, hold (long-press) any class chip for about 1 second. This deletes the class and all its words.</span>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-section-title">💾 Export &amp; Import</div>
+        <p>Use <strong>Export bank</strong> to save all your words to a file. Use <strong>Import bank</strong> to load them back — useful for backups or moving between devices.</p>
+      </div>
+
+    </div>
+    <div class="m-actions" style="margin-top:0;">
+      <button class="m-ok" onclick="closeInfoModal()">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ FIRST-VISIT TIP BANNER ═══════════ -->
+<div id="firstVisitTip">
+  <div class="fvt-card">
+    <div class="fvt-header">
+      <div class="fvt-title">✏️ Quick guide</div>
+      <button class="fvt-close" onclick="dismissFirstVisitTip()">✕</button>
+    </div>
+    <div class="fvt-rows">
+      <div class="fvt-row">
+        <span class="fvt-icon">📝</span>
+        <div class="fvt-text"><strong>One word per line.</strong> Separate the two languages with a dash:<br><code>привет – hello</code></div>
+      </div>
+      <div class="fvt-row">
+        <span class="fvt-icon">📁</span>
+        <div class="fvt-text"><strong>Classes</strong> are groups — like lessons. Each time you add words you assign them to a class. Practice one class at a time or mix several.</div>
+      </div>
+      <div class="fvt-row">
+        <span class="fvt-icon">➕</span>
+        <div class="fvt-text"><strong>Add more later?</strong> Tap the class chip (e.g. <code>Class 1</code>) to add words to an existing class instead of creating a new one.</div>
+      </div>
+    </div>
+    <button class="fvt-dismiss" onclick="dismissFirstVisitTip()">Got it, let's add words!</button>
+  </div>
+</div>
+
 <!-- ═══════════ ONBOARDING SCREEN ═══════════ -->
 <div id="onboardScreen">
   <div class="ob-glow"></div>
@@ -976,7 +1185,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 <script>
 // ── Storage ──
-const LS_BANK='vt2_bank', LS_SEL='vt2_sel', LS_THEME='vt2_theme', LS_SOUND='vt2_sound', LS_ONBOARD='vt2_onboarded';
+const LS_BANK='vt2_bank', LS_SEL='vt2_sel', LS_THEME='vt2_theme', LS_SOUND='vt2_sound', LS_ONBOARD='vt2_onboarded', LS_PROGRESS='vt2_progress';
 
 let soundEnabled=true;
 let audioCtx=null;
@@ -1023,6 +1232,48 @@ function load(){
 function save(){
   localStorage.setItem(LS_BANK,JSON.stringify(bank));
   localStorage.setItem(LS_SEL,JSON.stringify([...selected]));
+}
+function progKey(ex, selKey){ return LS_PROGRESS+'_'+ex+'_'+selKey; }
+function saveProgress(){
+  if(!exercise) return;
+  const selKey=JSON.stringify([...selected].sort());
+  const prog={
+    exercise,
+    selKey,
+    answeredKeys:[...choiceAnsweredKeys],
+    idx,
+    // Save deck order for flash so we can restore exact position
+    deckOrder: exercise==='flash' ? deck.map(w=>w.w) : null,
+    typeDir,
+    choiceSpeedSecs,
+    savedAt:Date.now()
+  };
+  localStorage.setItem(progKey(exercise,selKey),JSON.stringify(prog));
+}
+function loadProgress(ex){
+  // ex defaults to current exercise if not specified
+  const targetEx=ex||exercise;
+  if(!targetEx) return null;
+  try{
+    const selKey=JSON.stringify([...selected].sort());
+    const raw=localStorage.getItem(progKey(targetEx,selKey));
+    if(!raw) return null;
+    const prog=JSON.parse(raw);
+    // Expire after 7 days
+    if(Date.now()-prog.savedAt>7*24*3600*1000){ clearProgress(targetEx); return null; }
+    return prog;
+  }catch{ return null; }
+}
+function clearProgress(ex){
+  const selKey=JSON.stringify([...selected].sort());
+  if(ex){
+    localStorage.removeItem(progKey(ex,selKey));
+  } else {
+    // Clear all games for current selection
+    ['match','choice','flash','type'].forEach(g=>localStorage.removeItem(progKey(g,selKey)));
+    // Also clear legacy key
+    localStorage.removeItem(LS_PROGRESS);
+  }
 }
 
 function getP(w){ if(!bank.progress[w])bank.progress[w]={correct:0,excluded:false}; return bank.progress[w]; }
@@ -1100,7 +1351,7 @@ function closeClassModal(){ document.getElementById('classModal').classList.remo
 function confirmClassModal(){
   if(modalSel.size>0){ selected=new Set(modalSel); save(); }
   closeClassModal();
-  updateClassPill(); renderWords(); buildDeck();
+  updateClassPill(); renderWords(); buildDeck(); updateGameDescs();
 }
 
 // ── Active words for current selection ──
@@ -1181,6 +1432,19 @@ function openWordsScreen(){
   const backBtn=document.getElementById('wordsBackBtn');
   if(backBtn) backBtn.style.visibility=bank.classes.length>0?'visible':'hidden';
   document.getElementById('wordsScreen').classList.add('open');
+  // Show first-visit tip only the very first time (no words ever added)
+  if(bank.classes.length===0 && !localStorage.getItem('vt2_tip_seen')){
+    setTimeout(()=>{
+      const tip=document.getElementById('firstVisitTip');
+      if(tip) tip.classList.add('show');
+    }, 420); // slight delay so the screen animation settles first
+  }
+}
+function dismissFirstVisitTip(){
+  const tip=document.getElementById('firstVisitTip');
+  if(!tip) return;
+  tip.classList.remove('show');
+  localStorage.setItem('vt2_tip_seen','1');
 }
 function closeWordsScreen(){
   // Block closing if no words exist yet
@@ -1387,6 +1651,9 @@ function confirmFillGap(doFill){
   }
 }
 
+function openInfoModal(){ document.getElementById('infoModal').classList.add('open'); }
+function closeInfoModal(){ document.getElementById('infoModal').classList.remove('open'); }
+
 // Detect dominant script of a string (for same-language rejection)
 // Returns one of: 'cyrillic','hebrew','arabic','cjk','japanese','greek','latin','other'
 function detectScript(s){
@@ -1571,12 +1838,50 @@ function startGame(ex){
   if(bank.classes.length===0){ showToast('Add some words first — tap ＋'); return; }
   exercise=ex; buildDeck();
   choiceStreak=0;
-  choiceAnsweredKeys=new Set();
-  // Build infinite carousel for choice game
+
+  // Try to resume saved progress for this game + selection
+  const saved=loadProgress(ex);
+  const resuming=saved&&saved.exercise===ex;
+
+  choiceAnsweredKeys=resuming ? new Set(saved.answeredKeys) : new Set();
+
+  // For flash: restore exact deck order so resume continues from same card
+  if(ex==='flash' && resuming && saved.deckOrder && saved.deckOrder.length>0){
+    const wordMap=Object.fromEntries(bank.words.map(w=>[w.w,w]));
+    const restored=saved.deckOrder.map(key=>wordMap[key]).filter(Boolean);
+    if(restored.length>0){
+      deck=restored;
+      idx=Math.min(saved.idx||0, deck.length-1);
+    }
+  }
+
+  // Build infinite carousel for choice game — only unanswered words
   if(ex==='choice'){
-    choiceCarousel=shuffle([...deck]);
+    const unanswered=deck.filter(w=>!isExcluded(w.w)&&!choiceAnsweredKeys.has(w.w));
+    choiceCarousel=shuffle(unanswered.length>0 ? unanswered : deck.filter(w=>!isExcluded(w.w)));
     choiceCarouselIdx=0;
   }
+
+  // For type game: find first unanswered word index in deck
+  if(ex==='type' && resuming && choiceAnsweredKeys.size>0){
+    const firstUnanswered=deck.findIndex(w=>!isExcluded(w.w)&&!choiceAnsweredKeys.has(w.w));
+    if(firstUnanswered>=0) idx=firstUnanswered;
+  } else if(ex!=='type') {
+    if(resuming && saved.idx!=null) idx=Math.min(saved.idx, Math.max(0,deck.length-1));
+  }
+
+  if(resuming){
+    const total=deck.filter(w=>!isExcluded(w.w)).length;
+    const done=choiceAnsweredKeys.size;
+    const remaining=total-done;
+    if(ex==='flash'){
+      showToast('▶ Resuming — card '+(idx+1)+' of '+total);
+    } else {
+      showToast('▶ Resuming — '+done+' done, '+remaining+' left');
+    }
+  }
+  // Show reset button if there's saved progress
+  updateResetBtn();
   const names={match:'Match',choice:'Multiple Choice',flash:'Cards',type:'Type It'};
   const icons={
     match:`<svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/><circle cx="18" cy="17" r="2" fill="currentColor" stroke="none"/></svg>`,
@@ -1606,7 +1911,13 @@ function startGame(ex){
   else if(ex==='type'){ document.getElementById('navRow').style.display='none'; renderType(); }
   else { document.getElementById('navRow').style.display='flex'; ex==='flash'?renderFlash():renderChoice(); }
 }
-function exitGame(){
+function exitGame(skipSave){
+  // Save current progress before exiting (for all game modes)
+  if(!skipSave) saveProgress();
+  // Refresh main screen desc to show/hide resume indicators
+  updateGameDescs();
+  const resetBtn=document.getElementById('gReset');
+  if(resetBtn) resetBtn.classList.remove('visible');
   document.getElementById('gameArea').classList.remove('open');
   exercise=null;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
@@ -1630,6 +1941,36 @@ function exitGame(){
 function setProg(cur,tot){
   document.getElementById('progTxt').textContent=cur+' / '+tot;
   document.getElementById('progFill').style.width=tot>0?(cur/tot*100)+'%':'0%';
+}
+// Unified progress display: always shows "done / total" across all games
+function setGameProgress(done, total){
+  document.getElementById('progTxt').textContent=done+' / '+total;
+  document.getElementById('progFill').style.width=total>0?(done/total*100)+'%':'0%';
+}
+function updateResetBtn(){
+  const btn=document.getElementById('gReset');
+  if(!btn) return;
+  const hasProg = choiceAnsweredKeys.size>0 || (exercise==='flash' && idx>0);
+  btn.classList.toggle('visible', hasProg);
+}
+function resetCurrentGame(){
+  clearProgress(exercise);
+  choiceAnsweredKeys=new Set();
+  choiceStreak=0;
+  buildDeck();
+  if(exercise==='choice'){
+    choiceCarousel=shuffle(deck.filter(w=>!isExcluded(w.w)));
+    choiceCarouselIdx=0;
+    renderChoice();
+  } else if(exercise==='type'){
+    idx=0; renderType();
+  } else if(exercise==='flash'){
+    idx=0; renderFlash();
+  } else if(exercise==='match'){
+    mcSolved=0; renderMatch();
+  }
+  updateResetBtn();
+  showToast('↺ Progress reset');
 }
 
 // FLASH
@@ -1660,6 +2001,8 @@ function renderFlash(){
     inner.style.transition='';
   }));
   setProg(idx+1,deck.length);
+  updateResetBtn();
+  saveProgress(); // save position so resume works even without flipping
 }
 function flipCard(){
   if(exercise!=='flash') return;
@@ -1668,6 +2011,7 @@ function flipCard(){
   if(flipped){
     recordCorrect(deck[idx].w); renderWords();
     choiceAnsweredKeys.add(deck[idx].w);
+    saveProgress();
     const allFlipped=deck.filter(w=>!isExcluded(w.w)).every(w=>choiceAnsweredKeys.has(w.w));
     if(allFlipped){
       setTimeout(()=>showExerciseComplete(),600);
@@ -1721,7 +2065,7 @@ function renderChoice(){
     cdWrap.appendChild(wordRingWrap);
     cdWrap.appendChild(tapHint);
     wrap.appendChild(cdWrap);
-    setProg(choiceCarouselIdx+1, choiceCarousel.length);
+    setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
     // Tap handler — anywhere on the word block reveals answers
     let revealed=false;
     const revealFn=(e)=>{
@@ -1756,7 +2100,7 @@ function renderChoice(){
   wordRingWrap.appendChild(ringSvg);
   cdWrap.appendChild(wordRingWrap);
   wrap.appendChild(cdWrap);
-  setProg(choiceCarouselIdx+1, choiceCarousel.length);
+  setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
 
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
@@ -1836,6 +2180,9 @@ function showChoiceButtons(wrap, w, ringStart){
         celebrateButton(btn);
         recordCorrect(w.w); renderWords();
         choiceAnsweredKeys.add(w.w);
+        saveProgress();
+        setGameProgress(choiceAnsweredKeys.size, deck.filter(w2=>!isExcluded(w2.w)).length);
+        updateResetBtn();
         const fbMsg=wasFast?'⚡ Fast! Correct!':'✓ Correct!';
         setFB(fbMsg,true);
         grid.querySelectorAll('.c-btn').forEach(b=>{ if(b!==btn) b.disabled=true; });
@@ -1873,7 +2220,7 @@ function showChoiceButtons(wrap, w, ringStart){
     grid.appendChild(btn);
   });
   wrap.appendChild(grid);
-  setProg(choiceCarouselIdx+1, choiceCarousel.length);
+  setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
 }
 
 function showStreak(msg){
@@ -1894,16 +2241,22 @@ function renderMatch(){
   const allPairs=deck.filter(w=>!isExcluded(w.w)).map(w=>({w:w.w,t:w.t}));
   if(allPairs.length<2){document.getElementById('emptyMsg').style.display='block';document.getElementById('matchWrap').style.display='none';return;}
 
-  mcTotal=allPairs.length; mcSolved=0; mcStreak=0;
-  const shuffled=shuffle([...allPairs]);
+  mcTotal=allPairs.length; mcStreak=0;
+  // Restore already-matched words from saved progress
+  const alreadyMatched=new Set([...choiceAnsweredKeys]);
+  const remaining=allPairs.filter(p=>!alreadyMatched.has(p.w));
+  mcSolved=alreadyMatched.size;
+  const shuffled=shuffle([...remaining]);
   mcPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length)).map(p=>({...p,matched:false}));
   mcPool=shuffled.slice(Math.min(MC_ROWS,shuffled.length));
   mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
 
   document.getElementById('matchLblLeft').textContent='word';
   document.getElementById('matchLblRight').textContent='translation';
-  document.getElementById('matchScore').textContent='0 / '+mcTotal+' matched';
-  setProg(0,mcTotal);
+  document.getElementById('matchScore').textContent=mcSolved+' / '+mcTotal+' matched';
+  setProg(mcSolved,mcTotal);
+  if(mcSolved>0) showToast('▶ Resuming — '+mcSolved+' / '+mcTotal+' done');
+  updateResetBtn();
   renderMatchBoard();
 }
 
@@ -1972,6 +2325,8 @@ function onMCardTap(el,side,key){
       // ✅ Correct
       mcStreak++; mcSolved++;
       recordCorrect(lKey); renderWords();
+      choiceAnsweredKeys.add(lKey);
+      saveProgress();
       [lEl,rEl].forEach(e=>e.classList.add('correct-flash'));
       playDing(); mcCardSparkle(lEl); mcCardSparkle(rEl);
       if(mcStreak>=3) showMatchStreak(mcStreak);
@@ -2071,29 +2426,7 @@ function renderType(){
   typeAnswer=answer;
   const answerLetters=[...answer];
 
-  // ── Header: back button + class + progress ──
-  const hdr=document.createElement('div');
-  hdr.className='type-header';
-  const backBtn=document.createElement('button');
-  backBtn.className='g-back';
-  backBtn.style.flexShrink='0';
-  backBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>';
-  backBtn.addEventListener('click', exitGame);
-  const clsEl=document.createElement('div');
-  clsEl.className='type-cls';
-  clsEl.textContent='Class '+w.c;
-  const progBar=document.createElement('div');
-  progBar.className='type-prog-bar';
-  const progFill=document.createElement('div');
-  progFill.className='type-prog-fill';
-  progFill.style.width=(deck.length>0?(idx/deck.length*100):0)+'%';
-  progBar.appendChild(progFill);
-  hdr.appendChild(backBtn);
-  hdr.appendChild(clsEl);
-  hdr.appendChild(progBar);
-  wrap.appendChild(hdr);
-
-  // ── Word block (positioned absolutely, centered between header and input) ──
+  // ── Word block (positioned absolutely, centered between top and input) ──
   const wordBlock=document.createElement('div');
   wordBlock.className='type-word-block';
   wordBlock.id='typeWordBlock';
@@ -2169,13 +2502,14 @@ function renderType(){
   wrap.appendChild(navRow);
 
   function updateNavState(){
-    // Count unresolved words in deck
     const unresolved=deck.filter(w2=>!isExcluded(w2.w)&&!choiceAnsweredKeys.has(w2.w));
     const total=deck.filter(w2=>!isExcluded(w2.w)).length;
     const doneCount=choiceAnsweredKeys.size;
-    navProgEl.textContent=(doneCount)+' / '+total;
+    navProgEl.textContent=doneCount+' / '+total;
+    setGameProgress(doneCount, total);
     navPrevBtn.disabled=unresolved.length<=1;
     navNextBtn.disabled=unresolved.length<=1;
+    updateResetBtn();
   }
   updateNavState();
 
@@ -2222,23 +2556,24 @@ function renderType(){
     const vv = window.visualViewport;
     const vvTop = vv ? vv.offsetTop : 0;
     const vvHeight = vv ? vv.height : window.innerHeight;
+    const wrapRect = wrap.getBoundingClientRect();
+    const wrapTop = wrapRect.top; // top of typeWrap in viewport
     const inputBarH = 60;
     const navRowH = 56;
     const gap = 12;
-    const hdrBottom = 80;
 
-    // Input bar at bottom
-    const inputBottom = vvTop + vvHeight - gap;
-    inputBar.style.top = (inputBottom - inputBarH) + 'px';
+    // Input bar pinned to bottom of visual viewport
+    const inputAbsTop = vvTop + vvHeight - gap - inputBarH - wrapTop;
+    inputBar.style.top = inputAbsTop + 'px';
     // Nav row above input bar
-    navRow.style.top = (inputBottom - inputBarH - navRowH - 8) + 'px';
+    navRow.style.top = (inputAbsTop - navRowH - 8) + 'px';
     // Feedback above nav row
-    fbEl.style.top = (inputBottom - inputBarH - navRowH - 44) + 'px';
+    fbEl.style.top = (inputAbsTop - navRowH - 44) + 'px';
     // Word block centered in remaining space
-    const availBot = inputBottom - inputBarH - navRowH - 48;
-    const availMid = hdrBottom + (availBot - hdrBottom) / 2;
+    const availBot = inputAbsTop - navRowH - 48;
+    const availMid = availBot / 2;
     const wordH = wordBlock.offsetHeight || 80;
-    wordBlock.style.top = Math.max(hdrBottom, availMid - wordH/2) + 'px';
+    wordBlock.style.top = Math.max(8, availMid - wordH/2) + 'px';
   }
 
   // Position after DOM renders
@@ -2356,6 +2691,7 @@ function renderType(){
     nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
     const goNext=()=>{
       choiceAnsweredKeys.add(w.w);
+      saveProgress();
       const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
       if(allDoneHint){ showExerciseComplete(); }
       else {
@@ -2399,6 +2735,7 @@ function renderType(){
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
       choiceAnsweredKeys.add(w.w);
+      saveProgress();
       updateNavState();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
       fbEl.textContent='✓ Correct!'+hintNote;
@@ -2414,7 +2751,15 @@ function renderType(){
       nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
       const goNext=()=>{
         if(allDoneType){ showExerciseComplete(); }
-        else { advanceDeck(1); renderType(); }
+        else {
+          // Skip to next unanswered word (same as hint path)
+          const total=deck.length;
+          for(let i=1;i<=total;i++){
+            const ni=(idx+i)%total;
+            if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
+          }
+          renderType();
+        }
       };
       nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
       nextBtn.addEventListener('click',goNext);
@@ -2438,58 +2783,75 @@ function renderType(){
   hintBtn.addEventListener('click', doHint);
   inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
-  setProg(idx+1,deck.length);
+  updateNavState();
+  updateResetBtn();
   requestAnimationFrame(()=>inputEl.focus());
 }
 
 // ── Toggles ──
 function toggleSpeed(e){
   if(e)e.stopPropagation();
-  // Cycle: 3 → 5 → 0 (infinity / no timer) → 3
   if(choiceSpeedSecs===3) choiceSpeedSecs=5;
   else if(choiceSpeedSecs===5) choiceSpeedSecs=0;
   else choiceSpeedSecs=3;
   localStorage.setItem(LS_SPEED,choiceSpeedSecs);
-  updateSpeedBtn();
+  updateSpeedBtn(); updateGameDescs();
 }
 function updateSpeedBtn(){
   const el=document.getElementById('speedLabel');
-  if(!el) return;
+  const badge=document.getElementById('choice-setting-badge');
+  let label;
   if(choiceSpeedSecs===0){
-    el.textContent='∞';
-    el.style.fontSize='1.5rem';
-    el.style.lineHeight='1';
+    label='∞'; if(el){ el.textContent='∞'; el.style.fontSize='1.5rem'; el.style.lineHeight='1'; }
   } else {
-    el.textContent=choiceSpeedSecs+'s';
-    el.style.fontSize='';
-    el.style.lineHeight='';
+    label=choiceSpeedSecs+'s'; if(el){ el.textContent=label; el.style.fontSize=''; el.style.lineHeight=''; }
   }
+  if(badge) badge.textContent=label;
 }
 function loadSpeed(){
   const v=parseInt(localStorage.getItem(LS_SPEED)||'3');
   choiceSpeedSecs=(v===5||v===0)?v:3;
   updateSpeedBtn();
 }
-function toggleTypeDir(e){ if(e)e.stopPropagation(); typeDir=typeDir==='ru-en'?'en-ru':'ru-en'; localStorage.setItem(LS_TYPEDIR,typeDir); updateTypeDirBtn(); }
+function toggleTypeDir(e){ if(e)e.stopPropagation(); typeDir=typeDir==='ru-en'?'en-ru':'ru-en'; localStorage.setItem(LS_TYPEDIR,typeDir); updateTypeDirBtn(); updateGameDescs(); }
 function scriptToCode(script){ return {cyrillic:'RU',hebrew:'HE',arabic:'AR',greek:'GR',japanese:'JA',cjk:'ZH',latin:'EN'}[script]||'?'; }
 function detectWordLang(){
-  // Sample up to 10 words from bank to find dominant script of the "word" side
   const sample=bank.words.slice(0,10).map(w=>w.w).join(' ');
   if(!sample) return {word:'word',meaning:'meaning'};
   const script=detectScript(sample);
   const wCode=scriptToCode(script);
-  // Translation side is always the other — sample it too
   const tSample=bank.words.slice(0,10).map(w=>w.t).join(' ');
   const tScript=detectScript(tSample);
   const tCode=scriptToCode(tScript);
   return {word:wCode, meaning:tCode};
 }
 function updateTypeDirBtn(){
-  const el=document.getElementById('typeDirLabel'); if(!el) return;
+  const el=document.getElementById('typeDirLabel');
+  const badge=document.getElementById('type-setting-badge');
   const {word,meaning}=detectWordLang();
-  el.textContent=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
+  const label=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
+  if(el) el.textContent=label;
+  if(badge) badge.textContent=label;
 }
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
+
+function updateGameDescs(){
+  const matchDesc=document.getElementById('desc-match');
+  const choiceDesc=document.getElementById('desc-choice');
+  const typeDesc=document.getElementById('desc-type');
+  const flashDesc=document.getElementById('desc-flash');
+  if(matchDesc) matchDesc.textContent='Tap to connect pairs'+(loadProgress('match')?' · resume':'');
+  if(choiceDesc) choiceDesc.textContent='Pick the right translation'+(loadProgress('choice')?' · resume':'');
+  if(typeDesc) typeDesc.textContent='Type the answer from memory'+(loadProgress('type')?' · resume':'');
+  if(flashDesc) flashDesc.textContent='Tap to flip — self-paced review'+(loadProgress('flash')?' · resume':'');
+  // Update badges
+  const choiceBadge=document.getElementById('choice-setting-badge');
+  if(choiceBadge) choiceBadge.textContent=choiceSpeedSecs===0?'∞':(choiceSpeedSecs+'s');
+  const {word,meaning}=detectWordLang();
+  const dirLabel=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
+  const typeBadge=document.getElementById('type-setting-badge');
+  if(typeBadge) typeBadge.textContent=dirLabel;
+}
 
 // ── Theme/Sound blink only ──
 function toggleTheme(){
@@ -2675,6 +3037,13 @@ function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.
 load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); updateThemeBtn(); updateSoundBtn();
 // Reveal body now that state is loaded — prevents flash of main screen before onboarding
 document.body.style.opacity='1';
+updateGameDescs();
+
+// Auto-dismiss first-visit tip when user starts typing
+document.getElementById('addText').addEventListener('input', ()=>{
+  const tip=document.getElementById('firstVisitTip');
+  if(tip&&tip.classList.contains('show')) dismissFirstVisitTip();
+}, {once:true});
 
 // ── Onboarding ──
 // Trigger based ONLY on whether classes exist — no localStorage flag dependency.
@@ -2692,7 +3061,8 @@ function hideOnboarding(cb){
 
 // ── Exercise Complete ──
 function showExerciseComplete(){
-  exitGame();
+  clearProgress(exercise); // Reset saved state for this game — exercise fully done
+  exitGame(true); // pass skipSave=true since progress is intentionally cleared
   const el=document.getElementById('exerciseComplete');
   el.classList.add('open');
   spawnEcConfetti();
@@ -2899,6 +3269,36 @@ if(classPillEl){
     (b)=>{ b.style.borderColor=''; b.style.color=''; }
   );
 });
+
+// Reset button — two-tap confirm (first tap warns, second tap resets)
+(()=>{
+  const btn=document.getElementById('gReset');
+  if(!btn) return;
+  let confirmPending=false;
+  let confirmTimer=null;
+  const handler=()=>{
+    if(!confirmPending){
+      confirmPending=true;
+      btn.style.borderColor='var(--red)';
+      btn.style.color='var(--red)';
+      btn.style.opacity='1';
+      showToast('Tap ↺ again to reset progress');
+      confirmTimer=setTimeout(()=>{
+        confirmPending=false;
+        btn.style.borderColor='';btn.style.color='';btn.style.opacity='';
+      },2500);
+    } else {
+      clearTimeout(confirmTimer);
+      confirmPending=false;
+      btn.style.borderColor='';btn.style.color='';btn.style.opacity='';
+      resetCurrentGame();
+    }
+  };
+  safeTap(btn, handler,
+    (b)=>{ b.style.opacity='1'; },
+    (b)=>{ if(!confirmPending) b.style.opacity=''; }
+  );
+})();
 
 </script>
 </body>
