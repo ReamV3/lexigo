@@ -326,51 +326,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .ws-back:active{transform:scale(.95);}
 .ws-title{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--accent);flex:1;}
 
-/* ── FIRST-VISIT TIP BANNER ── */
-#firstVisitTip{
-  position:fixed;bottom:0;left:0;right:0;
-  z-index:500;
-  padding:0 16px 20px;
-  transform:translateY(110%);
-  transition:transform .38s cubic-bezier(.34,1.2,.64,1);
-  pointer-events:none;
-}
-#firstVisitTip.show{transform:translateY(0);pointer-events:auto;}
-.fvt-card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:18px 18px 14px;
-  box-shadow:0 -4px 32px rgba(0,0,0,.35);
-  max-width:520px;
-  margin:0 auto;
-}
-.fvt-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.fvt-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--accent);font-weight:700;}
-.fvt-close{
-  width:26px;height:26px;border-radius:50%;
-  border:1px solid var(--border);background:transparent;
-  color:var(--muted);font-size:.8rem;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.fvt-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-.fvt-row{display:flex;align-items:flex-start;gap:10px;}
-.fvt-icon{font-size:.95rem;flex-shrink:0;margin-top:1px;width:20px;text-align:center;}
-.fvt-text{font-family:'Inter',sans-serif;font-size:.82rem;color:var(--muted);line-height:1.55;}
-.fvt-text strong{color:var(--text);}
-.fvt-text code{
-  font-family:'DM Mono',monospace;font-size:.78rem;
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:4px;padding:1px 5px;color:var(--accent2);
-}
-.fvt-dismiss{
-  width:100%;padding:10px 0;border-radius:10px;
-  border:none;background:var(--accent);color:#0e0e12;
-  font-family:'DM Mono',monospace;font-size:.82rem;font-weight:600;
-  cursor:pointer;letter-spacing:.04em;
-}
-
 /* Info button in words screen header */
 .ws-info-btn{
   width:34px;height:34px;border-radius:50%;
@@ -763,6 +718,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   align-items:center;justify-content:center;padding:24px;
 }
 #ob2Screen.open{display:flex;}
+#ob3Screen{
+  display:none;position:fixed;inset:0;z-index:950;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:24px;
+}
+#ob3Screen.open{display:flex;}
 .ob2-card{
   background:var(--card);border:1px solid var(--border);
   border-radius:28px;padding:36px 28px 32px;
@@ -1126,30 +1087,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
-<!-- ═══════════ FIRST-VISIT TIP BANNER ═══════════ -->
-<div id="firstVisitTip">
-  <div class="fvt-card">
-    <div class="fvt-header">
-      <div class="fvt-title">✏️ Quick guide</div>
-      <button class="fvt-close" onclick="dismissFirstVisitTip()">✕</button>
-    </div>
-    <div class="fvt-rows">
-      <div class="fvt-row">
-        <span class="fvt-icon">📝</span>
-        <div class="fvt-text"><strong>One word per line.</strong> Separate the two languages with a dash:<br><code>привет – hello</code></div>
-      </div>
-      <div class="fvt-row">
-        <span class="fvt-icon">📁</span>
-        <div class="fvt-text"><strong>Classes</strong> are groups — like lessons. Each time you add words you assign them to a class. Practice one class at a time or mix several.</div>
-      </div>
-      <div class="fvt-row">
-        <span class="fvt-icon">➕</span>
-        <div class="fvt-text"><strong>Add more later?</strong> Tap the class chip (e.g. <code>Class 1</code>) to add words to an existing class instead of creating a new one.</div>
-      </div>
-    </div>
-    <button class="fvt-dismiss" onclick="dismissFirstVisitTip()">Got it, let's add words!</button>
-  </div>
-</div>
+
 
 <!-- ═══════════ ONBOARDING SCREEN ═══════════ -->
 <div id="onboardScreen">
@@ -1166,14 +1104,40 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </button>
 </div>
 
-<!-- ═══════════ ONBOARDING STEP 2 ═══════════ -->
+<!-- ═══════════ ONBOARDING STEP 2 — How to add words ═══════════ -->
 <div id="ob2Screen">
   <div class="ob2-card" id="ob2Card">
-    <div class="ob2-confetti" id="ob2Confetti"></div>
+    <div class="ob2-emoji">✏️</div>
+    <div class="ob2-title">How to add words</div>
+    <div style="width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--border);">
+        <span style="font-size:1rem;flex-shrink:0;margin-top:1px;">📝</span>
+        <div style="font-family:'Inter',sans-serif;font-size:.84rem;color:var(--muted);line-height:1.55;"><strong style="color:var(--text);">One word per line.</strong> Separate the two languages with a dash:<br><code style="background:var(--surface);padding:1px 6px;border-radius:5px;font-size:.8rem;color:var(--accent2);">привет – hello</code></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--border);">
+        <span style="font-size:1rem;flex-shrink:0;margin-top:1px;">📁</span>
+        <div style="font-family:'Inter',sans-serif;font-size:.84rem;color:var(--muted);line-height:1.55;"><strong style="color:var(--text);">Classes</strong> are word groups — like lessons. Each time you add words, assign them to a class. Practice one class at a time or mix several.</div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--border);">
+        <span style="font-size:1rem;flex-shrink:0;margin-top:1px;">➕</span>
+        <div style="font-family:'Inter',sans-serif;font-size:.84rem;color:var(--muted);line-height:1.55;"><strong style="color:var(--text);">Add more later?</strong> Tap a class chip (e.g. <code style="background:var(--surface);padding:1px 6px;border-radius:5px;font-size:.8rem;color:var(--accent2);">Class 1</code>) to add words to an existing class instead of creating a new one.</div>
+      </div>
+    </div>
+    <button class="ob2-cta" id="ob2CtaBtn">
+      <span class="ob2-cta-icon">✏️</span>
+      Add My First Words
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════ ONBOARDING STEP 3 — Great job celebration ═══════════ -->
+<div id="ob3Screen">
+  <div class="ob2-card" id="ob3Card">
+    <div class="ob2-confetti" id="ob3Confetti"></div>
     <div class="ob2-emoji">🎉</div>
     <div class="ob2-title">Great job!</div>
     <div class="ob2-msg">Practice makes progress.<br>Your vocabulary journey starts now — small daily sessions create real results.</div>
-    <button class="ob2-cta" id="ob2CtaBtn">
+    <button class="ob2-cta" id="ob3CtaBtn">
       <span class="ob2-cta-icon">🚀</span>
       Let's Start
     </button>
@@ -1441,19 +1405,6 @@ function openWordsScreen(){
   const backBtn=document.getElementById('wordsBackBtn');
   if(backBtn) backBtn.style.visibility=bank.classes.length>0?'visible':'hidden';
   document.getElementById('wordsScreen').classList.add('open');
-  // Show first-visit tip only the very first time (no words ever added)
-  if(bank.classes.length===0 && !localStorage.getItem('vt2_tip_seen')){
-    setTimeout(()=>{
-      const tip=document.getElementById('firstVisitTip');
-      if(tip) tip.classList.add('show');
-    }, 420); // slight delay so the screen animation settles first
-  }
-}
-function dismissFirstVisitTip(){
-  const tip=document.getElementById('firstVisitTip');
-  if(!tip) return;
-  tip.classList.remove('show');
-  localStorage.setItem('vt2_tip_seen','1');
 }
 function closeWordsScreen(){
   // Block closing if no words exist yet
@@ -2981,12 +2932,6 @@ load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); updateThemeB
 document.body.style.opacity='1';
 updateGameDescs();
 
-// Auto-dismiss first-visit tip when user starts typing
-document.getElementById('addText').addEventListener('input', ()=>{
-  const tip=document.getElementById('firstVisitTip');
-  if(tip&&tip.classList.contains('show')) dismissFirstVisitTip();
-}, {once:true});
-
 // ── Onboarding ──
 // Trigger based ONLY on whether classes exist — no localStorage flag dependency.
 // This means: no classes → always onboard. Classes exist → skip.
@@ -3056,10 +3001,22 @@ function spawnEcConfetti(){
 function showOb2(){
   const el=document.getElementById('ob2Screen');
   el.classList.add('open');
-  spawnOb2Confetti();
+  // no confetti here — this is the guide popup
 }
 function hideOb2(cb){
   const el=document.getElementById('ob2Screen');
+  el.style.transition='opacity .3s ease';
+  el.style.opacity='0';
+  setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
+}
+
+function showOb3(){
+  const el=document.getElementById('ob3Screen');
+  el.classList.add('open');
+  spawnOb3Confetti();
+}
+function hideOb3(cb){
+  const el=document.getElementById('ob3Screen');
   el.style.transition='opacity .3s ease';
   el.style.opacity='0';
   setTimeout(()=>{ el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb)cb(); },310);
@@ -3069,15 +3026,16 @@ function hideOb2(cb){
 function triggerOb2IfFirst(){
   // Only show if this is the very first class ever
   if(bank.classes.length===1){
-    // Close wordsScreen silently (bypass the guard), then show step 2
+    // Close wordsScreen silently (bypass the guard), then show celebration (step 3)
     document.getElementById('wordsScreen').classList.remove('open');
-    setTimeout(showOb2, 200);
+    setTimeout(showOb3, 200);
   }
 }
 
-function spawnOb2Confetti(){
-  const container=document.getElementById('ob2Confetti');
+function spawnOb3Confetti(){
+  const container=document.getElementById('ob3Confetti');
   if(!container) return;
+  container.innerHTML='';
   const COLS=['#e8b86d','#7c9eff','#6ee7b7','#fbbf24','#c084fc','#f87171','#34d399'];
   const N=40;
   for(let i=0;i<N;i++){
@@ -3095,7 +3053,6 @@ function spawnOb2Confetti(){
       transform:rotate(${rot}deg);`;
     container.appendChild(el);
   }
-  // Inject keyframe if not already present
   if(!document.getElementById('confettiStyle')){
     const s=document.createElement('style');
     s.id='confettiStyle';
@@ -3112,28 +3069,40 @@ if(bank.classes.length===0){
   showOnboarding();
 }
 
-// Step 1 CTA — go to add words
+// Step 1 CTA — show "how to add words" guide popup
 const obBtn=document.getElementById('obCtaBtn');
 let obHandled=false;
 obBtn.addEventListener('touchstart',(e)=>{
   e.preventDefault(); obHandled=true;
-  hideOnboarding(openWordsScreen);
+  hideOnboarding(showOb2);
 },{passive:false});
 obBtn.addEventListener('click',()=>{
   if(obHandled){obHandled=false;return;}
-  hideOnboarding(openWordsScreen);
+  hideOnboarding(showOb2);
 });
 
-// Step 2 CTA — go to main dashboard
+// Step 2 CTA — go to add words screen
 const ob2Btn=document.getElementById('ob2CtaBtn');
 let ob2Handled=false;
 ob2Btn.addEventListener('touchstart',(e)=>{
   e.preventDefault(); ob2Handled=true;
-  hideOb2();
+  hideOb2(openWordsScreen);
 },{passive:false});
 ob2Btn.addEventListener('click',()=>{
   if(ob2Handled){ob2Handled=false;return;}
-  hideOb2();
+  hideOb2(openWordsScreen);
+});
+
+// Step 3 CTA — go to main dashboard
+const ob3Btn=document.getElementById('ob3CtaBtn');
+let ob3Handled=false;
+ob3Btn.addEventListener('touchstart',(e)=>{
+  e.preventDefault(); ob3Handled=true;
+  hideOb3();
+},{passive:false});
+ob3Btn.addEventListener('click',()=>{
+  if(ob3Handled){ob3Handled=false;return;}
+  hideOb3();
 });
 
 
