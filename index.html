@@ -124,6 +124,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 #gameArea{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;
   flex-direction:column;align-items:center;padding:24px 16px 48px;overflow-y:auto;}
 #gameArea.open{display:flex;}
+#gameArea.type-active{padding-bottom:0;overflow:hidden;}
 .g-header{width:100%;max-width:520px;display:flex;align-items:center;gap:12px;margin-bottom:20px;}
 .g-back{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
   color:var(--text);cursor:pointer;transition:all .18s;display:flex;align-items:center;
@@ -568,28 +569,31 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
 
 /* TYPE GAME */
-/* typeWrap — sits inside gameArea, below the shared header+progbar */
+/* gameArea hides its header when type game is open */
+#gameArea.type-active .g-header,
+#gameArea.type-active .prog-bar,
+#gameArea.type-active .feedback{display:none;}
+
 #typeWrap{
   display:none;
   position:relative;
   width:100%;max-width:520px;
-  flex:1;
+  flex:1;min-height:0;
   flex-direction:column;
-  align-items:center;
-  padding:0;
+  align-items:stretch;
 }
 #typeWrap.topen{display:flex;}
-/* The word+dots block: absolutely centered in the space above the input */
+
+/* Word block: fills available space, centers content */
 .type-word-block{
-  position:absolute;
-  left:0;right:0;
-  display:flex;flex-direction:column;align-items:center;gap:12px;
-  pointer-events:none;
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:14px;
+  padding:16px 0 8px;
 }
-.type-cls{font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
 .type-word-row{
   display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
-  pointer-events:auto;
 }
 .type-prompt{
   font-family:'Inter',sans-serif;font-weight:700;
@@ -602,26 +606,45 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   border:1.5px solid var(--border);background:var(--surface);
   color:var(--muted);cursor:pointer;transition:all .18s;
   display:flex;align-items:center;justify-content:center;
-  pointer-events:auto;
 }
 .type-hint-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;transition:all .22s;}
 .type-hint-btn:active{background:rgba(232,184,109,.1);border-color:var(--accent);color:var(--accent);}
 .type-hint-btn:disabled{opacity:.35;cursor:default;}
 .type-dots{
   display:flex;gap:6px;flex-wrap:wrap;justify-content:center;align-items:center;
-  min-height:14px;pointer-events:none;
+  min-height:14px;
 }
 .type-dot{
   width:10px;height:10px;border-radius:50%;background:var(--border);
-  transition:background .25s, transform .25s;flex-shrink:0;
+  transition:background .25s,transform .25s;flex-shrink:0;
 }
 .type-dot.revealed{background:var(--accent2);transform:scale(1.2);}
 .type-dot.user{background:var(--accent);transform:scale(1.1);}
 .type-dot.space{background:transparent;width:14px;}
-/* Input bar — pinned to bottom of visual viewport */
+
+/* Bottom bar: nav arrows + input — stacks above keyboard */
+.type-bottom-bar{
+  display:flex;flex-direction:column;gap:8px;
+  padding:0 0 12px;
+  flex-shrink:0;
+}
+/* Nav row */
+.type-nav-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.type-nav-btn{
+  width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:border-color .15s,color .15s,opacity .15s;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.type-nav-btn:disabled{opacity:.28;cursor:default;}
+.type-nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;}
+.type-nav-prog{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:.06em;}
+/* Input bar */
 .type-input-bar{
-  position:absolute;
-  left:0;right:0;
   display:flex;gap:10px;align-items:stretch;
 }
 .type-input{
@@ -641,22 +664,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   cursor:pointer;transition:opacity .18s;flex-shrink:0;
 }
 .type-submit:active{opacity:.8;}
-/* Type It nav arrows */
-.type-nav-row{
-  position:absolute;left:0;right:0;
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
+/* Feedback inline above nav */
+.type-feedback-inline{
+  text-align:center;font-size:.95rem;font-weight:600;
+  letter-spacing:.04em;min-height:20px;
+  transition:opacity .2s;opacity:0;
 }
-.type-nav-btn{
-  width:44px;height:44px;border-radius:50%;
-  border:1px solid var(--border);background:var(--surface);
-  color:var(--text);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:border-color .15s,color .15s,opacity .15s;
-  -webkit-tap-highlight-color:rgba(0,0,0,0);
-}
-.type-nav-btn:disabled{opacity:.28;cursor:default;}
-.type-nav-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;fill:none;}
-.type-nav-prog{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:.06em;}
+.type-feedback-inline.ok{color:var(--green);opacity:1;}
+.type-feedback-inline.no{color:var(--red);opacity:1;}
 
 
 
@@ -1918,7 +1933,7 @@ function exitGame(skipSave){
   updateGameDescs();
   const resetBtn=document.getElementById('gReset');
   if(resetBtn) resetBtn.classList.remove('visible');
-  document.getElementById('gameArea').classList.remove('open');
+  document.getElementById('gameArea').classList.remove('open','type-active');
   exercise=null;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(typeVVListener){
@@ -2412,8 +2427,10 @@ function renderType(){
   typeHintsGiven=0;
   document.getElementById('feedback').textContent='';
 
+  // Add class to gameArea so header/progbar hide
+  document.getElementById('gameArea').classList.add('type-active');
+
   const wrap=document.getElementById('typeWrap');
-  // Clean up any floating Next button from previous word
   if(wrap._nextBtn){ wrap._nextBtn.remove(); wrap._nextBtn=null; }
   wrap.innerHTML='';
   wrap.style.display='flex';
@@ -2426,7 +2443,7 @@ function renderType(){
   typeAnswer=answer;
   const answerLetters=[...answer];
 
-  // ── Word block (positioned absolutely, centered between top and input) ──
+  // ── Word block: flex:1, centers word+dots vertically ──
   const wordBlock=document.createElement('div');
   wordBlock.className='type-word-block';
   wordBlock.id='typeWordBlock';
@@ -2439,10 +2456,7 @@ function renderType(){
   const hintBtn=document.createElement('button');
   hintBtn.className='type-hint-btn';
   hintBtn.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>';
-  hintBtn.type='button';
-  hintBtn.title='Hint';
-  hintBtn.setAttribute('tabindex','-1');
-  // Prevent mousedown focus stealing only (this is the safe one — never blocks click)
+  hintBtn.type='button'; hintBtn.title='Hint'; hintBtn.setAttribute('tabindex','-1');
   hintBtn.addEventListener('mousedown',(e)=>e.preventDefault());
   wordRow.appendChild(promptEl);
   wordRow.appendChild(hintBtn);
@@ -2459,48 +2473,69 @@ function renderType(){
   wordBlock.appendChild(dotsRow);
   wrap.appendChild(wordBlock);
 
-  // ── Input bar (positioned absolutely, sits just above keyboard) ──
-  const inputBar=document.createElement('div');
-  inputBar.className='type-input-bar';
-  inputBar.id='typeInputBar';
-  const inputEl=document.createElement('input');
-  inputEl.type='text';
-  inputEl.className='type-input';
-  inputEl.placeholder=typeDir==='ru-en'?'type meaning...':'type word...';
-  inputEl.autocomplete='off'; inputEl.autocorrect='off';
-  inputEl.autocapitalize='off'; inputEl.spellcheck=false;
-  const submitBtn=document.createElement('button');
-  submitBtn.className='type-submit';
-  submitBtn.textContent='→';
-  submitBtn.type='button';
-  inputBar.appendChild(inputEl);
-  inputBar.appendChild(submitBtn);
-  wrap.appendChild(inputBar);
+  // ── Bottom bar: feedback + nav + input, sticks above keyboard ──
+  const bottomBar=document.createElement('div');
+  bottomBar.className='type-bottom-bar';
+  bottomBar.id='typeBottomBar';
 
-  // ── Nav row (prev/next arrows + word counter) ──
+  // Feedback
+  const fbEl=document.createElement('div');
+  fbEl.id='typeFeedback';
+  fbEl.className='type-feedback-inline';
+  bottomBar.appendChild(fbEl);
+
+  // Nav row
   const navRow=document.createElement('div');
   navRow.className='type-nav-row';
   navRow.id='typeNavRow';
-
   const navPrevBtn=document.createElement('button');
   navPrevBtn.className='type-nav-btn';
   navPrevBtn.innerHTML='<svg viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>';
   navPrevBtn.type='button'; navPrevBtn.setAttribute('tabindex','-1');
-
   const navProgEl=document.createElement('span');
-  navProgEl.className='type-nav-prog';
-  navProgEl.id='typeNavProg';
-
+  navProgEl.className='type-nav-prog'; navProgEl.id='typeNavProg';
   const navNextBtn=document.createElement('button');
   navNextBtn.className='type-nav-btn';
   navNextBtn.innerHTML='<svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>';
   navNextBtn.type='button'; navNextBtn.setAttribute('tabindex','-1');
+  navRow.appendChild(navPrevBtn); navRow.appendChild(navProgEl); navRow.appendChild(navNextBtn);
+  bottomBar.appendChild(navRow);
 
-  navRow.appendChild(navPrevBtn);
-  navRow.appendChild(navProgEl);
-  navRow.appendChild(navNextBtn);
-  wrap.appendChild(navRow);
+  // Input bar
+  const inputBar=document.createElement('div');
+  inputBar.className='type-input-bar'; inputBar.id='typeInputBar';
+  const inputEl=document.createElement('input');
+  inputEl.type='text'; inputEl.className='type-input';
+  inputEl.placeholder=typeDir==='ru-en'?'type meaning...':'type word...';
+  inputEl.autocomplete='off'; inputEl.autocorrect='off';
+  inputEl.autocapitalize='off'; inputEl.spellcheck=false;
+  const submitBtn=document.createElement('button');
+  submitBtn.className='type-submit'; submitBtn.textContent='→'; submitBtn.type='button';
+  inputBar.appendChild(inputEl); inputBar.appendChild(submitBtn);
+  bottomBar.appendChild(inputBar);
 
+  wrap.appendChild(bottomBar);
+
+  // ── Keyboard-aware bottom padding via visualViewport ──
+  function adjustForKeyboard(){
+    const vv=window.visualViewport;
+    if(!vv) return;
+    // On iOS, vv.offsetTop > 0 when keyboard is up
+    const kbOffset = (window.innerHeight - vv.height - vv.offsetTop);
+    const safeBottom = Math.max(kbOffset, 12);
+    bottomBar.style.paddingBottom = safeBottom + 'px';
+    wrap.style.paddingBottom = '0';
+  }
+  adjustForKeyboard();
+  if(typeVVListener){
+    window.visualViewport?.removeEventListener('resize', typeVVListener);
+    window.visualViewport?.removeEventListener('scroll', typeVVListener);
+  }
+  typeVVListener = adjustForKeyboard;
+  window.visualViewport?.addEventListener('resize', typeVVListener, {passive:true});
+  window.visualViewport?.addEventListener('scroll', typeVVListener, {passive:true});
+
+  // ── Nav state ──
   function updateNavState(){
     const unresolved=deck.filter(w2=>!isExcluded(w2.w)&&!choiceAnsweredKeys.has(w2.w));
     const total=deck.filter(w2=>!isExcluded(w2.w)).length;
@@ -2513,161 +2548,74 @@ function renderType(){
   }
   updateNavState();
 
-  // Find next/prev unresolved word index
   function findAdjacentUnresolved(dir){
-    const total=deck.length;
-    let cur=idx;
+    const total=deck.length; let cur=idx;
     for(let i=1;i<=total;i++){
-      const next=((cur + dir*i) % total + total) % total;
+      const next=((cur+dir*i)%total+total)%total;
       const w2=deck[next];
       if(w2&&!isExcluded(w2.w)&&!choiceAnsweredKeys.has(w2.w)) return next;
     }
     return -1;
   }
-
-  const goNavPrev=()=>{
-    const ni=findAdjacentUnresolved(-1);
-    if(ni>=0){ idx=ni; renderType(); }
-  };
-  const goNavNext=()=>{
-    const ni=findAdjacentUnresolved(1);
-    if(ni>=0){ idx=ni; renderType(); }
-  };
-
+  const goNavPrev=()=>{ const ni=findAdjacentUnresolved(-1); if(ni>=0){idx=ni;renderType();} };
+  const goNavNext=()=>{ const ni=findAdjacentUnresolved(1);  if(ni>=0){idx=ni;renderType();} };
   navPrevBtn.addEventListener('mousedown',(e)=>e.preventDefault());
   navNextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
-  safeTap(navPrevBtn, goNavPrev,
-    (b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
-    (b)=>{b.style.borderColor='';b.style.color='';}
-  );
-  safeTap(navNextBtn, goNavNext,
-    (b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
-    (b)=>{b.style.borderColor='';b.style.color='';}
-  );
+  safeTap(navPrevBtn,goNavPrev,(b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
+    (b)=>{b.style.borderColor='';b.style.color='';});
+  safeTap(navNextBtn,goNavNext,(b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
+    (b)=>{b.style.borderColor='';b.style.color='';});
 
-  // ── Feedback label ──
-  const fbEl=document.createElement('div');
-  fbEl.id='typeFeedback';
-  fbEl.style.cssText='position:absolute;left:16px;right:16px;text-align:center;font-size:1rem;font-weight:600;letter-spacing:.04em;transition:opacity .2s;opacity:0;';
-  wrap.appendChild(fbEl);
-
-  // ── Position function ──
-  function positionElements(){
-    const vv = window.visualViewport;
-    const vvTop = vv ? vv.offsetTop : 0;
-    const vvHeight = vv ? vv.height : window.innerHeight;
-    const wrapRect = wrap.getBoundingClientRect();
-    const wrapTop = wrapRect.top; // top of typeWrap in viewport
-    const inputBarH = 60;
-    const navRowH = 56;
-    const gap = 12;
-
-    // Input bar pinned to bottom of visual viewport
-    const inputAbsTop = vvTop + vvHeight - gap - inputBarH - wrapTop;
-    inputBar.style.top = inputAbsTop + 'px';
-    // Nav row above input bar
-    navRow.style.top = (inputAbsTop - navRowH - 8) + 'px';
-    // Feedback above nav row
-    fbEl.style.top = (inputAbsTop - navRowH - 44) + 'px';
-    // Word block centered in remaining space
-    const availBot = inputAbsTop - navRowH - 48;
-    const availMid = availBot / 2;
-    const wordH = wordBlock.offsetHeight || 80;
-    wordBlock.style.top = Math.max(8, availMid - wordH/2) + 'px';
-  }
-
-  // Position after DOM renders
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(positionElements);
-  });
-
-  // Listen to visual viewport changes (keyboard open/close)
-  if(typeVVListener) window.visualViewport?.removeEventListener('resize', typeVVListener);
-  typeVVListener = positionElements;
-  window.visualViewport?.addEventListener('resize', typeVVListener);
-  window.visualViewport?.addEventListener('scroll', typeVVListener);
-
-  // ── Sync dots with current input state ──
-  // yellow = user typed correctly, purple = hint revealed, grey = unknown
+  // ── Dot sync ──
   function syncDots(){
-    const typed=[...inputEl.value]; // char array of what user typed
+    const typed=[...inputEl.value];
     const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
-    let nonSpaceIdx=0; // index into answerLetters (skipping spaces)
-    let dotIdx=0;      // index into dots array
-
+    let dotIdx=0;
     for(let i=0;i<answerLetters.length;i++){
       if(answerLetters[i]===' ') continue;
       const dot=dots[dotIdx];
-      if(!dot){ dotIdx++; nonSpaceIdx++; continue; }
+      if(!dot){dotIdx++;continue;}
       const typedChar=(typed[i]||'').toLowerCase();
       const correctChar=answerLetters[i].toLowerCase();
-
-      if(dot.classList.contains('revealed')){
-        // Already hint-revealed — keep purple, don't downgrade
-      } else if(typedChar && typedChar===correctChar){
-        // User typed this correctly — mark yellow
-        dot.classList.remove('revealed');
-        dot.classList.add('user');
-      } else {
-        // Not typed or wrong — reset to grey (but don't remove hint-reveals)
-        dot.classList.remove('user');
-      }
+      if(dot.classList.contains('revealed')){}
+      else if(typedChar&&typedChar===correctChar){dot.classList.remove('revealed');dot.classList.add('user');}
+      else{dot.classList.remove('user');}
       dotIdx++;
     }
   }
 
-  // ── Hint logic ──
+  // ── Hint ──
   const doHint=()=>{
     const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
-
-    // First sync current input so we know what user already got right
     syncDots();
-
-    // Find first dot that is neither user-correct nor hint-revealed
     const nextDotIdx=dots.findIndex(d=>!d.classList.contains('revealed')&&!d.classList.contains('user'));
-    if(nextDotIdx===-1){
-      // All dots accounted for — check if all revealed (trigger complete)
-      const allCovered=dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'));
-      if(allCovered) triggerAllRevealed();
-      return;
-    }
-
-    // Reveal next needed letter
+    if(nextDotIdx===-1){ if(dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'))) triggerAllRevealed(); return; }
     dots[nextDotIdx].classList.add('revealed');
     typeHintsGiven++;
-
-    // Build filled input: revealed + user-correct letters in their positions
-    let nonSpaceIdx=0;
-    const filled=answerLetters.map(ch=>{
-      if(ch===' ') return ' ';
-      const i=nonSpaceIdx++;
-      const dot=dots[i];
-      if(dot&&(dot.classList.contains('revealed')||dot.classList.contains('user'))){
-        return answerLetters.find((_,j)=>{ // find the actual char at this position
-          let ns=0;
-          for(let k=0;k<j;k++) if(answerLetters[k]!==' ') ns++;
-          return ns===i;
-        })||ch;
-      }
-      return '';
-    });
-
-    // Simpler: build filled by position
     let nsIdx=0;
     const filledStr=answerLetters.map(ch=>{
       if(ch===' ') return ' ';
       const dot=dots[nsIdx++];
       return (dot&&(dot.classList.contains('revealed')||dot.classList.contains('user')))?ch:'';
     }).join('');
-
     inputEl.value=filledStr;
-    try{ inputEl.setSelectionRange(filledStr.length,filledStr.length); }catch(e){}
-    requestAnimationFrame(positionElements);
-
-    // Check if all dots now covered
-    const allCovered=dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'));
-    if(allCovered) triggerAllRevealed();
+    try{inputEl.setSelectionRange(filledStr.length,filledStr.length);}catch(e){}
+    if(dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'))) triggerAllRevealed();
   };
+
+  function showNextBtn(onTap){
+    inputBar.style.display='none';
+    navRow.style.display='none';
+    const nextBtn=document.createElement('button');
+    nextBtn.style.cssText='width:100%;padding:17px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;';
+    nextBtn.type='button';
+    nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+    nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();onTap();},{passive:false});
+    nextBtn.addEventListener('click',onTap);
+    bottomBar.appendChild(nextBtn);
+    wrap._nextBtn=nextBtn;
+    return nextBtn;
+  }
 
   function triggerAllRevealed(){
     dotsRow.innerHTML='';
@@ -2675,56 +2623,33 @@ function renderType(){
     ansEl.textContent=answer;
     ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent2);text-align:center;';
     dotsRow.appendChild(ansEl);
-    inputEl.value=answer;
-    inputEl.classList.add('correct');
+    inputEl.value=answer; inputEl.classList.add('correct');
     inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
     recordCorrect(w.w); renderWords();
     fbEl.textContent='✓ Revealed! ('+typeHintsGiven+' hints)';
-    fbEl.style.color='var(--green)';
-    fbEl.style.opacity='1';
+    fbEl.className='type-feedback-inline ok';
     playDing();
-    inputBar.style.display='none';
-    const nextBtn=document.createElement('button');
-    nextBtn.textContent='next →';
-    nextBtn.style.cssText='position:fixed;left:16px;right:16px;bottom:12px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;z-index:220;';
-    nextBtn.type='button';
-    nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
     const goNext=()=>{
-      choiceAnsweredKeys.add(w.w);
-      saveProgress();
-      const allDoneHint=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-      if(allDoneHint){ showExerciseComplete(); }
-      else {
-        const total=deck.length;
-        for(let i=1;i<=total;i++){
-          const ni=(idx+i)%total;
-          if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
-        }
+      choiceAnsweredKeys.add(w.w); saveProgress();
+      const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
+      if(allDone){showExerciseComplete();}
+      else{
+        const tot=deck.length;
+        for(let i=1;i<=tot;i++){const ni=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){idx=ni;break;}}
         renderType();
       }
     };
-    nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-    nextBtn.addEventListener('click',goNext);
-    document.body.appendChild(nextBtn);
-    // Store ref so exitGame can clean it up
-    wrap._nextBtn=nextBtn;
+    const nb=showNextBtn(goNext); nb.textContent='next →';
   }
 
-  // Live dot sync as user types
-  inputEl.addEventListener('input',syncDots);
-
-  // ── Submit logic ──
+  // ── Submit ──
   const doSubmit=()=>{
     const val=inputEl.value.trim();
     if(!val) return;
     const correct=val.toLowerCase()===answer.toLowerCase();
-    fbEl.style.opacity='1';
     if(correct){
       inputEl.classList.add('correct');
-      // Flash all dots yellow (user typed them all correctly)
-      dotsRow.querySelectorAll('.type-dot:not(.space)').forEach(d=>{
-        d.classList.remove('revealed'); d.classList.add('user');
-      });
+      dotsRow.querySelectorAll('.type-dot:not(.space)').forEach(d=>{d.classList.remove('revealed');d.classList.add('user');});
       setTimeout(()=>{
         dotsRow.innerHTML='';
         const ansEl=document.createElement('div');
@@ -2734,59 +2659,37 @@ function renderType(){
       },300);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
-      choiceAnsweredKeys.add(w.w);
-      saveProgress();
-      updateNavState();
-      const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')':'';
-      fbEl.textContent='✓ Correct!'+hintNote;
-      fbEl.style.color='var(--green)';
+      choiceAnsweredKeys.add(w.w); saveProgress(); updateNavState();
+      const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')'  :'';
+      fbEl.textContent='✓ Correct!'+hintNote; fbEl.className='type-feedback-inline ok';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
-      // Show Next button fixed to screen bottom — immune to keyboard position
-      inputBar.style.display='none';
-      const nextBtn=document.createElement('button');
-      const allDoneType=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-      nextBtn.textContent=allDoneType?'finish 🎉':'next →';
-      nextBtn.style.cssText='position:fixed;left:16px;right:16px;bottom:12px;padding:18px 0;border-radius:14px;border:none;background:var(--accent2);color:#fff;font-family:DM Mono,monospace;font-size:1rem;font-weight:700;cursor:pointer;pointer-events:auto;text-align:center;z-index:220;';
-      nextBtn.type='button';
-      nextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+      const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
       const goNext=()=>{
-        if(allDoneType){ showExerciseComplete(); }
-        else {
-          // Skip to next unanswered word (same as hint path)
-          const total=deck.length;
-          for(let i=1;i<=total;i++){
-            const ni=(idx+i)%total;
-            if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){ idx=ni; break; }
-          }
+        if(allDone){showExerciseComplete();}
+        else{
+          const tot=deck.length;
+          for(let i=1;i<=tot;i++){const ni=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){idx=ni;break;}}
           renderType();
         }
       };
-      nextBtn.addEventListener('touchstart',(e)=>{e.preventDefault();goNext();},{passive:false});
-      nextBtn.addEventListener('click',goNext);
-      document.body.appendChild(nextBtn);
-      wrap._nextBtn=nextBtn;
+      const nb=showNextBtn(goNext); nb.textContent=allDone?'finish 🎉':'next →';
     } else {
-      inputEl.classList.add('wrong');
-      trigShake(inputEl);
-      playWrong();
-      fbEl.textContent='✗ Try again';
-      fbEl.style.color='var(--red)';
-      setTimeout(()=>{ inputEl.classList.remove('wrong'); fbEl.style.opacity='0'; inputEl.select(); }, 700);
+      inputEl.classList.add('wrong'); trigShake(inputEl); playWrong();
+      fbEl.textContent='✗ Try again'; fbEl.className='type-feedback-inline no';
+      setTimeout(()=>{ inputEl.classList.remove('wrong'); fbEl.className='type-feedback-inline'; inputEl.select(); },700);
     }
-    requestAnimationFrame(positionElements);
   };
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
-  // Hint button: just click. Global touchend handler no longer blurs inputs,
-  // and pointerdown preventDefault (set earlier) blocks focus stealing on the button itself.
-  hintBtn.addEventListener('click', doHint);
-  inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){e.preventDefault();doSubmit();}});
+  hintBtn.addEventListener('click',doHint);
+  inputEl.addEventListener('input',syncDots);
+  inputEl.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault();doSubmit();}});
 
-  updateNavState();
-  updateResetBtn();
+  updateNavState(); updateResetBtn();
   requestAnimationFrame(()=>inputEl.focus());
 }
+
 
 // ── Toggles ──
 function toggleSpeed(e){
