@@ -569,10 +569,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 @keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
 
 /* TYPE GAME */
-/* gameArea hides its header when type game is open */
-#gameArea.type-active .g-header,
-#gameArea.type-active .prog-bar,
-#gameArea.type-active .feedback{display:none;}
+/* type-active: prevent outer scroll while keyboard is open */
+#gameArea.type-active{overflow:hidden;}
+#gameArea.type-active>.feedback{display:none;}
 
 #typeWrap{
   display:none;
@@ -2427,7 +2426,7 @@ function renderType(){
   typeHintsGiven=0;
   document.getElementById('feedback').textContent='';
 
-  // Add class to gameArea so header/progbar hide
+  // Add class to gameArea for overflow handling
   document.getElementById('gameArea').classList.add('type-active');
 
   const wrap=document.getElementById('typeWrap');
@@ -2516,15 +2515,37 @@ function renderType(){
 
   wrap.appendChild(bottomBar);
 
-  // ── Keyboard-aware bottom padding via visualViewport ──
+  // ── Keyboard-aware layout via visualViewport ──
+  // Bottom bar is fixed to screen, sitting exactly above the keyboard on both iOS & Android.
+  // The word block gets a matching bottom margin so it never hides behind the bar.
   function adjustForKeyboard(){
-    const vv=window.visualViewport;
-    if(!vv) return;
-    // On iOS, vv.offsetTop > 0 when keyboard is up
-    const kbOffset = (window.innerHeight - vv.height - vv.offsetTop);
-    const safeBottom = Math.max(kbOffset, 12);
-    bottomBar.style.paddingBottom = safeBottom + 'px';
-    wrap.style.paddingBottom = '0';
+    const vv = window.visualViewport;
+    const vvTop    = vv ? vv.offsetTop  : 0;
+    const vvHeight = vv ? vv.height     : window.innerHeight;
+    const vvLeft   = vv ? vv.offsetLeft : 0;
+    const vvWidth  = vv ? vv.width      : window.innerWidth;
+
+    // Position bottom bar: fixed, aligned with the visual viewport bottom
+    bottomBar.style.position = 'fixed';
+    bottomBar.style.left     = vvLeft + 'px';
+    bottomBar.style.width    = vvWidth + 'px';
+    bottomBar.style.bottom   = (window.innerHeight - vvTop - vvHeight) + 'px';
+    bottomBar.style.zIndex   = '10';
+    bottomBar.style.background = 'var(--bg)';
+    bottomBar.style.paddingLeft  = '16px';
+    bottomBar.style.paddingRight = '16px';
+    bottomBar.style.paddingTop   = '8px';
+    bottomBar.style.paddingBottom= '12px';
+    bottomBar.style.maxWidth     = '520px';
+    bottomBar.style.marginLeft   = 'auto';
+    bottomBar.style.marginRight  = 'auto';
+    // Center it properly when viewport is wider than maxWidth
+    const leftOffset = Math.max(vvLeft, (vvWidth - 520) / 2);
+    bottomBar.style.left  = leftOffset > 0 ? leftOffset + 'px' : vvLeft + 'px';
+
+    // Give the word block space so it doesn't hide behind the fixed bar
+    const barH = bottomBar.offsetHeight || 120;
+    wordBlock.style.paddingBottom = (barH + 8) + 'px';
   }
   adjustForKeyboard();
   if(typeVVListener){
