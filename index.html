@@ -1928,6 +1928,11 @@ function exitGame(skipSave){
   const resetBtn=document.getElementById('gReset');
   if(resetBtn) resetBtn.classList.remove('visible');
   document.getElementById('gameArea').classList.remove('open','type-active');
+  // Restore header visibility in case it was hidden by keyboard
+  const gh=document.querySelector('#gameArea .g-header');
+  const pb=document.querySelector('#gameArea .prog-bar');
+  if(gh) gh.style.visibility='';
+  if(pb) pb.style.visibility='';
   exercise=null;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(typeVVListener){
@@ -2522,8 +2527,15 @@ function renderType(){
     const hPad = 16;
     const leftPos = (vvWidth - maxW) / 2;
 
+    // Keyboard is open when visual viewport shrinks significantly
+    const kbOpen = vvHeight < window.innerHeight * 0.8;
+    const gameHeader = document.querySelector('#gameArea .g-header');
+    const progBar    = document.querySelector('#gameArea .prog-bar');
+    if(gameHeader) gameHeader.style.visibility = kbOpen ? 'hidden' : 'visible';
+    if(progBar)    progBar.style.visibility    = kbOpen ? 'hidden' : 'visible';
+
     // Bottom bar: fixed just above keyboard
-    const kbBottom = window.innerHeight - vvTop - vvHeight; // keyboard height
+    const kbBottom = window.innerHeight - vvTop - vvHeight;
     const barBottom = Math.max(kbBottom, 0);
     bottomBar.style.cssText = `
       position:fixed;
@@ -2536,11 +2548,9 @@ function renderType(){
       box-sizing:border-box;
     `;
 
-    // Word block: fixed, fills space between game header and bottom bar
+    // Word block: when keyboard open, start from top of visual viewport; else from below header
     const barH = bottomBar.offsetHeight || 120;
-    const gameHeader = document.querySelector('#gameArea .g-header');
-    const headerBottom = gameHeader ? gameHeader.getBoundingClientRect().bottom + 8 : 90;
-    const wordTop = headerBottom;
+    const wordTop = kbOpen ? vvTop + 8 : (gameHeader ? gameHeader.getBoundingClientRect().bottom + 8 : 90);
     const wordBottom = vvTop + vvHeight - barH;
     wordBlock.style.cssText = `
       position:fixed;
