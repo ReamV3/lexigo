@@ -583,13 +583,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 }
 #typeWrap.topen{display:flex;}
 
-/* Word block: fills available space, centers content */
+/* Word block and bottom bar: positioned by JS via adjustForKeyboard */
 .type-word-block{
-  flex:1;min-height:0;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
   gap:14px;
-  padding:16px 0 8px;
+}
+/* Bottom bar: nav arrows + input */
+.type-bottom-bar{
+  display:flex;flex-direction:column;gap:8px;
 }
 .type-word-row{
   display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
@@ -620,13 +622,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .type-dot.revealed{background:var(--accent2);transform:scale(1.2);}
 .type-dot.user{background:var(--accent);transform:scale(1.1);}
 .type-dot.space{background:transparent;width:14px;}
-
-/* Bottom bar: nav arrows + input — stacks above keyboard */
-.type-bottom-bar{
-  display:flex;flex-direction:column;gap:8px;
-  padding:0 0 12px;
-  flex-shrink:0;
-}
 /* Nav row */
 .type-nav-row{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -2515,39 +2510,52 @@ function renderType(){
 
   wrap.appendChild(bottomBar);
 
-  // ── Keyboard-aware layout via visualViewport ──
-  // Bottom bar is fixed to screen, sitting exactly above the keyboard on both iOS & Android.
-  // The word block gets a matching bottom margin so it never hides behind the bar.
+  // ── Keyboard-aware layout: both blocks are position:fixed ──
+  // Bottom bar sits above keyboard; word block fills the gap between header and bottom bar.
   function adjustForKeyboard(){
     const vv = window.visualViewport;
     const vvTop    = vv ? vv.offsetTop  : 0;
     const vvHeight = vv ? vv.height     : window.innerHeight;
-    const vvLeft   = vv ? vv.offsetLeft : 0;
     const vvWidth  = vv ? vv.width      : window.innerWidth;
 
-    // Position bottom bar: fixed, aligned with the visual viewport bottom
-    bottomBar.style.position = 'fixed';
-    bottomBar.style.left     = vvLeft + 'px';
-    bottomBar.style.width    = vvWidth + 'px';
-    bottomBar.style.bottom   = (window.innerHeight - vvTop - vvHeight) + 'px';
-    bottomBar.style.zIndex   = '10';
-    bottomBar.style.background = 'var(--bg)';
-    bottomBar.style.paddingLeft  = '16px';
-    bottomBar.style.paddingRight = '16px';
-    bottomBar.style.paddingTop   = '8px';
-    bottomBar.style.paddingBottom= '12px';
-    bottomBar.style.maxWidth     = '520px';
-    bottomBar.style.marginLeft   = 'auto';
-    bottomBar.style.marginRight  = 'auto';
-    // Center it properly when viewport is wider than maxWidth
-    const leftOffset = Math.max(vvLeft, (vvWidth - 520) / 2);
-    bottomBar.style.left  = leftOffset > 0 ? leftOffset + 'px' : vvLeft + 'px';
+    const maxW = Math.min(vvWidth, 520);
+    const hPad = 16;
+    const leftPos = (vvWidth - maxW) / 2;
 
-    // Give the word block space so it doesn't hide behind the fixed bar
+    // Bottom bar: fixed just above keyboard
+    const kbBottom = window.innerHeight - vvTop - vvHeight; // keyboard height
+    const barBottom = Math.max(kbBottom, 0);
+    bottomBar.style.cssText = `
+      position:fixed;
+      left:${leftPos}px; width:${maxW}px;
+      bottom:${barBottom}px;
+      z-index:10;
+      background:var(--bg);
+      padding:8px ${hPad}px 12px;
+      display:flex; flex-direction:column; gap:8px;
+      box-sizing:border-box;
+    `;
+
+    // Word block: fixed, fills space between game header and bottom bar
     const barH = bottomBar.offsetHeight || 120;
-    wordBlock.style.paddingBottom = (barH + 8) + 'px';
+    const gameHeader = document.querySelector('#gameArea .g-header');
+    const headerBottom = gameHeader ? gameHeader.getBoundingClientRect().bottom + 8 : 90;
+    const wordTop = headerBottom;
+    const wordBottom = vvTop + vvHeight - barH;
+    wordBlock.style.cssText = `
+      position:fixed;
+      left:${leftPos}px; width:${maxW}px;
+      top:${wordTop}px; height:${Math.max(wordBottom - wordTop, 80)}px;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:14px;
+      padding:0 ${hPad}px;
+      box-sizing:border-box;
+      pointer-events:auto;
+    `;
   }
-  adjustForKeyboard();
+  // Run after one paint so header has laid out
+  requestAnimationFrame(()=>{ adjustForKeyboard(); });
   if(typeVVListener){
     window.visualViewport?.removeEventListener('resize', typeVVListener);
     window.visualViewport?.removeEventListener('scroll', typeVVListener);
