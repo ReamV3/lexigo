@@ -3226,8 +3226,11 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
 });
 
 // ── Helper — only one event type is ever sent ──
+// transport: 'sendBeacon' ensures delivery even during page unload
 function _ph_send(props) {
-  try { posthog.capture('app_session_summary', props); } catch(e) {}
+  try {
+    posthog.capture('app_session_summary', props, { transport: 'sendBeacon' });
+  } catch(e) {}
 }
 
 // ── Session start timestamp ──
@@ -3432,10 +3435,39 @@ function _ph_fireSessionEnd() {
 }
 
 // ── Trigger on page unload / hide ──
-window.addEventListener('pagehide',       _ph_fireSessionEnd, { once: true });
+// Four mechanisms to maximise delivery across browsers and devices:
+
+// 1. pagehide — most reliable on mobile (fires before page is put in bfcache or killed)
+window.addEventListener('pagehide', _ph_fireSessionEnd, { once: true });
+
+// 2. visibilitychange hidden — tab switch / app backgrounded
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
 });
+
+// 3. beforeunload — desktop browsers closing/navigating away
+window.addEventListener('beforeunload', _ph_fireSessionEnd);
+
+// 4. Idle flush — fire after 3 min of inactivity so the event
+//    is delivered while the connection is still alive (avoids
+//    relying solely on unload hooks, which browsers throttle).
+//    Resets on any user interaction. This also means you'll see
+//    the event in PostHog during normal testing without closing the tab.
+let _ph_idleTimer = null;
+const _ph_idleMs  = 3 * 60 * 1000; // 3 minutes
+function _ph_resetIdle() {
+  clearTimeout(_ph_idleTimer);
+  if (_ph_endSent) return;
+  _ph_idleTimer = setTimeout(() => {
+    _ph_endSent = false; // allow re-fire after idle flush so unload still works
+    _ph_fireSessionEnd();
+    _ph_endSent = false; // reset again so next idle or unload can fire
+  }, _ph_idleMs);
+}
+['click','touchstart','keydown','scroll'].forEach(ev =>
+  document.addEventListener(ev, _ph_resetIdle, { passive: true })
+);
+_ph_resetIdle(); // start the idle clock immediately
 
 // ════════════════════════════════════════════════════════════════
 // LIFECYCLE HOOKS — wrap app functions to feed the accumulators
