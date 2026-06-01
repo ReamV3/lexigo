@@ -3212,10 +3212,9 @@ if(classPillEl){
 })();
 // ════════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════
-// LEXIGO ANALYTICS — 3 events only
+// LEXIGO ANALYTICS — 2 events only
 //   1. onboarding_completed
-//   2. words_bank_changes
-//   3. app_session_summary
+//   2. app_session_summary
 // ════════════════════════════════════════════════════════════════
 
 // ── PostHog loader ──
@@ -3226,6 +3225,7 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   person_profiles: 'identified_only',
   capture_pageview: false,
   capture_pageleave: false,
+  session_idle_timeout_seconds: 300,
 });
 
 // ── Helper ──
@@ -3237,11 +3237,17 @@ function _ph_send(event, props) {
 const _ph_startMs = Date.now();
 let _ph_endSent = false;
 
+// Word/class change accumulators (session totals, replaces separate words_bank_changes event)
+let _ph_words_added   = 0;
+let _ph_words_deleted = 0;
+let _ph_classes_added   = 0;
+let _ph_classes_deleted = 0;
+
 const _ph_games = {
-  match:           { total_time_seconds:0, times_played:0, sessions:[], correct_matches:0,  wrong_matches:0  },
-  multiple_choice: { total_time_seconds:0, times_played:0, sessions:[], correct_answers:0,  wrong_answers:0  },
-  type_it:         { total_time_seconds:0, times_played:0, sessions:[], correct_answers:0,  wrong_answers:0,  full_hint_words_used:0 },
-  cards:           { total_time_seconds:0, times_played:0, sessions:[], cards_flipped:0     },
+  match:           { total_time_seconds:0, times_played:0, sessions:[], correct_matches:0, wrong_matches:0 },
+  multiple_choice: { total_time_seconds:0, times_played:0, sessions:[], correct_answers:0, wrong_answers:0 },
+  type_it:         { total_time_seconds:0, times_played:0, sessions:[], correct_answers:0, wrong_answers:0, full_hint_words_used:0 },
+  cards:           { total_time_seconds:0, times_played:0, sessions:[], cards_flipped:0 },
 };
 
 let _ph_cur = null;
@@ -3276,49 +3282,104 @@ function _ph_gameEnd() {
   acc.total_time_seconds += dur;
   acc.times_played++;
 
-  const sess = { session: acc.times_played, duration_seconds: dur };
+  // Session number starts at 1
+  const sessNum = acc.times_played;
+  const sess = { [`Session ${sessNum}`]: {} };
+  const s = sess[`Session ${sessNum}`];
+  s.time_seconds = dur;
+
   if (g.key === 'match') {
-    sess.correct_matches = g.correct_matches;
-    sess.wrong_matches   = g.wrong_matches;
+    s.correct_matches = g.correct_matches;
+    s.wrong_matches   = g.wrong_matches;
     acc.correct_matches += g.correct_matches;
     acc.wrong_matches   += g.wrong_matches;
   } else if (g.key === 'multiple_choice') {
-    sess.correct_answers = g.correct_answers;
-    sess.wrong_answers   = g.wrong_answers;
+    s.correct_answers = g.correct_answers;
+    s.wrong_answers   = g.wrong_answers;
     acc.correct_answers += g.correct_answers;
     acc.wrong_answers   += g.wrong_answers;
   } else if (g.key === 'type_it') {
-    sess.correct_answers      = g.correct_answers;
-    sess.wrong_answers        = g.wrong_answers;
-    sess.full_hint_words_used = g.full_hint_words_used;
+    s.correct_answers      = g.correct_answers;
+    s.wrong_answers        = g.wrong_answers;
+    s.full_hint_words_used = g.full_hint_words_used;
     acc.correct_answers      += g.correct_answers;
     acc.wrong_answers        += g.wrong_answers;
     acc.full_hint_words_used += g.full_hint_words_used;
   } else if (g.key === 'cards') {
-    sess.cards_flipped = g.cards_flipped;
+    s.cards_flipped  = g.cards_flipped;
     acc.cards_flipped += g.cards_flipped;
   }
   acc.sessions.push(sess);
 }
 
-// ── 3. app_session_summary ──
+// ── app_session_summary ──
 function _ph_fireSessionEnd() {
   if (_ph_endSent) return;
   _ph_endSent = true;
   if (_ph_cur) _ph_gameEnd();
+
+  // Build games object with requested field order per game type
   const gamesOut = {};
-  for (const [k, v] of Object.entries(_ph_games)) {
-    if (v.times_played > 0) gamesOut[k] = v;
+
+  if (_ph_games.match.times_played > 0) {
+    const m = _ph_games.match;
+    gamesOut['Game 1: Match'] = {
+      total_time_seconds: m.total_time_seconds,
+      times_played:       m.times_played,
+      correct_matches:    m.correct_matches,
+      wrong_matches:      m.wrong_matches,
+      sessions:           m.sessions,
+    };
   }
+  if (_ph_games.multiple_choice.times_played > 0) {
+    const m = _ph_games.multiple_choice;
+    gamesOut['Game 2: Multiple Choice'] = {
+      total_time_seconds: m.total_time_seconds,
+      times_played:       m.times_played,
+      correct_answers:    m.correct_answers,
+      wrong_answers:      m.wrong_answers,
+      sessions:           m.sessions,
+    };
+  }
+  if (_ph_games.type_it.times_played > 0) {
+    const m = _ph_games.type_it;
+    gamesOut['Game 3: Type It'] = {
+      total_time_seconds:  m.total_time_seconds,
+      times_played:        m.times_played,
+      correct_answers:     m.correct_answers,
+      wrong_answers:       m.wrong_answers,
+      full_hint_words_used: m.full_hint_words_used,
+      sessions:            m.sessions,
+    };
+  }
+  if (_ph_games.cards.times_played > 0) {
+    const m = _ph_games.cards;
+    gamesOut['Game 4: Cards'] = {
+      total_time_seconds: m.total_time_seconds,
+      times_played:       m.times_played,
+      cards_flipped:      m.cards_flipped,
+      sessions:           m.sessions,
+    };
+  }
+
   _ph_send('app_session_summary', {
-    total_usage_seconds: Math.round((Date.now() - _ph_startMs) / 1000),
+    // ── final_state (top) ──
+    final_state: {
+      total_words:      bank.words.length,
+      total_classes:    bank.classes.length,
+      words_added_this_session:    _ph_words_added,
+      words_deleted_this_session:  _ph_words_deleted,
+      classes_added_this_session:  _ph_classes_added,
+      classes_deleted_this_session: _ph_classes_deleted,
+    },
+    // ── games ──
+    games: gamesOut,
+    // ── total usage ──
+    total_usage_seconds:                 Math.round((Date.now() - _ph_startMs) / 1000),
     match_total_usage_seconds:           _ph_games.match.total_time_seconds,
     multiple_choice_total_usage_seconds: _ph_games.multiple_choice.total_time_seconds,
     type_it_total_usage_seconds:         _ph_games.type_it.total_time_seconds,
     cards_total_usage_seconds:           _ph_games.cards.total_time_seconds,
-    total_words:   bank.words.length,
-    total_classes: bank.classes.length,
-    games: gamesOut,
   });
 }
 
@@ -3354,18 +3415,15 @@ resetCurrentGame = function() {
   if (exercise) _ph_gameStart(exercise);
 };
 
-// ── 2. words_bank_changes ──
+// ── Word/class change accumulators ──
 
 const _ph_orig_confirmAdd = confirmAdd;
 confirmAdd = function() {
   const wordsBefore = bank.words.length;
   const classesBefore = bank.classes.length;
   _ph_orig_confirmAdd();
-  const addedWords = bank.words.length - wordsBefore;
-  const addedClasses = bank.classes.length - classesBefore;
-  if (addedWords > 0 || addedClasses > 0) {
-    _ph_send('words_bank_changes', { added_words: addedWords, added_classes: addedClasses });
-  }
+  _ph_words_added   += Math.max(0, bank.words.length   - wordsBefore);
+  _ph_classes_added += Math.max(0, bank.classes.length - classesBefore);
 };
 
 const _ph_orig_confirmDeleteClass = confirmDeleteClass;
@@ -3373,21 +3431,15 @@ confirmDeleteClass = function() {
   const wordsBefore = bank.words.length;
   const classesBefore = bank.classes.length;
   _ph_orig_confirmDeleteClass();
-  const deletedWords = wordsBefore - bank.words.length;
-  const deletedClasses = classesBefore - bank.classes.length;
-  if (deletedWords > 0 || deletedClasses > 0) {
-    _ph_send('words_bank_changes', { deleted_words: deletedWords, deleted_classes: deletedClasses });
-  }
+  _ph_words_deleted   += Math.max(0, wordsBefore   - bank.words.length);
+  _ph_classes_deleted += Math.max(0, classesBefore - bank.classes.length);
 };
 
 const _ph_orig_confirmDeleteWord = confirmDeleteWord;
 confirmDeleteWord = function() {
   const wordsBefore = bank.words.length;
   _ph_orig_confirmDeleteWord();
-  const deletedWords = wordsBefore - bank.words.length;
-  if (deletedWords > 0) {
-    _ph_send('words_bank_changes', { deleted_words: deletedWords, deleted_classes: 0 });
-  }
+  _ph_words_deleted += Math.max(0, wordsBefore - bank.words.length);
 };
 
 const _ph_orig_importBank = importBank;
@@ -3396,11 +3448,8 @@ importBank = function(input) {
   const classesBefore = bank.classes.length;
   _ph_orig_importBank(input);
   setTimeout(() => {
-    const addedWords = bank.words.length - wordsBefore;
-    const addedClasses = bank.classes.length - classesBefore;
-    if (addedWords > 0 || addedClasses > 0) {
-      _ph_send('words_bank_changes', { added_words: addedWords, added_classes: addedClasses });
-    }
+    _ph_words_added   += Math.max(0, bank.words.length   - wordsBefore);
+    _ph_classes_added += Math.max(0, bank.classes.length - classesBefore);
   }, 400);
 };
 
@@ -3427,22 +3476,30 @@ onMCardTap = function(el, side, key) {
   }
 };
 
-// Choice — detect correct/wrong via delegated listener
+// Choice — wrap showChoiceButtons to inject a counter directly into the answer handler.
+// The original handler fires on touchstart (not click), so a click-delegate misses it.
+// We wrap the per-button handler function itself so counting happens synchronously.
 const _ph_orig_showChoiceButtons = showChoiceButtons;
 showChoiceButtons = function(wrap, w, ringStart) {
   _ph_orig_showChoiceButtons(wrap, w, ringStart);
+  if (!_ph_cur) return;
   const grid = wrap.querySelector('.choices-grid');
-  if (!grid || !_ph_cur) return;
-  grid.addEventListener('click', function _ph_delegate(e) {
+  if (!grid) return;
+  // Attach to both touchstart and click so we catch whichever fires the action
+  const _ph_choiceListener = (e) => {
     const btn = e.target.closest('.c-btn');
-    if (!btn) return;
+    if (!btn || btn.disabled) return;
+    // Use a short delay so the original handler has time to apply .correct/.wrong
     setTimeout(() => {
       if (!_ph_cur) return;
-      if (btn.classList.contains('correct'))                                       _ph_cur.correct_answers++;
+      if (btn.classList.contains('correct'))                                        _ph_cur.correct_answers++;
       else if (btn.classList.contains('wrong') || btn.classList.contains('locked')) _ph_cur.wrong_answers++;
-    }, 0);
-    grid.removeEventListener('click', _ph_delegate);
-  });
+      grid.removeEventListener('touchstart', _ph_choiceListener);
+      grid.removeEventListener('click',      _ph_choiceListener);
+    }, 50);
+  };
+  grid.addEventListener('touchstart', _ph_choiceListener, { passive: true });
+  grid.addEventListener('click',      _ph_choiceListener);
 };
 
 // Type It — detect correct/wrong/full-hint via MutationObserver
@@ -3478,11 +3535,9 @@ renderType = function() {
 };
 
 // ── 1. onboarding_completed ──
-// Fired once when the user completes onboarding (step 3 confirmation = first words added).
-// We hook triggerOb2IfFirst which is called right after the first class is created.
 const _ph_orig_triggerOb2IfFirst = triggerOb2IfFirst;
 triggerOb2IfFirst = function() {
-  const isFirst = bank.classes.length === 1; // called after confirmAdd, so class already exists
+  const isFirst = bank.classes.length === 1;
   _ph_orig_triggerOb2IfFirst();
   if (isFirst) _ph_send('onboarding_completed', {});
 };
