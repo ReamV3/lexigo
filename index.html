@@ -3239,20 +3239,25 @@ function _ph_state() {
 _ph_send('app_session_start', _ph_state());
 
 // ── 2. user_state_changed ──
-// Sent when word/class counts actually change. Deduped by comparing last sent values.
+// Sent only when counts actually change. Payload shows the DELTA (what changed), not totals.
 let _ph_lastWords = bank.words.length;
 let _ph_lastClasses = bank.classes.length;
 function _ph_maybeStateChanged() {
   const w = bank.words.length, c = bank.classes.length;
-  if (w !== _ph_lastWords || c !== _ph_lastClasses) {
+  const dw = w - _ph_lastWords, dc = c - _ph_lastClasses;
+  if (dw !== 0 || dc !== 0) {
     _ph_lastWords = w; _ph_lastClasses = c;
-    _ph_send('user_state_changed', { total_words: w, total_classes: c });
+    const payload = {};
+    if (dw !== 0) payload.words_changed = dw;   // e.g. +3 added, -1 deleted
+    if (dc !== 0) payload.classes_changed = dc; // e.g. +1 added, -1 deleted
+    _ph_send('user_state_changed', payload);
   }
 }
 
 // ── 3. app_session_end ──
 // In-memory accumulators — reset on page load, never persisted.
 const _ph_startMs = Date.now();
+let _ph_wordsAdded = 0; // words added/imported this session
 
 // Per-game-type totals + session arrays
 const _ph_games = {
@@ -3344,6 +3349,7 @@ function _ph_fireSessionEnd() {
   }
   _ph_send('app_session_end', {
     total_usage_seconds: Math.round((Date.now() - _ph_startMs) / 1000),
+    words_added: _ph_wordsAdded,
     games: gamesOut,
     user_state: _ph_state(),
   });
@@ -3384,7 +3390,13 @@ resetCurrentGame = function() {
 // ── Wrap vocabulary mutation functions (for user_state_changed) ──
 
 const _ph_orig_confirmAdd = confirmAdd;
-confirmAdd = function() { _ph_orig_confirmAdd(); _ph_maybeStateChanged(); };
+confirmAdd = function() {
+  const before = bank.words.length;
+  _ph_orig_confirmAdd();
+  const added = bank.words.length - before;
+  if (added > 0) _ph_wordsAdded += added;
+  _ph_maybeStateChanged();
+};
 
 const _ph_orig_confirmDeleteClass = confirmDeleteClass;
 confirmDeleteClass = function() { _ph_orig_confirmDeleteClass(); _ph_maybeStateChanged(); };
@@ -3395,8 +3407,13 @@ confirmDeleteWord = function() { _ph_orig_confirmDeleteWord(); _ph_maybeStateCha
 // importBank is async (FileReader) — check after it completes
 const _ph_orig_importBank = importBank;
 importBank = function(input) {
+  const before = bank.words.length;
   _ph_orig_importBank(input);
-  setTimeout(_ph_maybeStateChanged, 400);
+  setTimeout(() => {
+    const added = bank.words.length - before;
+    if (added > 0) _ph_wordsAdded += added;
+    _ph_maybeStateChanged();
+  }, 400);
 };
 
 // ── In-game counter hooks ──
