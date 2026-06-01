@@ -3247,10 +3247,10 @@ let _ph_classes_deleted = 0;
 // sessions is a plain OBJECT (not array) so PostHog shows "Session 1", "Session 2"…
 // directly without the numeric index wrapper (0: { "Session 1": … }).
 const _ph_games = {
-  match:           { total_time_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
-  multiple_choice: { total_time_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
-  type_it:         { total_time_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   full_hint_words_used:0, sessions:{} },
-  cards:           { total_time_seconds:0, times_played:0, cards_flipped:0,                      sessions:{} },
+  match:           { time_played_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
+  multiple_choice: { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
+  type_it:         { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   full_hint_words_used:0, sessions:{} },
+  cards:           { time_played_seconds:0, times_played:0, cards_flipped:0,                      sessions:{} },
 };
 
 // ── Active game session cursor ──
@@ -3287,7 +3287,7 @@ function _ph_gameEnd() {
   const acc = _ph_games[g.key];
   if (!acc) return;
 
-  acc.total_time_seconds += dur;
+  acc.time_played_seconds += dur;
   acc.times_played++;
 
   // Session data — time_seconds FIRST, then counters
@@ -3330,10 +3330,10 @@ function _ph_fireSessionEnd() {
 
   // Total game-play seconds = sum of all game accumulators
   const total_game_plays_seconds =
-    _ph_games.match.total_time_seconds +
-    _ph_games.multiple_choice.total_time_seconds +
-    _ph_games.type_it.total_time_seconds +
-    _ph_games.cards.total_time_seconds;
+    _ph_games.match.time_played_seconds +
+    _ph_games.multiple_choice.time_played_seconds +
+    _ph_games.type_it.time_played_seconds +
+    _ph_games.cards.time_played_seconds;
 
   const total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
 
@@ -3343,27 +3343,27 @@ function _ph_fireSessionEnd() {
   if (_ph_games.match.times_played > 0) {
     const m = _ph_games.match;
     games['Game 1: Match'] = {
-      total_time_seconds: m.total_time_seconds,
-      correct_matches:    m.correct_matches,
-      wrong_matches:      m.wrong_matches,
-      sessions:           m.sessions, // { "Session 1": { time_seconds, … }, "Session 2": … }
+      time_played_seconds: m.time_played_seconds,
+      correct_matches:     m.correct_matches,
+      wrong_matches:       m.wrong_matches,
+      sessions:            m.sessions,
     };
   }
 
   if (_ph_games.multiple_choice.times_played > 0) {
     const m = _ph_games.multiple_choice;
     games['Game 2: Multiple Choice'] = {
-      total_time_seconds: m.total_time_seconds,
-      correct_answers:    m.correct_answers,
-      wrong_answers:      m.wrong_answers,
-      sessions:           m.sessions,
+      time_played_seconds: m.time_played_seconds,
+      correct_answers:     m.correct_answers,
+      wrong_answers:       m.wrong_answers,
+      sessions:            m.sessions,
     };
   }
 
   if (_ph_games.type_it.times_played > 0) {
     const m = _ph_games.type_it;
     games['Game 3: Type It'] = {
-      total_time_seconds:   m.total_time_seconds,
+      time_played_seconds:  m.time_played_seconds,
       correct_answers:      m.correct_answers,
       wrong_answers:        m.wrong_answers,
       full_hint_words_used: m.full_hint_words_used,
@@ -3374,23 +3374,23 @@ function _ph_fireSessionEnd() {
   if (_ph_games.cards.times_played > 0) {
     const m = _ph_games.cards;
     games['Game 4: Cards'] = {
-      total_time_seconds: m.total_time_seconds,
-      cards_flipped:      m.cards_flipped,
-      sessions:           m.sessions,
+      time_played_seconds: m.time_played_seconds,
+      cards_flipped:       m.cards_flipped,
+      sessions:            m.sessions,
     };
   }
 
-  // ── 3. final_state — flat structure with per-game time breakdown ──
+  // ── final_state ──
   const final_state = {
-    total_classes:         bank.classes.length,
-    total_classes_added:   _ph_classes_added - _ph_classes_deleted,
-    total_words:           bank.words.length,
-    total_words_added:     _ph_words_added - _ph_words_deleted,
-    'total game played seconds': total_game_plays_seconds,
-    match:           _ph_games.match.total_time_seconds,
-    multiple_choice: _ph_games.multiple_choice.total_time_seconds,
-    type_it:         _ph_games.type_it.total_time_seconds,
-    cards:           _ph_games.cards.total_time_seconds,
+    total_classes:                bank.classes.length,
+    total_classes_added:          _ph_classes_added - _ph_classes_deleted,
+    total_words:                  bank.words.length,
+    total_words_added:            _ph_words_added - _ph_words_deleted,
+    'total game played seconds':  total_game_plays_seconds,
+    'match seconds played':           _ph_games.match.time_played_seconds,
+    'multiple_choice seconds played': _ph_games.multiple_choice.time_played_seconds,
+    'type_it seconds played':         _ph_games.type_it.time_played_seconds,
+    'cards seconds played':           _ph_games.cards.time_played_seconds,
   };
 
   // ── Fire: games → total_app_usage_seconds → total_game_plays_seconds → final_state ──
