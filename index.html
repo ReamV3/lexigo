@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vocab Trainer</title>
+<title>Lexigo</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -814,7 +814,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <div class="title-group">
     <button id="fab" onclick="openWordsScreen()" title="Words & add">＋</button>
     <div>
-      <div class="app-title">Vocab Trainer</div>
+      <div class="app-title">Lexigo</div>
       <div class="app-sub">vocabulary practice</div>
     </div>
   </div>
@@ -1095,7 +1095,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   <div class="ob-icon">
     <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
   </div>
-  <div class="ob-title">Welcome to Vocabulary<br>Practice Trainer</div>
+  <div class="ob-title">Welcome to Lexigo</div>
   <div class="ob-subtitle">Practice vocabulary in any language you want.</div>
   <div class="ob-body">Create your own word groups and train them through fun mini-games and exercises.</div>
   <button class="ob-cta" id="obCtaBtn">
@@ -1250,7 +1250,7 @@ function clearProgress(ex){
 }
 
 function getP(w){ if(!bank.progress[w])bank.progress[w]={correct:0,excluded:false}; return bank.progress[w]; }
-function recordCorrect(w){ const p=getP(w); p.correct=(p.correct||0)+1; save(); }
+function recordCorrect(w){ const p=getP(w); p.correct=(p.correct||0)+1; save(); if(typeof _session!=='undefined') _session.correctAnswers++; }
 function toggleExclude(w){
   const p=getP(w); p.excluded=!p.excluded; save();
   if(document.getElementById('listScreen').classList.contains('open')) renderWsList();
@@ -1559,6 +1559,7 @@ function confirmDeleteClass(){
   } else {
     showToast(`Class ${c} deleted`);
   }
+  _fireVocabChanged(0);
 }
 
 // ── Delete Word ──
@@ -1591,6 +1592,7 @@ function confirmDeleteWord(){
   save(); updateClassPill(); buildDeck(); updateTypeDirBtn();
   if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
   if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
+  _fireVocabChanged(0);
   showToast('Word deleted');
 }
 
@@ -1757,6 +1759,7 @@ function importBank(input){
       save(); updateClassPill(); buildDeck();
       if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
       if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
+      _fireVocabChanged(added);
       showToast('✓ Imported '+added+' words');
     } catch{ showToast('✗ Invalid file'); }
     input.value='';
@@ -3220,12 +3223,6 @@ if(classPillEl){
     (b)=>{ if(!confirmPending) b.style.opacity=''; }
   );
 })();
-// ── Analytics stubs (called from core functions; overridden by PostHog block below) ──
-function _trackGameStarted(ex){}
-function _trackGameEnded(){}
-function _trackWordsAdded(n){}
-function _trackExerciseCompleted(){}
-
 // ── PostHog Analytics ──
 !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 
@@ -3233,80 +3230,69 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   api_host: 'https://us.i.posthog.com',
   person_profiles: 'identified_only',
   capture_pageview: true,
-  capture_pageleave: false, // we handle this ourselves
+  capture_pageleave: false,
   session_idle_timeout_seconds: 300,
 });
 
-// ── Session summary tracker ──
+// ── Session state (populated via _track* calls inside the real functions) ──
 const _session = {
   startTime: Date.now(),
-  gamesPlayed: {},       // { match: 45, choice: 120, ... } seconds per game
+  match_seconds: 0,
+  choice_seconds: 0,
+  flash_seconds: 0,
+  type_seconds: 0,
   exercisesCompleted: 0,
-  wordsAdded: 0,
   correctAnswers: 0,
   _gameStartTime: null,
   _gameStartEx: null,
 };
 
-// Fire summary on page leave
-window.addEventListener('beforeunload', () => {
-  const totalSec = Math.round((Date.now() - _session.startTime) / 1000);
-  posthog.capture('session_summary', {
-    total_time_seconds: totalSec,
-    games_played: _session.gamesPlayed,
-    exercises_completed: _session.exercisesCompleted,
-    words_added: _session.wordsAdded,
-    correct_answers: _session.correctAnswers,
-    total_words_in_bank: bank.words.length,
-    total_classes: bank.classes.length,
-  });
-});
-
-// Also fire when app goes to background on mobile
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'hidden') {
-    const totalSec = Math.round((Date.now() - _session.startTime) / 1000);
-    posthog.capture('session_summary', {
-      total_time_seconds: totalSec,
-      games_played: _session.gamesPlayed,
-      exercises_completed: _session.exercisesCompleted,
-      words_added: _session.wordsAdded,
-      correct_answers: _session.correctAnswers,
-      total_words_in_bank: bank.words.length,
-      total_classes: bank.classes.length,
-    });
-  }
-});
-
-// ── Hook into game functions ──
-_trackGameStarted = function(ex) {
+// ── _track* hooks — called directly from inside each function ──
+function _trackGameStarted(ex){
   _session._gameStartTime = Date.now();
   _session._gameStartEx = ex;
-};
-
-_trackGameEnded = function() {
-  if(_session._gameStartEx && _session._gameStartTime) {
+}
+function _trackGameEnded(){
+  if(_session._gameStartEx && _session._gameStartTime){
     const sec = Math.round((Date.now() - _session._gameStartTime) / 1000);
-    const name = _session._gameStartEx;
-    _session.gamesPlayed[name] = (_session.gamesPlayed[name] || 0) + sec;
+    const key = _session._gameStartEx + '_seconds';
+    if(key in _session) _session[key] += sec;
   }
   _session._gameStartTime = null;
   _session._gameStartEx = null;
-};
-
-_trackWordsAdded = function(n) {
-  if(n > 0) _session.wordsAdded += n;
-};
-
-_trackExerciseCompleted = function() {
+}
+function _trackExerciseCompleted(){
   _session.exercisesCompleted += 1;
-};
+}
+function _trackWordsAdded(n){
+  _fireVocabChanged(n);
+}
 
-const _origRecordCorrect = recordCorrect;
-window.recordCorrect = function(w) {
-  _session.correctAnswers += 1;
-  _origRecordCorrect(w);
-};
+// ── vocabulary_changed event ──
+function _fireVocabChanged(wordsAddedDelta){
+  posthog.capture('vocabulary_changed', {
+    total_classes: bank.classes.length,
+    total_words_in_bank: bank.words.length,
+    words_added: wordsAddedDelta || 0,
+  });
+}
+
+// ── session_summary: fire on leave and on mobile background ──
+function _fireSessionSummary(){
+  posthog.capture('session_summary', {
+    total_time_seconds: Math.round((Date.now() - _session.startTime) / 1000),
+    match_seconds: _session.match_seconds,
+    choice_seconds: _session.choice_seconds,
+    flash_seconds: _session.flash_seconds,
+    type_seconds: _session.type_seconds,
+    exercises_completed: _session.exercisesCompleted,
+    correct_answers: _session.correctAnswers,
+  });
+}
+window.addEventListener('beforeunload', _fireSessionSummary);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden') _fireSessionSummary();
+});
 // ── End PostHog Analytics ──
 </script>
 </body>
