@@ -1727,6 +1727,7 @@ function confirmAdd(){
     if(invalidEntry>0) extras.push(invalidEntry+' not vocabulary');
     const tail=extras.length?' · '+extras.join(', ')+' skipped':'';
     showToast('✓ Added '+added+' word'+(added!==1?'s':'')+' to Class '+target+tail);
+    _trackWordsAdded(added);
   } else {
     if(invalidEntry>0) showToast(`⚠ ${invalidEntry} entr${invalidEntry>1?'ies':'y'} skipped — please enter words or short phrases`);
     else if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — word and translation must differ`);
@@ -1798,6 +1799,7 @@ function startGame(ex){
   if(bank.classes.length===0){ showToast('Add some words first — tap ＋'); return; }
   exercise=ex; buildDeck();
   choiceStreak=0;
+  _trackGameStarted(ex);
 
   // Try to resume saved progress for this game + selection
   const saved=loadProgress(ex);
@@ -1874,6 +1876,7 @@ function startGame(ex){
 function exitGame(skipSave){
   // Save current progress before exiting (for all game modes)
   if(!skipSave) saveProgress();
+  _trackGameEnded();
   // Refresh main screen desc to show/hide resume indicators
   updateGameDescs();
   const resetBtn=document.getElementById('gReset');
@@ -2948,6 +2951,7 @@ function hideOnboarding(cb){
 
 // ── Exercise Complete ──
 function showExerciseComplete(){
+  _trackExerciseCompleted();
   clearProgress(exercise); // Reset saved state for this game — exercise fully done
   exitGame(true); // pass skipSave=true since progress is intentionally cleared
   const el=document.getElementById('exerciseComplete');
@@ -3210,7 +3214,56 @@ if(classPillEl){
     (b)=>{ if(!confirmPending) b.style.opacity=''; }
   );
 })();
+// ── PostHog Analytics ──
+!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 
+posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
+  api_host: 'https://us.i.posthog.com',
+  person_profiles: 'identified_only',
+  capture_pageview: true,
+  capture_pageleave: true,
+});
+
+// ── Analytics helpers (called from inside the real functions) ──
+let _gameStartTime = null;
+let _gameStartEx = null;
+
+function _trackGameStarted(ex){
+  _gameStartTime = Date.now();
+  _gameStartEx = ex;
+  try{ posthog.capture('game_started', {
+    game: ex,
+    selected_classes: [...selected].join(','),
+    total_words: deck.length,
+  }); }catch(e){}
+}
+function _trackGameEnded(){
+  if(!_gameStartEx) return;
+  const durationSec = _gameStartTime ? Math.round((Date.now() - _gameStartTime) / 1000) : null;
+  try{ posthog.capture('game_ended', {
+    game: _gameStartEx,
+    duration_seconds: durationSec,
+    words_answered: choiceAnsweredKeys.size,
+  }); }catch(e){}
+  _gameStartTime = null;
+  _gameStartEx = null;
+}
+function _trackExerciseCompleted(){
+  const durationSec = _gameStartTime ? Math.round((Date.now() - _gameStartTime) / 1000) : null;
+  try{ posthog.capture('exercise_completed', {
+    game: _gameStartEx,
+    duration_seconds: durationSec,
+    words_answered: choiceAnsweredKeys.size,
+  }); }catch(e){}
+}
+function _trackWordsAdded(added){
+  try{ posthog.capture('words_added', {
+    count: added,
+    total_words: bank.words.length,
+    total_classes: bank.classes.length,
+  }); }catch(e){}
+}
+// ── End PostHog Analytics ──
 </script>
 </body>
 </html>
