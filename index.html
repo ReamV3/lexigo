@@ -3210,180 +3210,564 @@ if(classPillEl){
     (b)=>{ if(!confirmPending) b.style.opacity=''; }
   );
 })();
-// ── PostHog Analytics ──
+// ════════════════════════════════════════════════════════════════
+// LEXIGO ANALYTICS — Clean Summary Architecture
+// ════════════════════════════════════════════════════════════════
+// Events fired:
+//   1. app_session_summary  — once, on tab close / hide
+//   2. game_session_summary — once per game play, on exit or complete
+//   3. words_added          — when user adds or imports words
+//   4. onboarding_completed — exactly once, ever
+// Nothing else. No per-click, per-answer, or per-render events.
+// ════════════════════════════════════════════════════════════════
+
+// ── PostHog loader ──
 !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 
 posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   api_host: 'https://us.i.posthog.com',
   person_profiles: 'identified_only',
-  capture_pageview: false,  // we fire app_opened manually with richer context
-  capture_pageleave: false, // we fire session_summary manually
+  capture_pageview: false,
+  capture_pageleave: false,
 });
 
-// ─────────────────────────────────────────────
-// SESSION ACCUMULATOR
-// Persists across multiple game plays within one browser session.
-// Fired as a single `session_summary` event when the tab closes / goes to background.
-// ─────────────────────────────────────────────
-const _session = {
-  startTime: Date.now(),
-  gamesPlayed: [],       // [{game, durationSec, wordsAnswered, completed}]
-  totalWordsAnswered: 0,
-  wordsAddedThisSession: 0,
-  // per-game accumulator (open while a game is running)
-  _current: null,        // {game, startTime, wordsAnsweredAtStart}
-};
+// ── Debug mode ──
+const ANALYTICS_DEBUG = false;
+function _alog(...args) { if (ANALYTICS_DEBUG) console.log('[Analytics]', ...args); }
 
-// Helper: vocab snapshot
-function _vocabSnapshot() {
-  const totalWords   = bank.words.length;
-  const masteredWords = bank.words.filter(w => mastered(w.w)).length;
-  const totalClasses  = bank.classes.length;
-  const activeWords   = bank.words.filter(w => !isExcluded(w.w)).length;
-  return { totalWords, masteredWords, totalClasses, activeWords };
-}
+// ── Persistent meta (survives page loads) ──
+const LS_LAUNCH_COUNT  = 'vt2_launch_count';
+const LS_FIRST_VISIT   = 'vt2_first_visit';
+const LS_ONBOARDED_PH  = 'vt2_ph_onboarded'; // separate from gameplay flag
 
-// ── 1. app_opened: fires once per page load ──
-// Deferred so bank/state is fully loaded
-setTimeout(() => {
-  posthog.capture('app_opened', {
-    ..._vocabSnapshot(),
-    is_first_open: bank.classes.length === 0,
-  });
-}, 0);
+(function _initMeta() {
+  if (!localStorage.getItem(LS_FIRST_VISIT)) {
+    localStorage.setItem(LS_FIRST_VISIT, new Date().toISOString());
+  }
+  const n = parseInt(localStorage.getItem(LS_LAUNCH_COUNT) || '0', 10);
+  localStorage.setItem(LS_LAUNCH_COUNT, String(n + 1));
+  _alog('Launch #' + (n + 1), 'first visit:', localStorage.getItem(LS_FIRST_VISIT));
+})();
 
-// ── 2. Hooks injected via custom events dispatched from the game functions ──
-// (avoids the closure-capture bug of trying to reassign window.startGame)
-
-document.addEventListener('_ph_game_start', e => {
-  const { ex } = e.detail;
-  _session._current = {
-    game: ex,
-    startTime: Date.now(),
-    wordsAnsweredAtStart: choiceAnsweredKeys.size,
+// ── Snapshot helpers ──
+function _userSnapshot() {
+  const excludedCount = bank.words.filter(w => isExcluded(w.w)).length;
+  return {
+    total_words_in_bank:  bank.words.length,
+    total_classes:        bank.classes.length,
+    class_names:          bank.classes.map(c => 'Class ' + c),
+    excluded_words_count: excludedCount,
   };
-  posthog.capture('game_started', {
-    game: ex,
-    selected_classes: [...selected].join(','),
-    total_words: deck.length,
-    ..._vocabSnapshot(),
-  });
-});
-
-document.addEventListener('_ph_game_end', e => {
-  const { skipSave, completed } = e.detail;
-  if (!_session._current) return;
-  const cur = _session._current;
-  const durationSec = Math.round((Date.now() - cur.startTime) / 1000);
-  const wordsAnswered = Math.max(0, choiceAnsweredKeys.size - cur.wordsAnsweredAtStart);
-  _session.totalWordsAnswered += wordsAnswered;
-  _session.gamesPlayed.push({
-    game: cur.game,
-    durationSec,
-    wordsAnswered,
-    completed: !!completed,
-  });
-  posthog.capture('game_ended', {
-    game: cur.game,
-    duration_seconds: durationSec,
-    words_answered: wordsAnswered,
-    completed: !!completed,
-    ..._vocabSnapshot(),
-  });
-  _session._current = null;
-});
-
-document.addEventListener('_ph_words_added', e => {
-  const { added, totalBefore } = e.detail;
-  _session.wordsAddedThisSession += added;
-  posthog.capture('words_added', {
-    count: added,
-    total_words: bank.words.length,
-    total_classes: bank.classes.length,
-    words_before: totalBefore,
-    ..._vocabSnapshot(),
-  });
-});
-
-// ── 3. session_summary — fires once when tab closes/hides ──
-function _fireSessionSummary() {
-  // Close any open game first so its time is counted
-  if (_session._current) {
-    const cur = _session._current;
-    const durationSec = Math.round((Date.now() - cur.startTime) / 1000);
-    const wordsAnswered = Math.max(0, choiceAnsweredKeys.size - cur.wordsAnsweredAtStart);
-    _session.totalWordsAnswered += wordsAnswered;
-    _session.gamesPlayed.push({ game: cur.game, durationSec, wordsAnswered, completed: false });
-    _session._current = null;
-  }
-  const totalSessionSec = Math.round((Date.now() - _session.startTime) / 1000);
-  if (totalSessionSec < 3) return; // ignore accidental flickers
-  const completedGames = _session.gamesPlayed.filter(g => g.completed).length;
-  const gameBreakdown = {};
-  _session.gamesPlayed.forEach(g => {
-    if (!gameBreakdown[g.game]) gameBreakdown[g.game] = { plays: 0, totalSec: 0, totalWords: 0 };
-    gameBreakdown[g.game].plays++;
-    gameBreakdown[g.game].totalSec += g.durationSec;
-    gameBreakdown[g.game].totalWords += g.wordsAnswered;
-  });
-  posthog.capture('session_summary', {
-    session_duration_seconds: totalSessionSec,
-    total_games_played: _session.gamesPlayed.length,
-    total_games_completed: completedGames,
-    total_words_answered: _session.totalWordsAnswered,
-    words_added_this_session: _session.wordsAddedThisSession,
-    game_breakdown: gameBreakdown,
-    ..._vocabSnapshot(),
-  });
 }
 
-// Fire on page hide (most reliable on mobile) and visibility change
-window.addEventListener('pagehide', _fireSessionSummary, { once: true });
+function _activeClassLabel() {
+  if (selected.has('all')) return 'all';
+  const arr = [...selected].sort((a, b) => a - b);
+  return arr.length === 1 ? 'Class ' + arr[0] : arr.map(c => 'Class ' + c).join(', ');
+}
+
+// ════════════════════════════════════════════════════════════════
+// ANALYTICS MANAGER
+// Single source of truth for all in-session data.
+// ════════════════════════════════════════════════════════════════
+const analyticsManager = (() => {
+
+  // ── App-level session ──
+  const _appSession = {
+    session_id:              'lx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    started_at:              new Date().toISOString(),
+    user_state_at_start:     null,   // filled on first use below
+    // accumulators
+    total_games_played:      0,
+    games_played_types:      [],     // list of game types in order played
+    total_correct_answers:   0,
+    total_wrong_answers:     0,
+    total_cards_flipped:     0,
+    words_added_this_session:0,
+    imported_words_count:    0,
+    active_classes_used:     new Set(),
+    onboarding_completed:    false,
+    // dedup guard
+    _appSummarySent:         false,
+  };
+
+  // ── Per-game accumulator (null when no game running) ──
+  let _g = null;
+
+  // ── Dedup: prevent endGame from double-firing ──
+  let _gameEndedFlag = false;
+
+  // ─────────────────────────────────
+  // PUBLIC API
+  // ─────────────────────────────────
+
+  function startGame(gameType) {
+    // If a game was somehow already running (shouldn't happen but safety net),
+    // silently end it first without sending a summary — avoids orphaned sessions.
+    if (_g) {
+      _alog('WARNING: startGame called while game already running — discarding previous', _g.game_type);
+      _g = null;
+    }
+
+    _gameEndedFlag = false;
+    const totalAvailable = deck.filter(w => !isExcluded(w.w)).length;
+    const classLabel = _activeClassLabel();
+    _appSession.active_classes_used.add(classLabel);
+
+    _g = {
+      // common
+      session_id:           _appSession.session_id,
+      game_type:            gameType,
+      started_at:           new Date().toISOString(),
+      _startMs:             Date.now(),
+      active_class:         classLabel,
+      total_words_available:totalAvailable,
+      words_seen:           new Set(),
+      words_completed:      0,
+      // choice
+      correct_answers:      0,
+      wrong_answers:        0,
+      timer_mode:           gameType === 'choice' ? (choiceSpeedSecs === 0 ? 'infinite' : 'countdown') : undefined,
+      timer_speed_secs:     gameType === 'choice' ? choiceSpeedSecs : undefined,
+      // type
+      hints_used:           0,
+      direction_mode:       gameType === 'type' ? typeDir : undefined,
+      // match
+      successful_matches:   0,
+      failed_matches:       0,
+      _streak_current:      0,
+      streak_best:          0,
+      // flash
+      cards_flipped:        0,
+      total_cards_seen:     0,
+    };
+
+    _alog('startGame', gameType, '| session:', _g.session_id, '| words:', totalAvailable);
+  }
+
+  function recordCorrect(wordKey) {
+    if (!_g) return;
+    _g.correct_answers++;
+    _g.words_seen.add(wordKey);
+    _appSession.total_correct_answers++;
+  }
+
+  function recordWrong(wordKey) {
+    if (!_g) return;
+    _g.wrong_answers++;
+    _g.words_seen.add(wordKey);
+    _appSession.total_wrong_answers++;
+  }
+
+  function recordFlip(wordKey) {
+    if (!_g) return;
+    _g.cards_flipped++;
+    _g.total_cards_seen++;
+    _g.words_seen.add(wordKey);
+    _appSession.total_cards_flipped++;
+  }
+
+  function recordCardSeen(wordKey) {
+    // Flash: nav without flip — still counts as seen
+    if (!_g) return;
+    _g.total_cards_seen++;
+    _g.words_seen.add(wordKey);
+  }
+
+  function recordHint() {
+    if (!_g) return;
+    _g.hints_used++;
+  }
+
+  function recordMatch(wordKey) {
+    if (!_g) return;
+    _g.successful_matches++;
+    _g._streak_current++;
+    if (_g._streak_current > _g.streak_best) _g.streak_best = _g._streak_current;
+    _g.words_seen.add(wordKey);
+    _appSession.total_correct_answers++;
+  }
+
+  function recordMatchMiss() {
+    if (!_g) return;
+    _g.failed_matches++;
+    _g._streak_current = 0;
+    _appSession.total_wrong_answers++;
+  }
+
+  function markWordCompleted() {
+    if (!_g) return;
+    _g.words_completed++;
+  }
+
+  function notifyOnboardingCompleted() {
+    if (localStorage.getItem(LS_ONBOARDED_PH)) return; // fire exactly once
+    localStorage.setItem(LS_ONBOARDED_PH, '1');
+    _appSession.onboarding_completed = true;
+    try {
+      posthog.capture('onboarding_completed', {
+        ..._userSnapshot(),
+        app_launch_count: parseInt(localStorage.getItem(LS_LAUNCH_COUNT) || '1', 10),
+      });
+      _alog('onboarding_completed sent');
+    } catch (e) { /* never break gameplay */ }
+  }
+
+  function endGame(completed) {
+    if (!_g) return;
+    // Dedup: if endGame is called twice (e.g. showExerciseComplete → exitGame path),
+    // only the first call sends the summary.
+    if (_gameEndedFlag) {
+      _alog('endGame: duplicate call suppressed for', _g && _g.game_type);
+      _g = null;
+      return;
+    }
+    _gameEndedFlag = true;
+
+    const g = _g;
+    _g = null;
+
+    const durationSec  = Math.round((Date.now() - g._startMs) / 1000);
+    const accuracyPct  = (g.correct_answers + g.wrong_answers) > 0
+      ? Math.round(g.correct_answers / (g.correct_answers + g.wrong_answers) * 100)
+      : null;
+
+    // ── Build the summary payload ──
+    const common = {
+      session_id:            g.session_id,
+      game_type:             g.game_type,
+      started_at:            g.started_at,
+      ended_at:              new Date().toISOString(),
+      duration_seconds:      durationSec,
+      active_class:          g.active_class,
+      total_words_available: g.total_words_available,
+      words_seen:            g.words_seen.size,
+      words_completed:       g.words_completed,
+      exited_early:          !completed,
+    };
+
+    let gameSpecific = {};
+    if (g.game_type === 'choice') {
+      gameSpecific = {
+        correct_answers:  g.correct_answers,
+        wrong_answers:    g.wrong_answers,
+        accuracy_percent: accuracyPct,
+        timer_mode:       g.timer_mode,
+        timer_speed_secs: g.timer_speed_secs,
+      };
+    } else if (g.game_type === 'type') {
+      gameSpecific = {
+        correct_answers:  g.correct_answers,
+        wrong_answers:    g.wrong_answers,
+        hints_used:       g.hints_used,
+        accuracy_percent: accuracyPct,
+        direction_mode:   g.direction_mode,
+      };
+    } else if (g.game_type === 'match') {
+      gameSpecific = {
+        successful_matches: g.successful_matches,
+        failed_matches:     g.failed_matches,
+        streak_best:        g.streak_best,
+      };
+    } else if (g.game_type === 'flash') {
+      gameSpecific = {
+        cards_flipped:    g.cards_flipped,
+        total_cards_seen: g.total_cards_seen,
+      };
+    }
+
+    const payload = { ...common, ...gameSpecific };
+
+    // Accumulate into app session
+    _appSession.total_games_played++;
+    _appSession.games_played_types.push(g.game_type);
+
+    _alog('game_session_summary', payload);
+
+    try {
+      posthog.capture('game_session_summary', payload);
+    } catch (e) { /* never break gameplay */ }
+  }
+
+  function notifyWordsAdded(count, isImport) {
+    if (count <= 0) return;
+    if (isImport) _appSession.imported_words_count += count;
+    else _appSession.words_added_this_session += count;
+
+    const payload = {
+      count,
+      is_import:          !!isImport,
+      total_words_in_bank: bank.words.length,
+      total_classes:       bank.classes.length,
+      ..._userSnapshot(),
+    };
+    _alog('words_added', payload);
+    try {
+      posthog.capture('words_added', payload);
+    } catch (e) {}
+  }
+
+  function fireAppSessionSummary() {
+    if (_appSession._appSummarySent) {
+      _alog('app_session_summary: duplicate suppressed');
+      return;
+    }
+    _appSession._appSummarySent = true;
+
+    // Close any open game so its time is counted in the summary
+    if (_g) {
+      _alog('app close: ending open game', _g.game_type);
+      endGame(false);
+    }
+
+    const durationSec = Math.round((Date.now() - new Date(_appSession.started_at).getTime()) / 1000);
+    if (durationSec < 3) {
+      _alog('app_session_summary: session too short (<3s), skipping');
+      return;
+    }
+
+    const payload = {
+      session_id:               _appSession.session_id,
+      session_duration_seconds: durationSec,
+      total_games_played:       _appSession.total_games_played,
+      games_played_types:       _appSession.games_played_types,
+      total_correct_answers:    _appSession.total_correct_answers,
+      total_wrong_answers:      _appSession.total_wrong_answers,
+      total_cards_flipped:      _appSession.total_cards_flipped,
+      words_added_this_session: _appSession.words_added_this_session,
+      imported_words_count:     _appSession.imported_words_count,
+      active_classes_used:      [..._appSession.active_classes_used],
+      onboarding_completed:     _appSession.onboarding_completed,
+      first_visit_date:         localStorage.getItem(LS_FIRST_VISIT),
+      app_launch_count:         parseInt(localStorage.getItem(LS_LAUNCH_COUNT) || '1', 10),
+      // user state at start vs end
+      user_state_at_start:      _appSession.user_state_at_start,
+      user_state_at_end:        _userSnapshot(),
+    };
+
+    _alog('app_session_summary', payload);
+    try {
+      posthog.capture('app_session_summary', payload);
+    } catch (e) {}
+  }
+
+  // Capture user state at start (deferred so bank is loaded)
+  setTimeout(() => {
+    _appSession.user_state_at_start = {
+      ..._userSnapshot(),
+      app_launch_count: parseInt(localStorage.getItem(LS_LAUNCH_COUNT) || '1', 10),
+    };
+    _alog('User state captured at start:', _appSession.user_state_at_start);
+  }, 0);
+
+  return {
+    startGame,
+    recordCorrect,
+    recordWrong,
+    recordFlip,
+    recordCardSeen,
+    recordHint,
+    recordMatch,
+    recordMatchMiss,
+    markWordCompleted,
+    notifyWordsAdded,
+    notifyOnboardingCompleted,
+    endGame,
+    fireAppSessionSummary,
+  };
+})();
+
+// ── App session end: pagehide is most reliable on mobile ──
+// visibilitychange fires on tab switch (user may return) — we still fire then
+// because on mobile the page may be killed silently; accept duplicates at the
+// listener level and rely on _appSummarySent guard inside the manager.
+window.addEventListener('pagehide', () => analyticsManager.fireAppSessionSummary(), { once: true });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') _fireSessionSummary();
+  if (document.visibilityState === 'hidden') analyticsManager.fireAppSessionSummary();
 });
 
-// ── 4. Patch the three key functions to dispatch custom events ──
-// We patch at definition-time call sites via thin wrappers on the functions themselves.
-// Because startGame/exitGame/confirmAdd/showExerciseComplete are plain `function` declarations
-// in the same script scope, we can reassign them safely here (after they're defined).
+// ════════════════════════════════════════════════════════════════
+// FUNCTION WRAPPERS
+// Thin wrappers around the four key game lifecycle functions.
+// No custom events, no closures — direct manager calls only.
+// ════════════════════════════════════════════════════════════════
 
-const _ph_origStartGame = startGame;
+// startGame — wrap to call analyticsManager.startGame AFTER the app's startGame
+// so deck/exercise/selected are already updated.
+const _orig_startGame = startGame;
 startGame = function(ex) {
-  _ph_origStartGame(ex);
-  document.dispatchEvent(new CustomEvent('_ph_game_start', { detail: { ex } }));
+  _orig_startGame(ex);
+  // exercise, deck, selected are now set — safe to snapshot
+  analyticsManager.startGame(ex);
 };
 
-// Flag to suppress the exitGame analytics event when exercise complete fires first
-let _ph_completedThisGame = false;
-
-const _ph_origExitGame = exitGame;
+// exitGame — wrap to end the game session.
+// showExerciseComplete calls exitGame(true) internally; we guard inside endGame.
+const _orig_exitGame = exitGame;
 exitGame = function(skipSave) {
-  // Only fire game_ended here if the exercise didn't already complete
-  if (!_ph_completedThisGame) {
-    document.dispatchEvent(new CustomEvent('_ph_game_end', { detail: { skipSave, completed: false } }));
-  }
-  _ph_completedThisGame = false;
-  _ph_origExitGame(skipSave);
+  analyticsManager.endGame(false); // endGame deduplicates if already called
+  _orig_exitGame(skipSave);
 };
 
-const _ph_origShowExerciseComplete = showExerciseComplete;
+// showExerciseComplete — game finished naturally; end with completed=true BEFORE
+// exitGame is called, so endGame(true) fires first and the dedup blocks endGame(false).
+const _orig_showExerciseComplete = showExerciseComplete;
 showExerciseComplete = function() {
-  _ph_completedThisGame = true; // prevent exitGame from double-firing
-  document.dispatchEvent(new CustomEvent('_ph_game_end', { detail: { completed: true } }));
-  _ph_origShowExerciseComplete();
+  analyticsManager.endGame(true);  // fires game_session_summary with exited_early:false
+  _orig_showExerciseComplete();    // this internally calls exitGame(true) → endGame(false) → suppressed
 };
 
-const _ph_origConfirmAdd = confirmAdd;
+// resetCurrentGame — analytically ends the current game (early exit) then restarts.
+const _orig_resetCurrentGame = resetCurrentGame;
+resetCurrentGame = function() {
+  analyticsManager.endGame(false);
+  _orig_resetCurrentGame();
+  // After reset, the game is still the same type — start a fresh game session
+  if (exercise) analyticsManager.startGame(exercise);
+};
+
+// confirmAdd — wrap to notify words added
+const _orig_confirmAdd = confirmAdd;
 confirmAdd = function() {
   const before = bank.words.length;
-  _ph_origConfirmAdd();
+  _orig_confirmAdd();
   const added = bank.words.length - before;
-  if (added > 0) {
-    document.dispatchEvent(new CustomEvent('_ph_words_added', { detail: { added, totalBefore: before } }));
+  if (added > 0) analyticsManager.notifyWordsAdded(added, false);
+};
+
+// importBank — wrap to notify imported words
+const _orig_importBank = importBank;
+importBank = function(input) {
+  const before = bank.words.length;
+  _orig_importBank(input);
+  // importBank is async (FileReader) — we need to check after the reader fires.
+  // We poll once after a tick; the reader callback has already set bank.words by then
+  // for reasonable file sizes. For large imports this may miss — acceptable trade-off.
+  setTimeout(() => {
+    const added = bank.words.length - before;
+    if (added > 0) analyticsManager.notifyWordsAdded(added, true);
+  }, 300);
+};
+
+// ── Onboarding completion: fires from triggerOb2IfFirst (first class created) ──
+const _orig_triggerOb2IfFirst = triggerOb2IfFirst;
+triggerOb2IfFirst = function() {
+  _orig_triggerOb2IfFirst();
+  if (bank.classes.length === 1) {
+    analyticsManager.notifyOnboardingCompleted();
   }
 };
-// ── End PostHog Analytics ──
+
+// ════════════════════════════════════════════════════════════════
+// IN-GAME RECORDING HOOKS
+// Minimal callsite additions — only the specific actions we need.
+// ════════════════════════════════════════════════════════════════
+
+// ── Flash: record flips and card navigation ──
+const _orig_flipCard = flipCard;
+flipCard = function() {
+  const wasFlipped = flipped; // flipped is toggled inside flipCard
+  _orig_flipCard();
+  // After the call: if we just flipped TO the back (revealed), record it
+  if (!wasFlipped && flipped && exercise === 'flash' && deck[idx]) {
+    analyticsManager.recordFlip(deck[idx].w);
+    analyticsManager.markWordCompleted();
+  }
+};
+
+// ── Choice: correct/wrong recorded inside showChoiceButtons handler.
+// We wrap showChoiceButtons to inject counting into the handler without
+// duplicating the complex handler logic.
+const _orig_showChoiceButtons = showChoiceButtons;
+showChoiceButtons = function(wrap, w, ringStart) {
+  _orig_showChoiceButtons(wrap, w, ringStart);
+  // The handler inside already calls recordCorrect(w.w) and updates choiceAnsweredKeys.
+  // We need to intercept correct/wrong outcomes. Cleanest approach: observe button
+  // state after the grid is built by adding delegated listeners on the grid.
+  const grid = wrap.querySelector('.choices-grid');
+  if (!grid) return;
+  grid.addEventListener('click', function _choiceGridDelegate(e) {
+    const btn = e.target.closest('.c-btn');
+    if (!btn) return;
+    // We can tell correct vs wrong by checking class AFTER the original handler ran
+    // (original uses touchstart + click with handled flag, so by click time class is set)
+    setTimeout(() => {
+      if (btn.classList.contains('correct')) {
+        analyticsManager.recordCorrect(w.w);
+        analyticsManager.markWordCompleted();
+      } else if (btn.classList.contains('wrong') || btn.classList.contains('locked')) {
+        analyticsManager.recordWrong(w.w);
+      }
+      grid.removeEventListener('click', _choiceGridDelegate);
+    }, 0);
+  }, { once: false });
+};
+
+// ── Match: correct/wrong recorded inside onMCardTap.
+// Wrap onMCardTap to intercept after the original runs.
+const _orig_onMCardTap = onMCardTap;
+onMCardTap = function(el, side, key) {
+  const selLeftBefore  = mcSelLeftKey;
+  const selRightBefore = mcSelRightKey;
+  _orig_onMCardTap(el, side, key);
+  // A match attempt just happened if both sides were filled AND one of them is now cleared
+  // (the original function clears both after evaluation).
+  // We detect by checking: after the call, if mcSelLeft and mcSelRight are both null,
+  // a pair evaluation just occurred.
+  if (selLeftBefore !== null && selRightBefore !== null && !mcSelLeft && !mcSelRight) {
+    // A pair was evaluated. Correct if keys match.
+    if (selLeftBefore === selRightBefore) {
+      // correct — already checked inside original
+      analyticsManager.recordMatch(selLeftBefore);
+      analyticsManager.markWordCompleted();
+    } else {
+      analyticsManager.recordMatchMiss();
+    }
+  }
+};
+
+// ── Type: correct/wrong + hints are recorded inside renderType's closures.
+// We wrap renderType to inject counting by post-processing the submit and hint handlers.
+// Since renderType rebuilds the DOM each call, we intercept by wrapping the two closures
+// it creates. Cleanest safe approach: wrap the doSubmit outcome check via MutationObserver
+// on the input element's class list.
+// Instead, we use a lighter approach: patch the type-submit button's handlers after render.
+const _orig_renderType = renderType;
+renderType = function() {
+  _orig_renderType();
+  // After render, find the submit button and input in the new DOM
+  const wrap = document.getElementById('typeWrap');
+  if (!wrap) return;
+  const inputEl   = wrap.querySelector('.type-input');
+  const submitBtn = wrap.querySelector('.type-submit');
+  const hintBtn   = wrap.querySelector('.type-hint-btn');
+  if (!inputEl || !submitBtn) return;
+
+  // Observe input class changes to detect correct/wrong outcomes
+  const obs = new MutationObserver(mutations => {
+    for (const m of mutations) {
+      if (m.attributeName === 'class') {
+        const cl = inputEl.className;
+        if (cl.includes('correct')) {
+          analyticsManager.recordCorrect(deck[idx] ? deck[idx].w : '');
+          analyticsManager.markWordCompleted();
+          obs.disconnect();
+        } else if (cl.includes('wrong')) {
+          analyticsManager.recordWrong(deck[idx] ? deck[idx].w : '');
+          // Don't disconnect — user may retry
+        }
+      }
+    }
+  });
+  obs.observe(inputEl, { attributes: true, attributeFilter: ['class'] });
+
+  // Hint button: count clicks
+  if (hintBtn) {
+    hintBtn.addEventListener('click', () => analyticsManager.recordHint(), { passive: true });
+  }
+};
+
+// ── End Lexigo Analytics ──
 </script>
 </body>
 </html>
