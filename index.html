@@ -3238,47 +3238,19 @@ const _ph_startMs = Date.now();
 let _ph_endSent = false;
 
 // ── Word / class delta accumulators ──
-// net: added minus deleted within this session
-let _ph_words_added   = 0; // gross adds (import or confirmAdd)
-let _ph_words_deleted = 0; // gross deletes (word or class wipe)
+let _ph_words_added   = 0;
+let _ph_words_deleted = 0;
 let _ph_classes_added   = 0;
 let _ph_classes_deleted = 0;
 
 // ── Per-game accumulators ──
-// Each game has a fixed structure; sessions array holds numbered session objects.
+// sessions is a plain OBJECT (not array) so PostHog shows "Session 1", "Session 2"…
+// directly without the numeric index wrapper (0: { "Session 1": … }).
 const _ph_games = {
-  match: {
-    total_time_seconds: 0,
-    time_played_seconds: 0, // alias kept equal to total_time_seconds for clarity
-    times_played: 0,
-    correct_matches: 0,
-    wrong_matches: 0,
-    sessions: [], // each: { "Session N": { time_seconds, correct_matches, wrong_matches } }
-  },
-  multiple_choice: {
-    total_time_seconds: 0,
-    time_played_seconds: 0,
-    times_played: 0,
-    correct_answers: 0,
-    wrong_answers: 0,
-    sessions: [], // each: { "Session N": { time_seconds, correct_answers, wrong_answers } }
-  },
-  type_it: {
-    total_time_seconds: 0,
-    time_played_seconds: 0,
-    times_played: 0,
-    correct_answers: 0,
-    wrong_answers: 0,
-    full_hint_words_used: 0,
-    sessions: [], // each: { "Session N": { time_seconds, correct_answers, wrong_answers, full_hint_words_used } }
-  },
-  cards: {
-    total_time_seconds: 0,
-    time_played_seconds: 0,
-    times_played: 0,
-    cards_flipped: 0,
-    sessions: [], // each: { "Session N": { time_seconds, cards_flipped } }
-  },
+  match:           { total_time_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
+  multiple_choice: { total_time_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
+  type_it:         { total_time_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   full_hint_words_used:0, sessions:{} },
+  cards:           { total_time_seconds:0, times_played:0, cards_flipped:0,                      sessions:{} },
 };
 
 // ── Active game session cursor ──
@@ -3290,18 +3262,17 @@ function _ph_gameKey(ex) {
 
 // ── Start a game session ──
 function _ph_gameStart(ex) {
-  if (_ph_cur) _ph_gameEnd(); // close any open session first
+  if (_ph_cur) _ph_gameEnd(); // flush any open session first
   _ph_cur = {
-    key:   _ph_gameKey(ex),
-    startMs: Date.now(),
-    // counters — reset per game session
-    correct_matches:     0,
-    wrong_matches:       0,
-    correct_answers:     0,
-    wrong_answers:       0,
+    key:              _ph_gameKey(ex),
+    startMs:          Date.now(),
+    correct_matches:  0,
+    wrong_matches:    0,
+    correct_answers:  0,
+    wrong_answers:    0,
     full_hint_words_used: 0,
-    cards_flipped:       0,
-    ended: false,
+    cards_flipped:    0,
+    ended:            false,
   };
 }
 
@@ -3309,45 +3280,44 @@ function _ph_gameStart(ex) {
 function _ph_gameEnd() {
   if (!_ph_cur || _ph_cur.ended) return;
   _ph_cur.ended = true;
-  const g = _ph_cur;
-  _ph_cur = null;
+  const g   = _ph_cur;
+  _ph_cur   = null;
 
   const dur = Math.round((Date.now() - g.startMs) / 1000);
   const acc = _ph_games[g.key];
   if (!acc) return;
 
-  acc.total_time_seconds  += dur;
-  acc.time_played_seconds += dur; // kept in sync
+  acc.total_time_seconds += dur;
   acc.times_played++;
 
-  // Build session object: { "Session N": { ... } }
-  const sessNum = acc.times_played;
+  // Session data — time_seconds FIRST, then counters
+  const sessNum  = acc.times_played;
   const sessData = { time_seconds: dur };
 
   if (g.key === 'match') {
     sessData.correct_matches = g.correct_matches;
     sessData.wrong_matches   = g.wrong_matches;
-    acc.correct_matches += g.correct_matches;
-    acc.wrong_matches   += g.wrong_matches;
+    acc.correct_matches     += g.correct_matches;
+    acc.wrong_matches       += g.wrong_matches;
   } else if (g.key === 'multiple_choice') {
     sessData.correct_answers = g.correct_answers;
     sessData.wrong_answers   = g.wrong_answers;
-    acc.correct_answers += g.correct_answers;
-    acc.wrong_answers   += g.wrong_answers;
+    acc.correct_answers     += g.correct_answers;
+    acc.wrong_answers       += g.wrong_answers;
   } else if (g.key === 'type_it') {
     sessData.correct_answers      = g.correct_answers;
     sessData.wrong_answers        = g.wrong_answers;
     sessData.full_hint_words_used = g.full_hint_words_used;
-    acc.correct_answers      += g.correct_answers;
-    acc.wrong_answers        += g.wrong_answers;
-    acc.full_hint_words_used += g.full_hint_words_used;
+    acc.correct_answers          += g.correct_answers;
+    acc.wrong_answers            += g.wrong_answers;
+    acc.full_hint_words_used     += g.full_hint_words_used;
   } else if (g.key === 'cards') {
-    sessData.cards_flipped = g.cards_flipped;
-    acc.cards_flipped += g.cards_flipped;
+    sessData.cards_flipped  = g.cards_flipped;
+    acc.cards_flipped      += g.cards_flipped;
   }
 
-  // Push as { "Session N": { ... } } — the numbered key IS the session identifier
-  acc.sessions.push({ [`Session ${sessNum}`]: sessData });
+  // Store as plain object key — PostHog renders "Session 1" directly, no numeric wrapper
+  acc.sessions[`Session ${sessNum}`] = sessData;
 }
 
 // ── Build and fire the single summary event ──
@@ -3358,36 +3328,35 @@ function _ph_fireSessionEnd() {
   // Flush any open game session before summarising
   if (_ph_cur) _ph_gameEnd();
 
-  // ── 1. final_state ──
-  const final_state = {
-    total_words:         bank.words.length,
-    total_words_added:   _ph_words_added - _ph_words_deleted, // net: added − deleted
-    total_classes:       bank.classes.length,
-    total_classes_added: _ph_classes_added - _ph_classes_deleted, // net: added − deleted
-  };
+  // Total game-play seconds = sum of all game accumulators
+  const total_game_plays_seconds =
+    _ph_games.match.total_time_seconds +
+    _ph_games.multiple_choice.total_time_seconds +
+    _ph_games.type_it.total_time_seconds +
+    _ph_games.cards.total_time_seconds;
 
-  // ── 2. games — only include games that were actually played ──
+  const total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
+
+  // ── 1. games (only games actually played) ──
   const games = {};
 
   if (_ph_games.match.times_played > 0) {
     const m = _ph_games.match;
     games['Game 1: Match'] = {
-      total_time_seconds:  m.total_time_seconds,
-      time_played_seconds: m.time_played_seconds,
-      correct_matches:     m.correct_matches,
-      wrong_matches:       m.wrong_matches,
-      sessions:            m.sessions, // [ { "Session 1": {...} }, { "Session 2": {...} }, ... ]
+      total_time_seconds: m.total_time_seconds,
+      correct_matches:    m.correct_matches,
+      wrong_matches:      m.wrong_matches,
+      sessions:           m.sessions, // { "Session 1": { time_seconds, … }, "Session 2": … }
     };
   }
 
   if (_ph_games.multiple_choice.times_played > 0) {
     const m = _ph_games.multiple_choice;
     games['Game 2: Multiple Choice'] = {
-      total_time_seconds:  m.total_time_seconds,
-      time_played_seconds: m.time_played_seconds,
-      correct_answers:     m.correct_answers,
-      wrong_answers:       m.wrong_answers,
-      sessions:            m.sessions,
+      total_time_seconds: m.total_time_seconds,
+      correct_answers:    m.correct_answers,
+      wrong_answers:      m.wrong_answers,
+      sessions:           m.sessions,
     };
   }
 
@@ -3395,7 +3364,6 @@ function _ph_fireSessionEnd() {
     const m = _ph_games.type_it;
     games['Game 3: Type It'] = {
       total_time_seconds:   m.total_time_seconds,
-      time_played_seconds:  m.time_played_seconds,
       correct_answers:      m.correct_answers,
       wrong_answers:        m.wrong_answers,
       full_hint_words_used: m.full_hint_words_used,
@@ -3406,71 +3374,67 @@ function _ph_fireSessionEnd() {
   if (_ph_games.cards.times_played > 0) {
     const m = _ph_games.cards;
     games['Game 4: Cards'] = {
-      total_time_seconds:  m.total_time_seconds,
-      time_played_seconds: m.time_played_seconds,
-      cards_flipped:       m.cards_flipped,
-      sessions:            m.sessions,
+      total_time_seconds: m.total_time_seconds,
+      cards_flipped:      m.cards_flipped,
+      sessions:           m.sessions,
     };
   }
 
-  // ── 3 & 4. total_usage_seconds + clamped object ──
-  const total_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
-
-  // total_usage_seconds_clamped: nested breakdown so PostHog shows it as ▶ {…}
-  const total_usage_seconds_clamped = {
-    overall:         total_usage_seconds,
+  // ── 3. final_state — flat structure with per-game time breakdown ──
+  const final_state = {
+    total_classes:         bank.classes.length,
+    total_classes_added:   _ph_classes_added - _ph_classes_deleted,
+    total_words:           bank.words.length,
+    total_words_added:     _ph_words_added - _ph_words_deleted,
+    'total game played seconds': total_game_plays_seconds,
     match:           _ph_games.match.total_time_seconds,
     multiple_choice: _ph_games.multiple_choice.total_time_seconds,
     type_it:         _ph_games.type_it.total_time_seconds,
     cards:           _ph_games.cards.total_time_seconds,
   };
 
-  // ── Fire exactly one event ──
+  // ── Fire: games → total_app_usage_seconds → total_game_plays_seconds → final_state ──
   _ph_send({
-    final_state,               // 1. ▶ {…}
-    games,                     // 2. ▶ {…}
-    total_usage_seconds,       // 3. flat number
-    total_usage_seconds_clamped, // 4. ▶ {…}
+    games,                       // 1. ▶ {…}
+    total_app_usage_seconds,     // 2. flat number
+    total_game_plays_seconds,    // 3. flat number
+    final_state,                 // 4. ▶ {…}
   });
 }
 
 // ── Trigger on page unload / hide ──
-// Four mechanisms to maximise delivery across browsers and devices:
-
-// 1. pagehide — most reliable on mobile (fires before page is put in bfcache or killed)
+// 1. pagehide — most reliable on mobile (bfcache / process kill)
 window.addEventListener('pagehide', _ph_fireSessionEnd, { once: true });
 
-// 2. visibilitychange hidden — tab switch / app backgrounded
+// 2. visibilitychange hidden — tab switch, app backgrounded
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
 });
 
-// 3. beforeunload — desktop browsers closing/navigating away
+// 3. beforeunload — desktop close / navigate away
 window.addEventListener('beforeunload', _ph_fireSessionEnd);
 
-// 4. Idle flush — fire after 3 min of inactivity so the event
-//    is delivered while the connection is still alive (avoids
-//    relying solely on unload hooks, which browsers throttle).
-//    Resets on any user interaction. This also means you'll see
-//    the event in PostHog during normal testing without closing the tab.
+// 4. Idle flush — fires while connection is alive; also makes testing easy.
+//    After 3 min of no interaction the event fires; _ph_endSent resets so
+//    a subsequent unload can fire again if the user returns and then leaves.
 let _ph_idleTimer = null;
-const _ph_idleMs  = 3 * 60 * 1000; // 3 minutes
+const _ph_idleMs  = 3 * 60 * 1000; // 3 minutes — reduce to e.g. 30000 for dev testing
 function _ph_resetIdle() {
   clearTimeout(_ph_idleTimer);
   if (_ph_endSent) return;
   _ph_idleTimer = setTimeout(() => {
-    _ph_endSent = false; // allow re-fire after idle flush so unload still works
+    _ph_endSent = false;
     _ph_fireSessionEnd();
-    _ph_endSent = false; // reset again so next idle or unload can fire
+    _ph_endSent = false; // allow re-fire on final unload
   }, _ph_idleMs);
 }
 ['click','touchstart','keydown','scroll'].forEach(ev =>
   document.addEventListener(ev, _ph_resetIdle, { passive: true })
 );
-_ph_resetIdle(); // start the idle clock immediately
+_ph_resetIdle();
 
 // ════════════════════════════════════════════════════════════════
-// LIFECYCLE HOOKS — wrap app functions to feed the accumulators
+// LIFECYCLE HOOKS
 // ════════════════════════════════════════════════════════════════
 
 // ── Game start / end ──
@@ -3496,7 +3460,6 @@ const _ph_orig_resetCurrentGame = resetCurrentGame;
 resetCurrentGame = function() {
   _ph_gameEnd();
   _ph_orig_resetCurrentGame();
-  // If the game area is still active after reset, open a fresh session
   if (exercise) _ph_gameStart(exercise);
 };
 
@@ -3532,7 +3495,6 @@ importBank = function(input) {
   const wBefore = bank.words.length;
   const cBefore = bank.classes.length;
   _ph_orig_importBank(input);
-  // importBank is async (FileReader); snapshot after it resolves
   setTimeout(() => {
     _ph_words_added   += Math.max(0, bank.words.length   - wBefore);
     _ph_classes_added += Math.max(0, bank.classes.length - cBefore);
@@ -3540,36 +3502,37 @@ importBank = function(input) {
 };
 
 // ════════════════════════════════════════════════════════════════
-// IN-GAME COUNTER HOOKS
+// IN-GAME COUNTER HOOKS (accuracy-hardened)
 // ════════════════════════════════════════════════════════════════
 
 // ── Cards: count every flip TO the back face ──
 const _ph_orig_flipCard = flipCard;
 flipCard = function() {
-  const wasFront = !flipped; // flipped is the app's pre-flip state
+  const wasFront = !flipped;
   _ph_orig_flipCard();
-  // After the call, flipped is the new state — increment only when we just flipped TO back
   if (wasFront && flipped && _ph_cur) _ph_cur.cards_flipped++;
 };
 
-// ── Match: detect right-after a pair evaluation (both slots filled then cleared) ──
+// ── Match: snapshot keys BEFORE tap, evaluate AFTER ──
+// Correct matches: original clears mcSelLeft/Right via setTimeout (async),
+// so we cannot rely on post-call null-check for correct pairs.
+// Instead: we know the pair result purely from comparing hadLeft === hadRight.
+// We only fire when BOTH slots were occupied before the tap (a complete pair attempt).
 const _ph_orig_onMCardTap = onMCardTap;
 onMCardTap = function(el, side, key) {
-  // Snapshot selection state BEFORE the tap is processed
   const hadLeft  = mcSelLeftKey;
   const hadRight = mcSelRightKey;
   _ph_orig_onMCardTap(el, side, key);
-  // A pair was evaluated when both slots were full and are now cleared
-  if (hadLeft !== null && hadRight !== null && mcSelLeft === null && mcSelRight === null) {
+  // Both slots were filled before this tap → a pair was evaluated
+  if (hadLeft !== null && hadRight !== null) {
     if (!_ph_cur) return;
     if (hadLeft === hadRight) _ph_cur.correct_matches++;
     else                      _ph_cur.wrong_matches++;
   }
 };
 
-// ── Multiple Choice: intercept per-button answer result ──
-// The original click/touchstart handler applies .correct/.wrong before returning,
-// so we delegate on the grid and read the class 50 ms later (after the DOM update).
+// ── Multiple Choice: one count per question, guarded against double-fire ──
+// On mobile both touchstart and click can fire; the `fired` flag prevents double-counting.
 const _ph_orig_showChoiceButtons = showChoiceButtons;
 showChoiceButtons = function(wrap, w, ringStart) {
   _ph_orig_showChoiceButtons(wrap, w, ringStart);
@@ -3577,9 +3540,13 @@ showChoiceButtons = function(wrap, w, ringStart) {
   const grid = wrap.querySelector('.choices-grid');
   if (!grid) return;
 
+  let fired = false; // guard: count exactly once per question
   const _ph_choiceListener = (e) => {
+    if (fired) return;
     const btn = e.target.closest('.c-btn');
     if (!btn || btn.disabled) return;
+    fired = true;
+    // Read class after original handler has applied .correct / .wrong (50 ms grace)
     setTimeout(() => {
       if (!_ph_cur) return;
       if (btn.classList.contains('correct')) {
@@ -3587,18 +3554,18 @@ showChoiceButtons = function(wrap, w, ringStart) {
       } else if (btn.classList.contains('wrong') || btn.classList.contains('locked')) {
         _ph_cur.wrong_answers++;
       }
-      // Each grid is single-use — remove after first evaluated answer
       grid.removeEventListener('touchstart', _ph_choiceListener);
       grid.removeEventListener('click',      _ph_choiceListener);
     }, 50);
   };
 
-  // Listen on both so mobile (touchstart) and desktop (click) are both captured
   grid.addEventListener('touchstart', _ph_choiceListener, { passive: true });
   grid.addEventListener('click',      _ph_choiceListener);
 };
 
-// ── Type It: observe input class changes to detect correct / wrong / hint-revealed ──
+// ── Type It: MutationObserver on input class ──
+// wrong class is transient (removed after 700 ms); correct class is permanent.
+// Observer stays alive across retries; only disconnects on correct.
 const _ph_orig_renderType = renderType;
 renderType = function() {
   _ph_orig_renderType();
@@ -3607,25 +3574,26 @@ renderType = function() {
   const inputEl = wrap.querySelector('.type-input');
   if (!inputEl) return;
 
-  // Track whether the hint button was used for the current word
   let _hintUsedThisWord = false;
   const hintBtn = wrap.querySelector('.type-hint-btn');
   if (hintBtn) {
     hintBtn.addEventListener('click', () => { _hintUsedThisWord = true; }, { passive: true });
   }
 
+  let _wrongCountedThisAttempt = false; // prevent double-count if class flickers
   const obs = new MutationObserver(() => {
     if (!_ph_cur) { obs.disconnect(); return; }
     const cl = inputEl.className;
     if (cl.includes('correct')) {
       _ph_cur.correct_answers++;
-      // full_hint_words_used: word was ultimately revealed via hints (input disabled = app filled it in)
       if (inputEl.disabled && _hintUsedThisWord) _ph_cur.full_hint_words_used++;
-      obs.disconnect(); // one correct per word — stop observing
-    } else if (cl.includes('wrong')) {
+      obs.disconnect();
+    } else if (cl.includes('wrong') && !_wrongCountedThisAttempt) {
+      _wrongCountedThisAttempt = true;
       _ph_cur.wrong_answers++;
-      // wrong class is transient; do NOT disconnect — the user may retry
-      _hintUsedThisWord = false; // reset hint flag on wrong attempt
+      _hintUsedThisWord = false;
+      // Reset after the transient class is removed so next attempt can count
+      setTimeout(() => { _wrongCountedThisAttempt = false; }, 800);
     }
   });
   obs.observe(inputEl, { attributes: true, attributeFilter: ['class'] });
