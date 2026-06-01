@@ -3115,9 +3115,11 @@ ob3Btn.addEventListener('click',()=>{
 // ── safeTap: highlight stays while finger held, action on touchend inside element ──
 function safeTap(el, onAction, onDown, onUp){
   let active=false;
+  let touchFired=false;          // ← ADD THIS
   el.addEventListener('touchstart',(e)=>{
     e.preventDefault();
     active=true;
+	touchFired=false;
     if(onDown) onDown(el);
     else el.classList.add('mcard-touch-active');
   },{passive:false});
@@ -3132,14 +3134,18 @@ function safeTap(el, onAction, onDown, onUp){
     const t=e.changedTouches[0];
     const r=el.getBoundingClientRect();
     const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
-    if(inside) onAction();
+    if(inside){ touchFired=true; onAction(); }  // ← SET FLAG
   },{passive:false});
   el.addEventListener('touchcancel',()=>{
     active=false;
     if(onUp) onUp(el);
     else el.classList.remove('mcard-touch-active');
   },{passive:true});
-  el.addEventListener('click', onAction); // desktop fallback
+  
+  el.addEventListener('click',()=>{
+    if(touchFired){ touchFired=false; return; }  // ← SUPPRESS SYNTHETIC CLICK
+    onAction();
+  });
 }
 
 // Class pill — safeTap consistent with all other buttons
