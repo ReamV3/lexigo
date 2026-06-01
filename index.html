@@ -1250,7 +1250,7 @@ function clearProgress(ex){
 }
 
 function getP(w){ if(!bank.progress[w])bank.progress[w]={correct:0,excluded:false}; return bank.progress[w]; }
-function recordCorrect(w){ const p=getP(w); p.correct=(p.correct||0)+1; save(); if(typeof _session!=='undefined') _session.correctAnswers++; }
+function recordCorrect(w){ const p=getP(w); p.correct=(p.correct||0)+1; save(); }
 function toggleExclude(w){
   const p=getP(w); p.excluded=!p.excluded; save();
   if(document.getElementById('listScreen').classList.contains('open')) renderWsList();
@@ -1559,7 +1559,6 @@ function confirmDeleteClass(){
   } else {
     showToast(`Class ${c} deleted`);
   }
-  _fireVocabChanged(0);
 }
 
 // ── Delete Word ──
@@ -1592,7 +1591,6 @@ function confirmDeleteWord(){
   save(); updateClassPill(); buildDeck(); updateTypeDirBtn();
   if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
   if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
-  _fireVocabChanged(0);
   showToast('Word deleted');
 }
 
@@ -1729,7 +1727,6 @@ function confirmAdd(){
     if(invalidEntry>0) extras.push(invalidEntry+' not vocabulary');
     const tail=extras.length?' · '+extras.join(', ')+' skipped':'';
     showToast('✓ Added '+added+' word'+(added!==1?'s':'')+' to Class '+target+tail);
-    _trackWordsAdded(added);
   } else {
     if(invalidEntry>0) showToast(`⚠ ${invalidEntry} entr${invalidEntry>1?'ies':'y'} skipped — please enter words or short phrases`);
     else if(sameLangSkipped>0) showToast(`⚠ ${sameLangSkipped} line(s) skipped — word and translation must differ`);
@@ -1759,7 +1756,6 @@ function importBank(input){
       save(); updateClassPill(); buildDeck();
       if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
       if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
-      _fireVocabChanged(added);
       showToast('✓ Imported '+added+' words');
     } catch{ showToast('✗ Invalid file'); }
     input.value='';
@@ -1802,7 +1798,6 @@ function startGame(ex){
   if(bank.classes.length===0){ showToast('Add some words first — tap ＋'); return; }
   exercise=ex; buildDeck();
   choiceStreak=0;
-  _trackGameStarted(ex);
 
   // Try to resume saved progress for this game + selection
   const saved=loadProgress(ex);
@@ -1879,7 +1874,6 @@ function startGame(ex){
 function exitGame(skipSave){
   // Save current progress before exiting (for all game modes)
   if(!skipSave) saveProgress();
-  _trackGameEnded();
   // Refresh main screen desc to show/hide resume indicators
   updateGameDescs();
   const resetBtn=document.getElementById('gReset');
@@ -2954,7 +2948,6 @@ function hideOnboarding(cb){
 
 // ── Exercise Complete ──
 function showExerciseComplete(){
-  _trackExerciseCompleted();
   clearProgress(exercise); // Reset saved state for this game — exercise fully done
   exitGame(true); // pass skipSave=true since progress is intentionally cleared
   const el=document.getElementById('exerciseComplete');
@@ -3118,11 +3111,9 @@ ob3Btn.addEventListener('click',()=>{
 // ── safeTap: highlight stays while finger held, action on touchend inside element ──
 function safeTap(el, onAction, onDown, onUp){
   let active=false;
-  let touchFired=false;          // ← ADD THIS
   el.addEventListener('touchstart',(e)=>{
     e.preventDefault();
     active=true;
-	touchFired=false;
     if(onDown) onDown(el);
     else el.classList.add('mcard-touch-active');
   },{passive:false});
@@ -3137,18 +3128,14 @@ function safeTap(el, onAction, onDown, onUp){
     const t=e.changedTouches[0];
     const r=el.getBoundingClientRect();
     const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
-    if(inside){ touchFired=true; onAction(); }  // ← SET FLAG
+    if(inside) onAction();
   },{passive:false});
   el.addEventListener('touchcancel',()=>{
     active=false;
     if(onUp) onUp(el);
     else el.classList.remove('mcard-touch-active');
   },{passive:true});
-  
-  el.addEventListener('click',()=>{
-    if(touchFired){ touchFired=false; return; }  // ← SUPPRESS SYNTHETIC CLICK
-    onAction();
-  });
+  el.addEventListener('click', onAction); // desktop fallback
 }
 
 // Class pill — safeTap consistent with all other buttons
@@ -3229,70 +3216,173 @@ if(classPillEl){
 posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   api_host: 'https://us.i.posthog.com',
   person_profiles: 'identified_only',
-  capture_pageview: true,
-  capture_pageleave: false,
-  session_idle_timeout_seconds: 300,
+  capture_pageview: false,  // we fire app_opened manually with richer context
+  capture_pageleave: false, // we fire session_summary manually
 });
 
-// ── Session state (populated via _track* calls inside the real functions) ──
+// ─────────────────────────────────────────────
+// SESSION ACCUMULATOR
+// Persists across multiple game plays within one browser session.
+// Fired as a single `session_summary` event when the tab closes / goes to background.
+// ─────────────────────────────────────────────
 const _session = {
   startTime: Date.now(),
-  match_seconds: 0,
-  choice_seconds: 0,
-  flash_seconds: 0,
-  type_seconds: 0,
-  exercisesCompleted: 0,
-  correctAnswers: 0,
-  _gameStartTime: null,
-  _gameStartEx: null,
+  gamesPlayed: [],       // [{game, durationSec, wordsAnswered, completed}]
+  totalWordsAnswered: 0,
+  wordsAddedThisSession: 0,
+  // per-game accumulator (open while a game is running)
+  _current: null,        // {game, startTime, wordsAnsweredAtStart}
 };
 
-// ── _track* hooks — called directly from inside each function ──
-function _trackGameStarted(ex){
-  _session._gameStartTime = Date.now();
-  _session._gameStartEx = ex;
-}
-function _trackGameEnded(){
-  if(_session._gameStartEx && _session._gameStartTime){
-    const sec = Math.round((Date.now() - _session._gameStartTime) / 1000);
-    const key = _session._gameStartEx + '_seconds';
-    if(key in _session) _session[key] += sec;
-  }
-  _session._gameStartTime = null;
-  _session._gameStartEx = null;
-}
-function _trackExerciseCompleted(){
-  _session.exercisesCompleted += 1;
-}
-function _trackWordsAdded(n){
-  _fireVocabChanged(n);
+// Helper: vocab snapshot
+function _vocabSnapshot() {
+  const totalWords   = bank.words.length;
+  const masteredWords = bank.words.filter(w => mastered(w.w)).length;
+  const totalClasses  = bank.classes.length;
+  const activeWords   = bank.words.filter(w => !isExcluded(w.w)).length;
+  return { totalWords, masteredWords, totalClasses, activeWords };
 }
 
-// ── vocabulary_changed event ──
-function _fireVocabChanged(wordsAddedDelta){
-  posthog.capture('vocabulary_changed', {
-    total_classes: bank.classes.length,
-    total_words_in_bank: bank.words.length,
-    words_added: wordsAddedDelta || 0,
+// ── 1. app_opened: fires once per page load ──
+// Deferred so bank/state is fully loaded
+setTimeout(() => {
+  posthog.capture('app_opened', {
+    ..._vocabSnapshot(),
+    is_first_open: bank.classes.length === 0,
   });
-}
+}, 0);
 
-// ── session_summary: fire on leave and on mobile background ──
-function _fireSessionSummary(){
-  posthog.capture('session_summary', {
-    total_time_seconds: Math.round((Date.now() - _session.startTime) / 1000),
-    match_seconds: _session.match_seconds,
-    choice_seconds: _session.choice_seconds,
-    flash_seconds: _session.flash_seconds,
-    type_seconds: _session.type_seconds,
-    exercises_completed: _session.exercisesCompleted,
-    correct_answers: _session.correctAnswers,
+// ── 2. Hooks injected via custom events dispatched from the game functions ──
+// (avoids the closure-capture bug of trying to reassign window.startGame)
+
+document.addEventListener('_ph_game_start', e => {
+  const { ex } = e.detail;
+  _session._current = {
+    game: ex,
+    startTime: Date.now(),
+    wordsAnsweredAtStart: choiceAnsweredKeys.size,
+  };
+  posthog.capture('game_started', {
+    game: ex,
+    selected_classes: [...selected].join(','),
+    total_words: deck.length,
+    ..._vocabSnapshot(),
   });
-}
-window.addEventListener('beforeunload', _fireSessionSummary);
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'hidden') _fireSessionSummary();
 });
+
+document.addEventListener('_ph_game_end', e => {
+  const { skipSave, completed } = e.detail;
+  if (!_session._current) return;
+  const cur = _session._current;
+  const durationSec = Math.round((Date.now() - cur.startTime) / 1000);
+  const wordsAnswered = Math.max(0, choiceAnsweredKeys.size - cur.wordsAnsweredAtStart);
+  _session.totalWordsAnswered += wordsAnswered;
+  _session.gamesPlayed.push({
+    game: cur.game,
+    durationSec,
+    wordsAnswered,
+    completed: !!completed,
+  });
+  posthog.capture('game_ended', {
+    game: cur.game,
+    duration_seconds: durationSec,
+    words_answered: wordsAnswered,
+    completed: !!completed,
+    ..._vocabSnapshot(),
+  });
+  _session._current = null;
+});
+
+document.addEventListener('_ph_words_added', e => {
+  const { added, totalBefore } = e.detail;
+  _session.wordsAddedThisSession += added;
+  posthog.capture('words_added', {
+    count: added,
+    total_words: bank.words.length,
+    total_classes: bank.classes.length,
+    words_before: totalBefore,
+    ..._vocabSnapshot(),
+  });
+});
+
+// ── 3. session_summary — fires once when tab closes/hides ──
+function _fireSessionSummary() {
+  // Close any open game first so its time is counted
+  if (_session._current) {
+    const cur = _session._current;
+    const durationSec = Math.round((Date.now() - cur.startTime) / 1000);
+    const wordsAnswered = Math.max(0, choiceAnsweredKeys.size - cur.wordsAnsweredAtStart);
+    _session.totalWordsAnswered += wordsAnswered;
+    _session.gamesPlayed.push({ game: cur.game, durationSec, wordsAnswered, completed: false });
+    _session._current = null;
+  }
+  const totalSessionSec = Math.round((Date.now() - _session.startTime) / 1000);
+  if (totalSessionSec < 3) return; // ignore accidental flickers
+  const completedGames = _session.gamesPlayed.filter(g => g.completed).length;
+  const gameBreakdown = {};
+  _session.gamesPlayed.forEach(g => {
+    if (!gameBreakdown[g.game]) gameBreakdown[g.game] = { plays: 0, totalSec: 0, totalWords: 0 };
+    gameBreakdown[g.game].plays++;
+    gameBreakdown[g.game].totalSec += g.durationSec;
+    gameBreakdown[g.game].totalWords += g.wordsAnswered;
+  });
+  posthog.capture('session_summary', {
+    session_duration_seconds: totalSessionSec,
+    total_games_played: _session.gamesPlayed.length,
+    total_games_completed: completedGames,
+    total_words_answered: _session.totalWordsAnswered,
+    words_added_this_session: _session.wordsAddedThisSession,
+    game_breakdown: gameBreakdown,
+    ..._vocabSnapshot(),
+  });
+}
+
+// Fire on page hide (most reliable on mobile) and visibility change
+window.addEventListener('pagehide', _fireSessionSummary, { once: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') _fireSessionSummary();
+});
+
+// ── 4. Patch the three key functions to dispatch custom events ──
+// We patch at definition-time call sites via thin wrappers on the functions themselves.
+// Because startGame/exitGame/confirmAdd/showExerciseComplete are plain `function` declarations
+// in the same script scope, we can reassign them safely here (after they're defined).
+
+const _ph_origStartGame = startGame;
+startGame = function(ex) {
+  _ph_origStartGame(ex);
+  document.dispatchEvent(new CustomEvent('_ph_game_start', { detail: { ex } }));
+};
+
+// Flag to suppress the exitGame analytics event when exercise complete fires first
+let _ph_completedThisGame = false;
+
+const _ph_origExitGame = exitGame;
+exitGame = function(skipSave) {
+  // Only fire game_ended here if the exercise didn't already complete
+  if (!_ph_completedThisGame) {
+    document.dispatchEvent(new CustomEvent('_ph_game_end', { detail: { skipSave, completed: false } }));
+  }
+  _ph_completedThisGame = false;
+  _ph_origExitGame(skipSave);
+};
+
+const _ph_origShowExerciseComplete = showExerciseComplete;
+showExerciseComplete = function() {
+  _ph_completedThisGame = true; // prevent exitGame from double-firing
+  document.dispatchEvent(new CustomEvent('_ph_game_end', { detail: { completed: true } }));
+  _ph_origShowExerciseComplete();
+};
+
+const _ph_origConfirmAdd = confirmAdd;
+confirmAdd = function() {
+  const before = bank.words.length;
+  _ph_origConfirmAdd();
+  const added = bank.words.length - before;
+  if (added > 0) {
+    document.dispatchEvent(new CustomEvent('_ph_words_added', { detail: { added, totalBefore: before } }));
+  }
+};
 // ── End PostHog Analytics ──
 </script>
 </body>
