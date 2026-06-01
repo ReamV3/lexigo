@@ -3212,11 +3212,10 @@ if(classPillEl){
 })();
 // ════════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════
-// LEXIGO ANALYTICS — 4 events only
+// LEXIGO ANALYTICS — 3 events only
 //   1. onboarding_completed
-//   2. new_words_added
-//   3. app_session_start
-//   4. app_session_end
+//   2. words_bank_changes
+//   3. app_session_summary
 // ════════════════════════════════════════════════════════════════
 
 // ── PostHog loader ──
@@ -3227,19 +3226,12 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   person_profiles: 'identified_only',
   capture_pageview: false,
   capture_pageleave: false,
-  session_idle_timeout_seconds: 300, // ← 5 minutes
 });
 
 // ── Helper ──
 function _ph_send(event, props) {
   try { posthog.capture(event, props); } catch(e) {}
 }
-
-// ── 3. app_session_start ──
-_ph_send('app_session_start', {
-  total_words: bank.words.length,
-  total_classes: bank.classes.length,
-});
 
 // ── In-memory state ──
 const _ph_startMs = Date.now();
@@ -3309,7 +3301,7 @@ function _ph_gameEnd() {
   acc.sessions.push(sess);
 }
 
-// ── 4. app_session_end ──
+// ── 3. app_session_summary ──
 function _ph_fireSessionEnd() {
   if (_ph_endSent) return;
   _ph_endSent = true;
@@ -3318,13 +3310,15 @@ function _ph_fireSessionEnd() {
   for (const [k, v] of Object.entries(_ph_games)) {
     if (v.times_played > 0) gamesOut[k] = v;
   }
-  _ph_send('app_session_end', {
+  _ph_send('app_session_summary', {
     total_usage_seconds: Math.round((Date.now() - _ph_startMs) / 1000),
+    match_total_usage_seconds:           _ph_games.match.total_time_seconds,
+    multiple_choice_total_usage_seconds: _ph_games.multiple_choice.total_time_seconds,
+    type_it_total_usage_seconds:         _ph_games.type_it.total_time_seconds,
+    cards_total_usage_seconds:           _ph_games.cards.total_time_seconds,
+    total_words:   bank.words.length,
+    total_classes: bank.classes.length,
     games: gamesOut,
-    final_state: {
-      total_words: bank.words.length,
-      total_classes: bank.classes.length,
-    },
   });
 }
 
@@ -3360,7 +3354,7 @@ resetCurrentGame = function() {
   if (exercise) _ph_gameStart(exercise);
 };
 
-// ── 2. new_words_added / deleted ──
+// ── 2. words_bank_changes ──
 
 const _ph_orig_confirmAdd = confirmAdd;
 confirmAdd = function() {
@@ -3370,7 +3364,7 @@ confirmAdd = function() {
   const addedWords = bank.words.length - wordsBefore;
   const addedClasses = bank.classes.length - classesBefore;
   if (addedWords > 0 || addedClasses > 0) {
-    _ph_send('new_words_added', { added_words: addedWords, added_classes: addedClasses });
+    _ph_send('words_bank_changes', { added_words: addedWords, added_classes: addedClasses });
   }
 };
 
@@ -3382,7 +3376,7 @@ confirmDeleteClass = function() {
   const deletedWords = wordsBefore - bank.words.length;
   const deletedClasses = classesBefore - bank.classes.length;
   if (deletedWords > 0 || deletedClasses > 0) {
-    _ph_send('new_words_added', { deleted_words: deletedWords, deleted_classes: deletedClasses });
+    _ph_send('words_bank_changes', { deleted_words: deletedWords, deleted_classes: deletedClasses });
   }
 };
 
@@ -3392,7 +3386,7 @@ confirmDeleteWord = function() {
   _ph_orig_confirmDeleteWord();
   const deletedWords = wordsBefore - bank.words.length;
   if (deletedWords > 0) {
-    _ph_send('new_words_added', { deleted_words: deletedWords, deleted_classes: 0 });
+    _ph_send('words_bank_changes', { deleted_words: deletedWords, deleted_classes: 0 });
   }
 };
 
@@ -3405,7 +3399,7 @@ importBank = function(input) {
     const addedWords = bank.words.length - wordsBefore;
     const addedClasses = bank.classes.length - classesBefore;
     if (addedWords > 0 || addedClasses > 0) {
-      _ph_send('new_words_added', { added_words: addedWords, added_classes: addedClasses });
+      _ph_send('words_bank_changes', { added_words: addedWords, added_classes: addedClasses });
     }
   }, 400);
 };
