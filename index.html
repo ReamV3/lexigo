@@ -3221,48 +3221,90 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   api_host: 'https://us.i.posthog.com',
   person_profiles: 'identified_only',
   capture_pageview: true,
-  capture_pageleave: true,
+  capture_pageleave: false, // we handle this ourselves
+  session_idle_timeout_seconds: 300,
 });
 
-// ── Analytics helpers (called from inside the real functions) ──
-let _gameStartTime = null;
-let _gameStartEx = null;
+// ── Session summary tracker ──
+const _session = {
+  startTime: Date.now(),
+  gamesPlayed: {},       // { match: 45, choice: 120, ... } seconds per game
+  exercisesCompleted: 0,
+  wordsAdded: 0,
+  correctAnswers: 0,
+  _gameStartTime: null,
+  _gameStartEx: null,
+};
 
-function _trackGameStarted(ex){
-  _gameStartTime = Date.now();
-  _gameStartEx = ex;
-  try{ posthog.capture('game_started', {
-    game: ex,
-    selected_classes: [...selected].join(','),
-    total_words: deck.length,
-  }); }catch(e){}
-}
-function _trackGameEnded(){
-  if(!_gameStartEx) return;
-  const durationSec = _gameStartTime ? Math.round((Date.now() - _gameStartTime) / 1000) : null;
-  try{ posthog.capture('game_ended', {
-    game: _gameStartEx,
-    duration_seconds: durationSec,
-    words_answered: choiceAnsweredKeys.size,
-  }); }catch(e){}
-  _gameStartTime = null;
-  _gameStartEx = null;
-}
-function _trackExerciseCompleted(){
-  const durationSec = _gameStartTime ? Math.round((Date.now() - _gameStartTime) / 1000) : null;
-  try{ posthog.capture('exercise_completed', {
-    game: _gameStartEx,
-    duration_seconds: durationSec,
-    words_answered: choiceAnsweredKeys.size,
-  }); }catch(e){}
-}
-function _trackWordsAdded(added){
-  try{ posthog.capture('words_added', {
-    count: added,
-    total_words: bank.words.length,
+// Fire summary on page leave
+window.addEventListener('beforeunload', () => {
+  const totalSec = Math.round((Date.now() - _session.startTime) / 1000);
+  posthog.capture('session_summary', {
+    total_time_seconds: totalSec,
+    games_played: _session.gamesPlayed,
+    exercises_completed: _session.exercisesCompleted,
+    words_added: _session.wordsAdded,
+    correct_answers: _session.correctAnswers,
+    total_words_in_bank: bank.words.length,
     total_classes: bank.classes.length,
-  }); }catch(e){}
-}
+  });
+});
+
+// Also fire when app goes to background on mobile
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden') {
+    const totalSec = Math.round((Date.now() - _session.startTime) / 1000);
+    posthog.capture('session_summary', {
+      total_time_seconds: totalSec,
+      games_played: _session.gamesPlayed,
+      exercises_completed: _session.exercisesCompleted,
+      words_added: _session.wordsAdded,
+      correct_answers: _session.correctAnswers,
+      total_words_in_bank: bank.words.length,
+      total_classes: bank.classes.length,
+    });
+  }
+});
+
+// ── Hook into game functions ──
+const _origStartGame = startGame;
+window.startGame = function(ex) {
+  _origStartGame(ex);
+  _session._gameStartTime = Date.now();
+  _session._gameStartEx = ex;
+};
+
+const _origExitGame = exitGame;
+window.exitGame = function(skipSave) {
+  if(_session._gameStartEx && _session._gameStartTime) {
+    const sec = Math.round((Date.now() - _session._gameStartTime) / 1000);
+    const name = _session._gameStartEx;
+    _session.gamesPlayed[name] = (_session.gamesPlayed[name] || 0) + sec;
+  }
+  _session._gameStartTime = null;
+  _session._gameStartEx = null;
+  _origExitGame(skipSave);
+};
+
+const _origConfirmAdd = confirmAdd;
+window.confirmAdd = function() {
+  const before = bank.words.length;
+  _origConfirmAdd();
+  const added = bank.words.length - before;
+  if(added > 0) _session.wordsAdded += added;
+};
+
+const _origShowExerciseComplete = showExerciseComplete;
+window.showExerciseComplete = function() {
+  _session.exercisesCompleted += 1;
+  _origShowExerciseComplete();
+};
+
+const _origRecordCorrect = recordCorrect;
+window.recordCorrect = function(w) {
+  _session.correctAnswers += 1;
+  _origRecordCorrect(w);
+};
 // ── End PostHog Analytics ──
 </script>
 </body>
