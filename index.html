@@ -3220,6 +3220,12 @@ if(classPillEl){
     (b)=>{ if(!confirmPending) b.style.opacity=''; }
   );
 })();
+// ── Analytics stubs (called from core functions; overridden by PostHog block below) ──
+function _trackGameStarted(ex){}
+function _trackGameEnded(){}
+function _trackWordsAdded(n){}
+function _trackExerciseCompleted(){}
+
 // ── PostHog Analytics ──
 !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 
@@ -3273,15 +3279,12 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ── Hook into game functions ──
-const _origStartGame = startGame;
-window.startGame = function(ex) {
-  _origStartGame(ex);
+_trackGameStarted = function(ex) {
   _session._gameStartTime = Date.now();
   _session._gameStartEx = ex;
 };
 
-const _origExitGame = exitGame;
-window.exitGame = function(skipSave) {
+_trackGameEnded = function() {
   if(_session._gameStartEx && _session._gameStartTime) {
     const sec = Math.round((Date.now() - _session._gameStartTime) / 1000);
     const name = _session._gameStartEx;
@@ -3289,21 +3292,14 @@ window.exitGame = function(skipSave) {
   }
   _session._gameStartTime = null;
   _session._gameStartEx = null;
-  _origExitGame(skipSave);
 };
 
-const _origConfirmAdd = confirmAdd;
-window.confirmAdd = function() {
-  const before = bank.words.length;
-  _origConfirmAdd();
-  const added = bank.words.length - before;
-  if(added > 0) _session.wordsAdded += added;
+_trackWordsAdded = function(n) {
+  if(n > 0) _session.wordsAdded += n;
 };
 
-const _origShowExerciseComplete = showExerciseComplete;
-window.showExerciseComplete = function() {
+_trackExerciseCompleted = function() {
   _session.exercisesCompleted += 1;
-  _origShowExerciseComplete();
 };
 
 const _origRecordCorrect = recordCorrect;
