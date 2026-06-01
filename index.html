@@ -3211,10 +3211,12 @@ if(classPillEl){
   );
 })();
 // ════════════════════════════════════════════════════════════════
-// LEXIGO ANALYTICS — 3 events only
-//   1. app_session_start    — on open
-//   2. user_state_changed   — when word/class counts change
-//   3. app_session_end      — on close (full summary)
+// ════════════════════════════════════════════════════════════════
+// LEXIGO ANALYTICS — 4 events only
+//   1. onboarding_completed
+//   2. new_words_added
+//   3. app_session_start
+//   4. app_session_end
 // ════════════════════════════════════════════════════════════════
 
 // ── PostHog loader ──
@@ -3225,41 +3227,24 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   person_profiles: 'identified_only',
   capture_pageview: false,
   capture_pageleave: false,
+  session_idle_timeout_seconds: 300, // ← 5 minutes
 });
 
-// ── Helpers ──
+// ── Helper ──
 function _ph_send(event, props) {
   try { posthog.capture(event, props); } catch(e) {}
 }
-function _ph_state() {
-  return { total_words: bank.words.length, total_classes: bank.classes.length };
-}
 
-// ── 1. app_session_start ──
-_ph_send('app_session_start', _ph_state());
+// ── 3. app_session_start ──
+_ph_send('app_session_start', {
+  total_words: bank.words.length,
+  total_classes: bank.classes.length,
+});
 
-// ── 2. user_state_changed ──
-// Sent only when counts actually change. Payload shows the DELTA (what changed), not totals.
-let _ph_lastWords = bank.words.length;
-let _ph_lastClasses = bank.classes.length;
-function _ph_maybeStateChanged() {
-  const w = bank.words.length, c = bank.classes.length;
-  const dw = w - _ph_lastWords, dc = c - _ph_lastClasses;
-  if (dw !== 0 || dc !== 0) {
-    _ph_lastWords = w; _ph_lastClasses = c;
-    const payload = {};
-    if (dw !== 0) payload.words_changed = dw;   // e.g. +3 added, -1 deleted
-    if (dc !== 0) payload.classes_changed = dc; // e.g. +1 added, -1 deleted
-    _ph_send('user_state_changed', payload);
-  }
-}
-
-// ── 3. app_session_end ──
-// In-memory accumulators — reset on page load, never persisted.
+// ── In-memory state ──
 const _ph_startMs = Date.now();
-let _ph_wordsAdded = 0; // words added/imported this session
+let _ph_endSent = false;
 
-// Per-game-type totals + session arrays
 const _ph_games = {
   match:           { total_time_seconds:0, times_played:0, sessions:[], correct_matches:0,  wrong_matches:0  },
   multiple_choice: { total_time_seconds:0, times_played:0, sessions:[], correct_answers:0,  wrong_answers:0  },
@@ -3267,38 +3252,26 @@ const _ph_games = {
   cards:           { total_time_seconds:0, times_played:0, sessions:[], cards_flipped:0     },
 };
 
-// Current open game state (null when not in a game)
 let _ph_cur = null;
-let _ph_endSent = false;
 
-// Map app exercise keys to analytics keys
 function _ph_gameKey(ex) {
   return { match:'match', choice:'multiple_choice', type:'type_it', flash:'cards' }[ex] || ex;
 }
 
-// Open a game session
 function _ph_gameStart(ex) {
-  // If already open (shouldn't happen), close it silently
-  if (_ph_cur) _ph_gameEnd(false);
+  if (_ph_cur) _ph_gameEnd();
   _ph_cur = {
-    ex,
     key: _ph_gameKey(ex),
     startMs: Date.now(),
-    // match
     correct_matches: 0, wrong_matches: 0,
-    // choice / type
     correct_answers: 0, wrong_answers: 0,
-    // type extras
-    hints_used: 0, full_hint_words_used: 0,
-    // flash
+    full_hint_words_used: 0,
     cards_flipped: 0,
-    // dedup guard for this session's endGame
     ended: false,
   };
 }
 
-// Close the current game session and accumulate
-function _ph_gameEnd(/* unused completed flag — kept for call-site clarity */) {
+function _ph_gameEnd() {
   if (!_ph_cur || _ph_cur.ended) return;
   _ph_cur.ended = true;
   const g = _ph_cur;
@@ -3311,7 +3284,6 @@ function _ph_gameEnd(/* unused completed flag — kept for call-site clarity */)
   acc.total_time_seconds += dur;
   acc.times_played++;
 
-  // Build session entry (only fields relevant to this game type)
   const sess = { session: acc.times_played, duration_seconds: dur };
   if (g.key === 'match') {
     sess.correct_matches = g.correct_matches;
@@ -3331,27 +3303,28 @@ function _ph_gameEnd(/* unused completed flag — kept for call-site clarity */)
     acc.wrong_answers        += g.wrong_answers;
     acc.full_hint_words_used += g.full_hint_words_used;
   } else if (g.key === 'cards') {
-    sess.cards_flipped  = g.cards_flipped;
-    acc.cards_flipped  += g.cards_flipped;
+    sess.cards_flipped = g.cards_flipped;
+    acc.cards_flipped += g.cards_flipped;
   }
   acc.sessions.push(sess);
 }
 
+// ── 4. app_session_end ──
 function _ph_fireSessionEnd() {
   if (_ph_endSent) return;
   _ph_endSent = true;
-  // Close any open game
   if (_ph_cur) _ph_gameEnd();
-  // Only include games that were actually played
   const gamesOut = {};
   for (const [k, v] of Object.entries(_ph_games)) {
     if (v.times_played > 0) gamesOut[k] = v;
   }
   _ph_send('app_session_end', {
     total_usage_seconds: Math.round((Date.now() - _ph_startMs) / 1000),
-    words_added: _ph_wordsAdded,
     games: gamesOut,
-    user_state: _ph_state(),
+    final_state: {
+      total_words: bank.words.length,
+      total_classes: bank.classes.length,
+    },
   });
 }
 
@@ -3360,7 +3333,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
 });
 
-// ── Wrap game lifecycle functions ──
+// ── Game lifecycle hooks ──
 
 const _ph_orig_startGame = startGame;
 startGame = function(ex) {
@@ -3376,65 +3349,83 @@ exitGame = function(skipSave) {
 
 const _ph_orig_showExerciseComplete = showExerciseComplete;
 showExerciseComplete = function() {
-  _ph_gameEnd();               // end analytics session first
-  _ph_orig_showExerciseComplete(); // this calls exitGame(true) → _ph_gameEnd() → guarded by .ended
+  _ph_gameEnd();
+  _ph_orig_showExerciseComplete();
 };
 
 const _ph_orig_resetCurrentGame = resetCurrentGame;
 resetCurrentGame = function() {
-  _ph_gameEnd();               // close current session
+  _ph_gameEnd();
   _ph_orig_resetCurrentGame();
-  if (exercise) _ph_gameStart(exercise); // start fresh session for same game
+  if (exercise) _ph_gameStart(exercise);
 };
 
-// ── Wrap vocabulary mutation functions (for user_state_changed) ──
+// ── 2. new_words_added / deleted ──
 
 const _ph_orig_confirmAdd = confirmAdd;
 confirmAdd = function() {
-  const before = bank.words.length;
+  const wordsBefore = bank.words.length;
+  const classesBefore = bank.classes.length;
   _ph_orig_confirmAdd();
-  const added = bank.words.length - before;
-  if (added > 0) _ph_wordsAdded += added;
-  _ph_maybeStateChanged();
+  const addedWords = bank.words.length - wordsBefore;
+  const addedClasses = bank.classes.length - classesBefore;
+  if (addedWords > 0 || addedClasses > 0) {
+    _ph_send('new_words_added', { added_words: addedWords, added_classes: addedClasses });
+  }
 };
 
 const _ph_orig_confirmDeleteClass = confirmDeleteClass;
-confirmDeleteClass = function() { _ph_orig_confirmDeleteClass(); _ph_maybeStateChanged(); };
+confirmDeleteClass = function() {
+  const wordsBefore = bank.words.length;
+  const classesBefore = bank.classes.length;
+  _ph_orig_confirmDeleteClass();
+  const deletedWords = wordsBefore - bank.words.length;
+  const deletedClasses = classesBefore - bank.classes.length;
+  if (deletedWords > 0 || deletedClasses > 0) {
+    _ph_send('new_words_added', { deleted_words: deletedWords, deleted_classes: deletedClasses });
+  }
+};
 
 const _ph_orig_confirmDeleteWord = confirmDeleteWord;
-confirmDeleteWord = function() { _ph_orig_confirmDeleteWord(); _ph_maybeStateChanged(); };
+confirmDeleteWord = function() {
+  const wordsBefore = bank.words.length;
+  _ph_orig_confirmDeleteWord();
+  const deletedWords = wordsBefore - bank.words.length;
+  if (deletedWords > 0) {
+    _ph_send('new_words_added', { deleted_words: deletedWords, deleted_classes: 0 });
+  }
+};
 
-// importBank is async (FileReader) — check after it completes
 const _ph_orig_importBank = importBank;
 importBank = function(input) {
-  const before = bank.words.length;
+  const wordsBefore = bank.words.length;
+  const classesBefore = bank.classes.length;
   _ph_orig_importBank(input);
   setTimeout(() => {
-    const added = bank.words.length - before;
-    if (added > 0) _ph_wordsAdded += added;
-    _ph_maybeStateChanged();
+    const addedWords = bank.words.length - wordsBefore;
+    const addedClasses = bank.classes.length - classesBefore;
+    if (addedWords > 0 || addedClasses > 0) {
+      _ph_send('new_words_added', { added_words: addedWords, added_classes: addedClasses });
+    }
   }, 400);
 };
 
 // ── In-game counter hooks ──
 
-// Flash — count card flips
+// Cards — count flips to back face
 const _ph_orig_flipCard = flipCard;
 flipCard = function() {
   const wasFront = !flipped;
   _ph_orig_flipCard();
-  // flipped is now toggled; if we just revealed the back, count it
   if (wasFront && flipped && _ph_cur) _ph_cur.cards_flipped++;
 };
 
-// Match — wrap onMCardTap to detect pair evaluations
+// Match — detect pair evaluations
 const _ph_orig_onMCardTap = onMCardTap;
 onMCardTap = function(el, side, key) {
-  // Snapshot selection state before the original runs
   const hadLeft  = mcSelLeftKey;
   const hadRight = mcSelRightKey;
   _ph_orig_onMCardTap(el, side, key);
-  // A pair was evaluated if both sides were filled before and are now both cleared
   if (hadLeft !== null && hadRight !== null && mcSelLeft === null && mcSelRight === null) {
     if (!_ph_cur) return;
     if (hadLeft === hadRight) _ph_cur.correct_matches++;
@@ -3442,27 +3433,25 @@ onMCardTap = function(el, side, key) {
   }
 };
 
-// Choice — wrap showChoiceButtons to detect correct/wrong answers via delegated listener
+// Choice — detect correct/wrong via delegated listener
 const _ph_orig_showChoiceButtons = showChoiceButtons;
 showChoiceButtons = function(wrap, w, ringStart) {
   _ph_orig_showChoiceButtons(wrap, w, ringStart);
   const grid = wrap.querySelector('.choices-grid');
   if (!grid || !_ph_cur) return;
-  // Use a one-time delegated listener; answer buttons gain .correct/.wrong after the handler
   grid.addEventListener('click', function _ph_delegate(e) {
     const btn = e.target.closest('.c-btn');
     if (!btn) return;
     setTimeout(() => {
       if (!_ph_cur) return;
-      if (btn.classList.contains('correct'))                              _ph_cur.correct_answers++;
+      if (btn.classList.contains('correct'))                                       _ph_cur.correct_answers++;
       else if (btn.classList.contains('wrong') || btn.classList.contains('locked')) _ph_cur.wrong_answers++;
     }, 0);
     grid.removeEventListener('click', _ph_delegate);
   });
 };
 
-// Type It — MutationObserver on the input element to detect correct/wrong/full-hint outcomes.
-// renderType rebuilds the DOM each call, so we re-attach after each render.
+// Type It — detect correct/wrong/full-hint via MutationObserver
 const _ph_orig_renderType = renderType;
 renderType = function() {
   _ph_orig_renderType();
@@ -3471,22 +3460,11 @@ renderType = function() {
   const inputEl = wrap.querySelector('.type-input');
   if (!inputEl) return;
 
-  // Track whether this word was completed via full-hint path
-  // The full-hint path in the original code calls triggerAllRevealed(), which sets
-  // inputEl.disabled = true AND inputEl.classList.add('correct').
-  // The normal correct path also sets .correct but we only want to flag full-hint words
-  // when hints_used (per this render) caused the reveal — we track via a closure flag.
   let _hintRevealedThisWord = false;
-
-  // Intercept the hint button to detect the "all revealed" path
   const hintBtn = wrap.querySelector('.type-hint-btn');
   if (hintBtn) {
     hintBtn.addEventListener('click', () => {
-      if (!_ph_cur) return;
-      _ph_cur.hints_used++;
-      // If input becomes disabled after this click, full-hint path was triggered
-      // (checked via MutationObserver below)
-      _hintRevealedThisWord = true; // tentative; confirmed when input gets .correct + disabled
+      _hintRevealedThisWord = true;
     }, { passive: true });
   }
 
@@ -3495,17 +3473,24 @@ renderType = function() {
     const cl = inputEl.className;
     if (cl.includes('correct')) {
       _ph_cur.correct_answers++;
-      // full_hint_word: correct AND disabled AND hints were used this word
-      if (inputEl.disabled && _hintRevealedThisWord) {
-        _ph_cur.full_hint_words_used++;
-      }
+      if (inputEl.disabled && _hintRevealedThisWord) _ph_cur.full_hint_words_used++;
       obs.disconnect();
     } else if (cl.includes('wrong')) {
       _ph_cur.wrong_answers++;
-      _hintRevealedThisWord = false; // wrong attempt resets tentative flag
+      _hintRevealedThisWord = false;
     }
   });
   obs.observe(inputEl, { attributes: true, attributeFilter: ['class'] });
+};
+
+// ── 1. onboarding_completed ──
+// Fired once when the user completes onboarding (step 3 confirmation = first words added).
+// We hook triggerOb2IfFirst which is called right after the first class is created.
+const _ph_orig_triggerOb2IfFirst = triggerOb2IfFirst;
+triggerOb2IfFirst = function() {
+  const isFirst = bank.classes.length === 1; // called after confirmAdd, so class already exists
+  _ph_orig_triggerOb2IfFirst();
+  if (isFirst) _ph_send('onboarding_completed', {});
 };
 
 // ── End Lexigo Analytics ──
