@@ -3485,6 +3485,7 @@ function _ph_fireSessionSummary() {
     _ph_sent = false; // unlock so the SDK fallback can retry on next hide/unload
     try { posthog.capture('app_session_summary', props); } catch(e) {}
   }
+} // ← closes _ph_fireSessionSummary
 
 // ── Unload triggers ──
 // visibilitychange:hidden — covers tab switch & app background on all mobile browsers.
