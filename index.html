@@ -805,23 +805,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .ec-star:nth-child(1){animation-delay:.1s;}
 .ec-star:nth-child(2){animation-delay:.22s;}
 .ec-star:nth-child(3){animation-delay:.34s;}
-@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}
-
-/* SESSION LOG */
-.sess-toggle{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
-  cursor:pointer;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);
-  letter-spacing:.08em;text-transform:uppercase;margin-top:8px;}
-.sess-toggle .chev{transition:transform .25s;font-style:normal;}
-.sess-toggle.open .chev{transform:rotate(180deg);}
-.sess-body{width:100%;max-width:520px;display:none;flex-direction:column;gap:6px;margin-top:6px;}
-.sess-body.open{display:flex;}
-.sess-stat{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--accent2);
-  letter-spacing:.06em;padding:6px 14px;}
-.sess-row{padding:10px 14px;border-radius:10px;border:1px solid var(--border);
-  background:var(--surface);display:flex;flex-direction:column;gap:3px;}
-.sess-row-title{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text);letter-spacing:.04em;}
-.sess-row-detail{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--muted);letter-spacing:.04em;}</style>
+@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}</style>
 </head>
 <body>
 
@@ -898,8 +882,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 <!-- hidden file input for import, kept at top level -->
 <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)" style="display:none">
 <div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.1.0</div>
-<button class="sess-toggle" id="sessToggle" onclick="toggleSessLog()">App Session Usage <em class="chev">▾</em></button>
-<div class="sess-body" id="sessBody"></div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -3261,10 +3243,12 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
 // A "use" = a page load that is either the first ever, or happens >30 min
 // after the previous page load on this device.  Stored entirely in localStorage
 // so the same physical device/browser always maps to the same counter.
-const _PH_DEVICE_KEY   = 'lx_device_id';
-const _PH_LAST_USE_KEY = 'lx_last_use_ts';
-const _PH_USE_CNT_KEY  = 'lx_use_count';
-const _PH_30MIN_MS     = 30 * 60 * 1000;
+const _PH_DEVICE_KEY      = 'lx_device_id';
+const _PH_LAST_USE_KEY    = 'lx_last_use_ts';
+const _PH_USE_CNT_KEY     = 'lx_use_count';
+const _PH_30MIN_MS        = 30 * 60 * 1000;
+const _PH_SESSION_LOG_KEY = 'lx_session_log'; // stores per-session date + durations
+const _PH_MAX_SESSIONS    = 20;               // trim log beyond this
 
 (function _ph_initDevice() {
   // 1. Ensure a stable device ID exists
@@ -3294,6 +3278,17 @@ const _PH_30MIN_MS     = 30 * 60 * 1000;
     useCount++;
     localStorage.setItem(_PH_USE_CNT_KEY,  String(useCount));
     localStorage.setItem(_PH_LAST_USE_KEY, String(nowMs));
+
+    // 5. Open a new session entry in the session log
+    // (durations are written/updated by _ph_updateSessionLog at send-time)
+    try {
+      const log = JSON.parse(localStorage.getItem(_PH_SESSION_LOG_KEY) || '[]');
+      const dateStr = new Date(nowMs).toISOString().slice(0, 10); // "YYYY-MM-DD"
+      log.push({ session_number: useCount, date: dateStr, total_time_played_seconds: 0, total_app_usage_seconds: 0 });
+      // Keep only last _PH_MAX_SESSIONS entries
+      if (log.length > _PH_MAX_SESSIONS) log.splice(0, log.length - _PH_MAX_SESSIONS);
+      localStorage.setItem(_PH_SESSION_LOG_KEY, JSON.stringify(log));
+    } catch(e) {}
   }
 
   // Expose for payload builder
@@ -3301,6 +3296,24 @@ const _PH_30MIN_MS     = 30 * 60 * 1000;
   window._ph_useCount     = useCount;
   window._ph_friendlyName = friendlyName;
 })();
+
+// ── Update the current session's durations in the log (called just before send) ──
+function _ph_updateSessionLog() {
+  try {
+    const log = JSON.parse(localStorage.getItem(_PH_SESSION_LOG_KEY) || '[]');
+    if (!log.length) return;
+    const cur = log[log.length - 1];
+    // Only update if it belongs to the current use-count (guards against stale tabs)
+    if (cur.session_number !== window._ph_useCount) return;
+    cur.total_time_played_seconds =
+      _ph_games.match.time_played_seconds +
+      _ph_games.multiple_choice.time_played_seconds +
+      _ph_games.type_it.time_played_seconds +
+      _ph_games.cards.time_played_seconds;
+    cur.total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
+    localStorage.setItem(_PH_SESSION_LOG_KEY, JSON.stringify(log));
+  } catch(e) {}
+}
 
 // ── Session start timestamp ──
 const _ph_startMs = Date.now();
@@ -3455,7 +3468,23 @@ function _ph_buildPayload() {
     'Game 4: Cards seconds':              _ph_games.cards.time_played_seconds,
   };
 
-  return { games, total_app_usage_seconds, total_game_plays_seconds, app_use_count: window._ph_useCount, final_state };
+  // ── app_session_usage: collapsed array with app_use_count + per-session history ──
+  // Update the current session's durations in localStorage before reading the log
+  _ph_updateSessionLog();
+  let app_session_usage = { app_use_count: window._ph_useCount, sessions: {} };
+  try {
+    const log = JSON.parse(localStorage.getItem(_PH_SESSION_LOG_KEY) || '[]');
+    log.forEach((entry) => {
+      const key = 'Session ' + entry.session_number;
+      app_session_usage.sessions[key] = {
+        date:                        entry.date,
+        session_total_time_played:   entry.total_time_played_seconds,
+        session_total_used_app:      entry.total_app_usage_seconds,
+      };
+    });
+  } catch(e) {}
+
+  return { games, total_app_usage_seconds, total_game_plays_seconds, app_session_usage, final_state };
 }
 
 // ── Fire the summary event ──
@@ -3653,66 +3682,6 @@ renderType = function() {
 };
 
 // ── End Lexigo Analytics ──
-
-// ── Session log UI ──
-const LS_SESS_LOG='lx_session_log', LS_SESS_OPEN='lx_usage_open';
-function fmtSecs(s){ const m=Math.floor(s/60),sec=s%60; return m+'m '+String(sec).padStart(2,'0')+'s'; }
-function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
-function toggleSessLog(){
-  const btn=document.getElementById('sessToggle');
-  const body=document.getElementById('sessBody');
-  const open=!body.classList.contains('open');
-  btn.classList.toggle('open',open);
-  body.classList.toggle('open',open);
-  localStorage.setItem(LS_SESS_OPEN,open?'1':'0');
-  if(open) renderSessLog();
-}
-function renderSessLog(){
-  const body=document.getElementById('sessBody');
-  body.innerHTML='';
-  let log=[]; try{ log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]'); }catch{}
-  const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
-  const stat=document.createElement('div'); stat.className='sess-stat';
-  stat.textContent='Total sessions: '+useCount;
-  body.appendChild(stat);
-  if(!log.length){
-    const e=document.createElement('div'); e.className='sess-row-detail';
-    e.style.padding='6px 14px'; e.textContent='No sessions recorded yet — data saves when you leave the app.';
-    body.appendChild(e); return;
-  }
-  [...log].reverse().forEach(s=>{
-    const row=document.createElement('div'); row.className='sess-row';
-    row.innerHTML='<div class="sess-row-title">Session '+s.n+' \u00b7 '+fmtDate(s.date)+'</div>'+
-      '<div class="sess-row-detail">Total time in app: '+fmtSecs(s.app_seconds)+'</div>'+
-      '<div class="sess-row-detail">Time playing games: '+fmtSecs(s.game_seconds)+'</div>';
-    body.appendChild(row);
-  });
-}
-// Restore open state on load
-(function(){
-  if(localStorage.getItem(LS_SESS_OPEN)==='1'){
-    const btn=document.getElementById('sessToggle');
-    const body=document.getElementById('sessBody');
-    if(btn) btn.classList.add('open');
-    if(body){ body.classList.add('open'); renderSessLog(); }
-  }
-})();
-// Wrap _ph_fireSessionSummary to also write local session log entry
-(function(){
-  const _orig=_ph_fireSessionSummary;
-  _ph_fireSessionSummary=function(){
-    _orig();
-    try{
-      const log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]');
-      const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
-      const appSecs=Math.round((Date.now()-_ph_startMs)/1000);
-      const gameSecs=Object.values(_ph_games).reduce((a,g)=>a+g.time_played_seconds,0);
-      log.push({n:useCount,date:new Date().toISOString().slice(0,10),app_seconds:appSecs,game_seconds:gameSecs});
-      if(log.length>50) log.splice(0,log.length-50);
-      localStorage.setItem(LS_SESS_LOG,JSON.stringify(log));
-    }catch(e){}
-  };
-})();
 </script>
 </body>
 </html>
