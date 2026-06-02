@@ -3234,6 +3234,41 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   }
 });
 
+// ── Device-stable ID + app-use counter ──
+// A "use" = a page load that is either the first ever, or happens >30 min
+// after the previous page load on this device.  Stored entirely in localStorage
+// so the same physical device/browser always maps to the same counter.
+const _PH_DEVICE_KEY   = 'lx_device_id';
+const _PH_LAST_USE_KEY = 'lx_last_use_ts';
+const _PH_USE_CNT_KEY  = 'lx_use_count';
+const _PH_30MIN_MS     = 30 * 60 * 1000;
+
+(function _ph_initDevice() {
+  // 1. Ensure a stable device ID exists
+  let deviceId = localStorage.getItem(_PH_DEVICE_KEY);
+  if (!deviceId) {
+    deviceId = 'lx_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+    localStorage.setItem(_PH_DEVICE_KEY, deviceId);
+  }
+
+  // 2. Decide whether this page load counts as a new "use"
+  const lastUseTs  = parseInt(localStorage.getItem(_PH_LAST_USE_KEY) || '0', 10);
+  const nowMs      = Date.now();
+  const isNewUse   = (nowMs - lastUseTs) >= _PH_30MIN_MS; // covers first load (lastUseTs=0)
+
+  // 3. Increment counter only when it's a new use
+  let useCount = parseInt(localStorage.getItem(_PH_USE_CNT_KEY) || '0', 10);
+  if (isNewUse) {
+    useCount++;
+    localStorage.setItem(_PH_USE_CNT_KEY,  String(useCount));
+    localStorage.setItem(_PH_LAST_USE_KEY, String(nowMs));
+  }
+
+  // Expose for payload builder
+  window._ph_deviceId  = deviceId;
+  window._ph_useCount  = useCount;
+})();
+
 // ── Session start timestamp ──
 const _ph_startMs = Date.now();
 
@@ -3380,15 +3415,14 @@ function _ph_buildPayload() {
     // ── Classes ──
     total_classes:                         bank.classes.length,
     total_classes_added_this_session:      _ph_classes_added - _ph_classes_deleted,
-    // ── Time ──
-    total_time_seconds:                    total_app_usage_seconds,
+    // ── Usage ──
     'Game 1: Match seconds':              _ph_games.match.time_played_seconds,
     'Game 2: Multiple Choice seconds':    _ph_games.multiple_choice.time_played_seconds,
     'Game 3: Type It seconds':            _ph_games.type_it.time_played_seconds,
     'Game 4: Cards seconds':              _ph_games.cards.time_played_seconds,
   };
 
-  return { games, total_app_usage_seconds, total_game_plays_seconds, final_state };
+  return { games, total_app_usage_seconds, total_game_plays_seconds, app_use_count: window._ph_useCount, final_state };
 }
 
 // ── Fire the summary event ──
@@ -3412,8 +3446,9 @@ function _ph_fireSessionSummary() {
   _ph_sending   = false;
 
   // Build a PostHog-compatible batch body
-  let distinctId = 'anon';
-  try { distinctId = posthog.get_distinct_id() || 'anon'; } catch(e) {}
+  // Use our stable device ID as distinct_id so the same device is always
+  // the same person in PostHog — regardless of PostHog's own cookie state.
+  const distinctId = window._ph_deviceId || 'anon';
 
   const body = JSON.stringify({
     api_key:     'phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq',
