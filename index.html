@@ -3229,8 +3229,13 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   autocapture: false,
   disable_session_recording: true,
   loaded: function(ph) {
-    // Suppress PostHog's own $pageleave / $pageview so only our event fires
     ph.config.capture_pageleave = false;
+
+    // ── Identify this device with a friendly name ──
+    ph.identify(window._ph_deviceId, {
+      name:        window._ph_friendlyName,
+      app_use_count: window._ph_useCount,
+    });
   }
 });
 
@@ -3244,12 +3249,23 @@ const _PH_USE_CNT_KEY  = 'lx_use_count';
 const _PH_30MIN_MS     = 30 * 60 * 1000;
 
 (function _ph_initDevice() {
-  // 1. Ensure a stable device ID exists
   let deviceId = localStorage.getItem(_PH_DEVICE_KEY);
   if (!deviceId) {
     deviceId = 'lx_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
     localStorage.setItem(_PH_DEVICE_KEY, deviceId);
   }
+
+  // ── NEW: assign a friendly name once per device ──
+  const _PH_NAME_KEY = 'lx_device_name';
+  let friendlyName = localStorage.getItem(_PH_NAME_KEY);
+  if (!friendlyName) {
+    // Pull a global counter from a shared key in PostHog via a tiny fetch,
+    // OR just use timestamp-based sequential naming as a simpler fallback
+    const num = Date.now().toString(36).slice(-4).toUpperCase();
+    friendlyName = 'User-' + num;
+    localStorage.setItem(_PH_NAME_KEY, friendlyName);
+  }
+  window._ph_friendlyName = friendlyName;
 
   // 2. Decide whether this page load counts as a new "use"
   const lastUseTs  = parseInt(localStorage.getItem(_PH_LAST_USE_KEY) || '0', 10);
