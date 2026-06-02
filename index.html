@@ -3243,7 +3243,7 @@ function _ph_send(props) {
 
 // ── Session start timestamp ──
 const _ph_startMs = Date.now();
-let _ph_lastFiredAt = 0; // timestamp of last fire — prevents duplicates within 2s
+let _ph_firedOnce = false;
 
 // ── Word / class delta accumulators ──
 let _ph_words_added   = 0;
@@ -3326,11 +3326,8 @@ function _ph_gameEnd() {
 
 // ── Build and fire the single summary event ──
 function _ph_fireSessionEnd() {
-  // Debounce: ignore if fired within last 2 seconds
-  const now = Date.now();
-  if (now - _ph_lastFiredAt < 2000) return;
-  _ph_lastFiredAt = now;
-
+  if (_ph_firedOnce) return;
+  _ph_firedOnce = true;
   if (_ph_cur) _ph_gameEnd();
 
   const total_game_plays_seconds =
@@ -3399,19 +3396,11 @@ function _ph_fireSessionEnd() {
   });
 }
 
-// ── Triggers ──
-// 1. Periodic: fires every 60s while page is open — guarantees you see events in PostHog
-setInterval(_ph_fireSessionEnd, 60 * 1000);
-
-// 2. visibilitychange — tab switch / app backgrounded
+// ── Triggers — fire once on session exit ──
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
 });
-
-// 3. pagehide — mobile bfcache / process kill
 window.addEventListener('pagehide', _ph_fireSessionEnd);
-
-// 4. beforeunload — desktop close
 window.addEventListener('beforeunload', _ph_fireSessionEnd);
 
 // ════════════════════════════════════════════════════════════════
