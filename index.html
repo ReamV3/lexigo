@@ -3409,26 +3409,30 @@ function _ph_buildPayload() {
   }
 
   const final_state = {
-    // ── Words ──
+    // -- Words --
     total_words:                           bank.words.length,
     total_words_added_this_session:        _ph_words_added - _ph_words_deleted,
-    // ── Classes ──
+    // -- Classes --
     total_classes:                         bank.classes.length,
     total_classes_added_this_session:      _ph_classes_added - _ph_classes_deleted,
-    // ── Usage ──
+    // -- Time & Usage --
+    total_game_plays_seconds:              total_game_plays_seconds,
+    app_use_count:                         window._ph_useCount || 1,
+    // -- Per-game seconds --
     'Game 1: Match seconds':              _ph_games.match.time_played_seconds,
     'Game 2: Multiple Choice seconds':    _ph_games.multiple_choice.time_played_seconds,
     'Game 3: Type It seconds':            _ph_games.type_it.time_played_seconds,
     'Game 4: Cards seconds':              _ph_games.cards.time_played_seconds,
   };
 
-  return { games, total_app_usage_seconds, total_game_plays_seconds, app_use_count: window._ph_useCount, final_state };
+  return { games, total_app_usage_seconds, final_state };
 }
 
 // ── Fire the summary event ──
-// On unload: sendBeacon (guaranteed single delivery, survives page teardown).
-// sendBeacon requires application/x-www-form-urlencoded or Blob; PostHog accepts
-// plain JSON via Blob with type application/json.
+// Delivery strategy (in priority order):
+//   1. sendBeacon  — async, survives page teardown, zero duplicates
+//   2. sync XHR    — synchronous fallback; blocks briefly but guaranteed on unload
+//   3. posthog SDK — last resort for browsers with neither
 function _ph_fireSessionSummary() {
   if (_ph_sent || _ph_sending) return;
   _ph_sending = true;
@@ -3436,18 +3440,12 @@ function _ph_fireSessionSummary() {
   // Close any open game session before measuring
   if (_ph_cur) _ph_gameEnd();
 
-  // Skip completely empty sessions (no games, no word actions)
-  const anyGame  = Object.values(_ph_games).some(g => g.times_played > 0);
-  const anyWords = _ph_words_added > 0 || _ph_words_deleted > 0;
-  if (!anyGame && !anyWords) { _ph_sending = false; return; }
-
+  // Always fire — even a browse-and-close session is meaningful for the use counter
   const props   = _ph_buildPayload();
   _ph_sent      = true;
   _ph_sending   = false;
 
-  // Build a PostHog-compatible batch body
-  // Use our stable device ID as distinct_id so the same device is always
-  // the same person in PostHog — regardless of PostHog's own cookie state.
+  // Use our stable device ID so the same device is always the same person in PostHog
   const distinctId = window._ph_deviceId || 'anon';
 
   const body = JSON.stringify({
@@ -3460,13 +3458,26 @@ function _ph_fireSessionSummary() {
     }],
   });
 
-  // sendBeacon: survives page unload, zero duplicates
-  const beaconSent = navigator.sendBeacon
-    ? navigator.sendBeacon('https://us.i.posthog.com/batch/', new Blob([body], { type: 'application/json' }))
-    : false;
+  const url = 'https://us.i.posthog.com/batch/';
+  const blob = new Blob([body], { type: 'application/json' });
 
-  // Fallback: posthog SDK (for browsers without sendBeacon or if queue was full)
-  if (!beaconSent) {
+  // 1. sendBeacon — best option
+  let sent = false;
+  try { sent = navigator.sendBeacon ? navigator.sendBeacon(url, blob) : false; } catch(e) {}
+
+  // 2. Sync XHR — fires even when sendBeacon quota is exhausted or unsupported
+  if (!sent) {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, false); // false = synchronous
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(body);
+      sent = (xhr.status >= 200 && xhr.status < 300);
+    } catch(e) {}
+  }
+
+  // 3. PostHog SDK — async fallback for non-unload contexts (tab switch back, etc.)
+  if (!sent) {
     try { posthog.capture('app_session_summary', props); } catch(e) {}
   }
 }
