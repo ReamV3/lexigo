@@ -3339,7 +3339,7 @@ function _ph_gameEnd() {
 
   const dur = Math.round((Date.now() - g.startMs) / 1000);
   // Discard ghost sessions under 2 s (e.g. accidental back-button tap)
-  if (dur < 2) return;
+  if (dur < 1) return;
 
   const acc = _ph_games[g.key];
   if (!acc) return;
@@ -3477,14 +3477,14 @@ function _ph_fireSessionSummary() {
 
   // sendBeacon: survives page unload, zero duplicates
   const beaconSent = navigator.sendBeacon
-    ? navigator.sendBeacon('https://us.i.posthog.com/batch/', new Blob([body], { type: 'application/json' }))
+    ? navigator.sendBeacon('https://us.i.posthog.com/batch/', new Blob([body], { type: 'text/plain' }))
     : false;
 
   // Fallback: posthog SDK (for browsers without sendBeacon or if queue was full)
   if (!beaconSent) {
+    _ph_sent = false; // unlock so the SDK fallback can retry on next hide/unload
     try { posthog.capture('app_session_summary', props); } catch(e) {}
   }
-}
 
 // ── Unload triggers ──
 // visibilitychange:hidden — covers tab switch & app background on all mobile browsers.
