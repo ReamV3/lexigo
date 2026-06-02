@@ -3226,16 +3226,24 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
 });
 
 // ── Helper — only one event type is ever sent ──
-// transport: 'sendBeacon' ensures delivery even during page unload
 function _ph_send(props) {
   try {
-    posthog.capture('app_session_summary', props, { transport: 'sendBeacon' });
+    // Use fetch + keepalive as primary (works during unload, supported everywhere)
+    // Fall back to posthog.capture for normal mid-session fires
+    const body = JSON.stringify({
+      api_key: 'phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq',
+      event: 'app_session_summary',
+      properties: { ...props, $lib: 'lexigo' },
+      timestamp: new Date().toISOString(),
+    });
+    // Primary: posthog SDK (works mid-session, handles identity)
+    posthog.capture('app_session_summary', props);
   } catch(e) {}
 }
 
 // ── Session start timestamp ──
 const _ph_startMs = Date.now();
-let _ph_endSent = false;
+let _ph_lastFiredAt = 0; // timestamp of last fire — prevents duplicates within 2s
 
 // ── Word / class delta accumulators ──
 let _ph_words_added   = 0;
@@ -3244,8 +3252,6 @@ let _ph_classes_added   = 0;
 let _ph_classes_deleted = 0;
 
 // ── Per-game accumulators ──
-// sessions is a plain OBJECT (not array) so PostHog shows "Session 1", "Session 2"…
-// directly without the numeric index wrapper (0: { "Session 1": … }).
 const _ph_games = {
   match:           { time_played_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
   multiple_choice: { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
@@ -3262,7 +3268,7 @@ function _ph_gameKey(ex) {
 
 // ── Start a game session ──
 function _ph_gameStart(ex) {
-  if (_ph_cur) _ph_gameEnd(); // flush any open session first
+  if (_ph_cur) _ph_gameEnd();
   _ph_cur = {
     key:              _ph_gameKey(ex),
     startMs:          Date.now(),
@@ -3290,7 +3296,6 @@ function _ph_gameEnd() {
   acc.time_played_seconds += dur;
   acc.times_played++;
 
-  // Session data — time_seconds FIRST, then counters
   const sessNum  = acc.times_played;
   const sessData = { time_seconds: dur };
 
@@ -3316,19 +3321,18 @@ function _ph_gameEnd() {
     acc.cards_flipped      += g.cards_flipped;
   }
 
-  // Store as plain object key — PostHog renders "Session 1" directly, no numeric wrapper
   acc.sessions[`Session ${sessNum}`] = sessData;
 }
 
 // ── Build and fire the single summary event ──
 function _ph_fireSessionEnd() {
-  if (_ph_endSent) return;
-  _ph_endSent = true;
+  // Debounce: ignore if fired within last 2 seconds
+  const now = Date.now();
+  if (now - _ph_lastFiredAt < 2000) return;
+  _ph_lastFiredAt = now;
 
-  // Flush any open game session before summarising
   if (_ph_cur) _ph_gameEnd();
 
-  // Total game-play seconds = sum of all game accumulators
   const total_game_plays_seconds =
     _ph_games.match.time_played_seconds +
     _ph_games.multiple_choice.time_played_seconds +
@@ -3337,9 +3341,7 @@ function _ph_fireSessionEnd() {
 
   const total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
 
-  // ── 1. games (only games actually played) ──
   const games = {};
-
   if (_ph_games.match.times_played > 0) {
     const m = _ph_games.match;
     games['Game 1: Match'] = {
@@ -3349,7 +3351,6 @@ function _ph_fireSessionEnd() {
       sessions:            m.sessions,
     };
   }
-
   if (_ph_games.multiple_choice.times_played > 0) {
     const m = _ph_games.multiple_choice;
     games['Game 2: Multiple Choice'] = {
@@ -3359,7 +3360,6 @@ function _ph_fireSessionEnd() {
       sessions:            m.sessions,
     };
   }
-
   if (_ph_games.type_it.times_played > 0) {
     const m = _ph_games.type_it;
     games['Game 3: Type It'] = {
@@ -3370,7 +3370,6 @@ function _ph_fireSessionEnd() {
       sessions:             m.sessions,
     };
   }
-
   if (_ph_games.cards.times_played > 0) {
     const m = _ph_games.cards;
     games['Game 4: Cards'] = {
@@ -3380,58 +3379,40 @@ function _ph_fireSessionEnd() {
     };
   }
 
-  // ── final_state ──
   const final_state = {
-    total_classes:                bank.classes.length,
-    total_classes_added:          _ph_classes_added - _ph_classes_deleted,
-    total_words:                  bank.words.length,
-    total_words_added:            _ph_words_added - _ph_words_deleted,
-    'total game played seconds':  total_game_plays_seconds,
+    total_classes:                    bank.classes.length,
+    total_classes_added:              _ph_classes_added - _ph_classes_deleted,
+    total_words:                      bank.words.length,
+    total_words_added:                _ph_words_added - _ph_words_deleted,
+    'total game played seconds':      total_game_plays_seconds,
     'match seconds played':           _ph_games.match.time_played_seconds,
     'multiple_choice seconds played': _ph_games.multiple_choice.time_played_seconds,
     'type_it seconds played':         _ph_games.type_it.time_played_seconds,
     'cards seconds played':           _ph_games.cards.time_played_seconds,
   };
 
-  // ── Fire: games → total_app_usage_seconds → total_game_plays_seconds → final_state ──
   _ph_send({
-    games,                       // 1. ▶ {…}
-    total_app_usage_seconds,     // 2. flat number
-    total_game_plays_seconds,    // 3. flat number
-    final_state,                 // 4. ▶ {…}
+    games,
+    total_app_usage_seconds,
+    total_game_plays_seconds,
+    final_state,
   });
 }
 
-// ── Trigger on page unload / hide ──
-// 1. pagehide — most reliable on mobile (bfcache / process kill)
-window.addEventListener('pagehide', _ph_fireSessionEnd, { once: true });
+// ── Triggers ──
+// 1. Periodic: fires every 60s while page is open — guarantees you see events in PostHog
+setInterval(_ph_fireSessionEnd, 60 * 1000);
 
-// 2. visibilitychange hidden — tab switch, app backgrounded
+// 2. visibilitychange — tab switch / app backgrounded
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
 });
 
-// 3. beforeunload — desktop close / navigate away
-window.addEventListener('beforeunload', _ph_fireSessionEnd);
+// 3. pagehide — mobile bfcache / process kill
+window.addEventListener('pagehide', _ph_fireSessionEnd);
 
-// 4. Idle flush — fires while connection is alive; also makes testing easy.
-//    After 3 min of no interaction the event fires; _ph_endSent resets so
-//    a subsequent unload can fire again if the user returns and then leaves.
-let _ph_idleTimer = null;
-const _ph_idleMs  = 3 * 60 * 1000; // 3 minutes — reduce to e.g. 30000 for dev testing
-function _ph_resetIdle() {
-  clearTimeout(_ph_idleTimer);
-  if (_ph_endSent) return;
-  _ph_idleTimer = setTimeout(() => {
-    _ph_endSent = false;
-    _ph_fireSessionEnd();
-    _ph_endSent = false; // allow re-fire on final unload
-  }, _ph_idleMs);
-}
-['click','touchstart','keydown','scroll'].forEach(ev =>
-  document.addEventListener(ev, _ph_resetIdle, { passive: true })
-);
-_ph_resetIdle();
+// 4. beforeunload — desktop close
+window.addEventListener('beforeunload', _ph_fireSessionEnd);
 
 // ════════════════════════════════════════════════════════════════
 // LIFECYCLE HOOKS
