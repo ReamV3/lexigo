@@ -3229,8 +3229,13 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   autocapture: false,
   disable_session_recording: true,
   loaded: function(ph) {
-    // Suppress PostHog's own $pageleave / $pageview so only our event fires
     ph.config.capture_pageleave = false;
+    // Identify this device with a stable friendly name so PostHog shows
+    // "User-3F2A" instead of a long random ID in the Person column
+    ph.identify(window._ph_deviceId, {
+      name:          window._ph_friendlyName,
+      app_use_count: window._ph_useCount,
+    });
   }
 });
 
@@ -3251,12 +3256,21 @@ const _PH_30MIN_MS     = 30 * 60 * 1000;
     localStorage.setItem(_PH_DEVICE_KEY, deviceId);
   }
 
-  // 2. Decide whether this page load counts as a new "use"
+  // 2. Assign a friendly display name once per device (e.g. "User-3F2A")
+  const _PH_NAME_KEY = 'lx_device_name';
+  let friendlyName = localStorage.getItem(_PH_NAME_KEY);
+  if (!friendlyName) {
+    const suffix = Date.now().toString(36).slice(-4).toUpperCase();
+    friendlyName = 'User-' + suffix;
+    localStorage.setItem(_PH_NAME_KEY, friendlyName);
+  }
+
+  // 3. Decide whether this page load counts as a new "use"
   const lastUseTs  = parseInt(localStorage.getItem(_PH_LAST_USE_KEY) || '0', 10);
   const nowMs      = Date.now();
-  const isNewUse   = (nowMs - lastUseTs) >= _PH_30MIN_MS; // covers first load (lastUseTs=0)
+  const isNewUse   = (nowMs - lastUseTs) >= _PH_30MIN_MS;
 
-  // 3. Increment counter only when it's a new use
+  // 4. Increment counter only when it's a new use
   let useCount = parseInt(localStorage.getItem(_PH_USE_CNT_KEY) || '0', 10);
   if (isNewUse) {
     useCount++;
@@ -3265,8 +3279,9 @@ const _PH_30MIN_MS     = 30 * 60 * 1000;
   }
 
   // Expose for payload builder
-  window._ph_deviceId  = deviceId;
-  window._ph_useCount  = useCount;
+  window._ph_deviceId     = deviceId;
+  window._ph_useCount     = useCount;
+  window._ph_friendlyName = friendlyName;
 })();
 
 // ── Session start timestamp ──
