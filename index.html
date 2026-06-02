@@ -3370,15 +3370,17 @@ function _ph_buildPayload() {
   }
 
   const final_state = {
-    total_classes:                    bank.classes.length,
-    total_classes_added:              _ph_classes_added - _ph_classes_deleted,
-    total_words:                      bank.words.length,
-    total_words_added:                _ph_words_added - _ph_words_deleted,
-    'total game played seconds':      total_game_plays_seconds,
-    'match seconds played':           _ph_games.match.time_played_seconds,
-    'multiple_choice seconds played': _ph_games.multiple_choice.time_played_seconds,
-    'type_it seconds played':         _ph_games.type_it.time_played_seconds,
-    'cards seconds played':           _ph_games.cards.time_played_seconds,
+    // ── Words & Classes ──
+    total_words:                           bank.words.length,
+    total_words_added_this_session:        _ph_words_added - _ph_words_deleted,
+    total_classes:                         bank.classes.length,
+    total_classes_added_this_session:      _ph_classes_added - _ph_classes_deleted,
+    // ── Time ──
+    'total game played seconds':           total_game_plays_seconds,
+    'match seconds played':               _ph_games.match.time_played_seconds,
+    'multiple_choice seconds played':     _ph_games.multiple_choice.time_played_seconds,
+    'type_it seconds played':             _ph_games.type_it.time_played_seconds,
+    'cards seconds played':               _ph_games.cards.time_played_seconds,
   };
 
   return { games, total_app_usage_seconds, total_game_plays_seconds, final_state };
@@ -3542,49 +3544,60 @@ flipCard = function() {
   if (wasFront && flipped && _ph_cur) _ph_cur.cards_flipped++;
 };
 
-// ── Match: snapshot keys BEFORE tap, evaluate result AFTER ──
+// ── Match: evaluate AFTER the call ──
+// The pair result is determined inside onMCardTap when both slots are filled.
+// After the call, if both keys were cleared to null (line: mcSelLeft=mcSelRight=...=null)
+// a pair was evaluated. We know the result by comparing the keys we read POST-call
+// from the local vars the original set before clearing — but those are gone.
+// Simplest reliable approach: check whether mcSolved incremented (correct) or
+// mcStreak reset to 0 without incrementing mcSolved (wrong).
+// We capture snapshots of mcSolved and mcStreak before and after.
 const _ph_orig_onMCardTap = onMCardTap;
 onMCardTap = function(el, side, key) {
-  const hadLeft  = mcSelLeftKey;
-  const hadRight = mcSelRightKey;
+  const solvedBefore = mcSolved;
+  const hadBothFilled = (mcSelLeftKey !== null && mcSelRightKey !== null)
+    || (side === 'left'  && mcSelRightKey !== null)
+    || (side === 'right' && mcSelLeftKey  !== null);
   _ph_orig_onMCardTap(el, side, key);
-  // A pair attempt only occurs when both slots were already filled before this tap
-  if (hadLeft !== null && hadRight !== null) {
-    if (!_ph_cur) return;
-    if (hadLeft === hadRight) _ph_cur.correct_matches++;
-    else                      _ph_cur.wrong_matches++;
+  if (!_ph_cur || !hadBothFilled) return;
+  // A pair attempt just completed — was it correct or wrong?
+  if (mcSolved > solvedBefore) {
+    _ph_cur.correct_matches++;
+  } else {
+    // Both slots were filled but no match → wrong attempt
+    // Guard: only count if mcSelLeft/Right are now null (pair was evaluated, not just deselected)
+    if (mcSelLeftKey === null && mcSelRightKey === null) {
+      _ph_cur.wrong_matches++;
+    }
   }
 };
 
-// ── Multiple Choice: one count per question, guarded against touch+click double-fire ──
+// ── Multiple Choice: wrap showChoiceButtons to inject counter into each button's handler ──
+// We cannot use a grid-level listener because each button uses touchstart+preventDefault,
+// blocking event bubbling. Instead we wrap the function and patch each button after render.
 const _ph_orig_showChoiceButtons = showChoiceButtons;
 showChoiceButtons = function(wrap, w, ringStart) {
   _ph_orig_showChoiceButtons(wrap, w, ringStart);
   if (!_ph_cur) return;
   const grid = wrap.querySelector('.choices-grid');
   if (!grid) return;
-
-  let fired = false;
-  const _ph_choiceListener = (e) => {
-    if (fired) return;
-    const btn = e.target.closest('.c-btn');
-    if (!btn || btn.disabled) return;
-    fired = true;
-    // Read class after original handler has applied .correct / .wrong (50 ms grace)
-    setTimeout(() => {
-      if (!_ph_cur) return;
+  // Patch each button: add a one-time observer on its className to detect correct/wrong
+  let counted = false;
+  Array.from(grid.querySelectorAll('.c-btn')).forEach(btn => {
+    const obs = new MutationObserver(() => {
+      if (counted) { obs.disconnect(); return; }
       if (btn.classList.contains('correct')) {
-        _ph_cur.correct_answers++;
+        counted = true;
+        obs.disconnect();
+        if (_ph_cur) _ph_cur.correct_answers++;
       } else if (btn.classList.contains('wrong') || btn.classList.contains('locked')) {
-        _ph_cur.wrong_answers++;
+        counted = true;
+        obs.disconnect();
+        if (_ph_cur) _ph_cur.wrong_answers++;
       }
-      grid.removeEventListener('touchstart', _ph_choiceListener);
-      grid.removeEventListener('click',      _ph_choiceListener);
-    }, 50);
-  };
-
-  grid.addEventListener('touchstart', _ph_choiceListener, { passive: true });
-  grid.addEventListener('click',      _ph_choiceListener);
+    });
+    obs.observe(btn, { attributes: true, attributeFilter: ['class'] });
+  });
 };
 
 // ── Type It: MutationObserver on input class ──
