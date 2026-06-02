@@ -3298,13 +3298,19 @@ const _PH_MAX_SESSIONS    = 20;               // trim log beyond this
 })();
 
 // ── Update the current session's durations in the log (called just before send) ──
+// Ensures an entry always exists for the current session number, even if
+// isNewUse was false on load (e.g. rapid reloads within 30 min).
 function _ph_updateSessionLog() {
   try {
     const log = JSON.parse(localStorage.getItem(_PH_SESSION_LOG_KEY) || '[]');
-    if (!log.length) return;
-    const cur = log[log.length - 1];
-    // Only update if it belongs to the current use-count (guards against stale tabs)
-    if (cur.session_number !== window._ph_useCount) return;
+    // Find or create the entry for this session number
+    let cur = log.find(e => e.session_number === window._ph_useCount);
+    if (!cur) {
+      const dateStr = new Date().toISOString().slice(0, 10);
+      cur = { session_number: window._ph_useCount, date: dateStr, total_time_played_seconds: 0, total_app_usage_seconds: 0 };
+      log.push(cur);
+      if (log.length > _PH_MAX_SESSIONS) log.splice(0, log.length - _PH_MAX_SESSIONS);
+    }
     cur.total_time_played_seconds =
       _ph_games.match.time_played_seconds +
       _ph_games.multiple_choice.time_played_seconds +
@@ -3490,7 +3496,7 @@ function _ph_buildPayload() {
 // ── Fire the summary event ──
 // On unload: sendBeacon (guaranteed single delivery, survives page teardown).
 // sendBeacon requires application/x-www-form-urlencoded or Blob; PostHog accepts
-// plain JSON via Blob with type application/json.
+// plain JSON via Blob with type text/plain (avoids CORS preflight).
 function _ph_fireSessionSummary() {
   if (_ph_sent || _ph_sending) return;
   _ph_sending = true;
