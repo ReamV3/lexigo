@@ -898,9 +898,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 <!-- hidden file input for import, kept at top level -->
 <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)" style="display:none">
 <div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.1.0</div>
-<button class="sess-toggle" id="sessToggle" onclick="toggleSessLog()">
-  App Session Usage <em class="chev">▾</em>
-</button>
+<button class="sess-toggle" id="sessToggle" onclick="toggleSessLog()">App Session Usage <em class="chev">▾</em></button>
 <div class="sess-body" id="sessBody"></div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
@@ -3656,7 +3654,7 @@ renderType = function() {
 
 // ── End Lexigo Analytics ──
 
-// ── Session log ──
+// ── Session log UI ──
 const LS_SESS_LOG='lx_session_log', LS_SESS_OPEN='lx_usage_open';
 function fmtSecs(s){ const m=Math.floor(s/60),sec=s%60; return m+'m '+String(sec).padStart(2,'0')+'s'; }
 function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
@@ -3677,36 +3675,44 @@ function renderSessLog(){
   const stat=document.createElement('div'); stat.className='sess-stat';
   stat.textContent='Total sessions: '+useCount;
   body.appendChild(stat);
-  if(!log.length){ const e=document.createElement('div'); e.className='sess-row-detail'; e.style.padding='6px 14px'; e.textContent='No sessions recorded yet.'; body.appendChild(e); return; }
+  if(!log.length){
+    const e=document.createElement('div'); e.className='sess-row-detail';
+    e.style.padding='6px 14px'; e.textContent='No sessions recorded yet — data saves when you leave the app.';
+    body.appendChild(e); return;
+  }
   [...log].reverse().forEach(s=>{
     const row=document.createElement('div'); row.className='sess-row';
-    row.innerHTML=`<div class="sess-row-title">Session ${s.n} · ${fmtDate(s.date)}</div>
-      <div class="sess-row-detail">Total time in app: ${fmtSecs(s.app_seconds)}</div>
-      <div class="sess-row-detail">Time playing games: ${fmtSecs(s.game_seconds)}</div>`;
+    row.innerHTML='<div class="sess-row-title">Session '+s.n+' \u00b7 '+fmtDate(s.date)+'</div>'+
+      '<div class="sess-row-detail">Total time in app: '+fmtSecs(s.app_seconds)+'</div>'+
+      '<div class="sess-row-detail">Time playing games: '+fmtSecs(s.game_seconds)+'</div>';
     body.appendChild(row);
   });
 }
 // Restore open state on load
-if(localStorage.getItem(LS_SESS_OPEN)==='1'){
-  document.getElementById('sessToggle')?.classList.add('open');
-  document.getElementById('sessBody')?.classList.add('open');
-  renderSessLog();
-}
-// Hook into existing _ph_fireSessionSummary to also write to local log
-const _ph_orig_fire=_ph_fireSessionSummary;
-_ph_fireSessionSummary=function(){
-  _ph_orig_fire();
-  try{
-    const log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]');
-    const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
-    const appSecs=Math.round((Date.now()-_ph_startMs)/1000);
-    const gameSecs=Object.values(_ph_games).reduce((a,g)=>a+g.time_played_seconds,0);
-    log.push({ n:useCount, date:new Date().toISOString().slice(0,10), app_seconds:appSecs, game_seconds:gameSecs });
-    if(log.length>50) log.splice(0,log.length-50);
-    localStorage.setItem(LS_SESS_LOG,JSON.stringify(log));
-  }catch(e){}
-};
-
+(function(){
+  if(localStorage.getItem(LS_SESS_OPEN)==='1'){
+    const btn=document.getElementById('sessToggle');
+    const body=document.getElementById('sessBody');
+    if(btn) btn.classList.add('open');
+    if(body){ body.classList.add('open'); renderSessLog(); }
+  }
+})();
+// Wrap _ph_fireSessionSummary to also write local session log entry
+(function(){
+  const _orig=_ph_fireSessionSummary;
+  _ph_fireSessionSummary=function(){
+    _orig();
+    try{
+      const log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]');
+      const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
+      const appSecs=Math.round((Date.now()-_ph_startMs)/1000);
+      const gameSecs=Object.values(_ph_games).reduce((a,g)=>a+g.time_played_seconds,0);
+      log.push({n:useCount,date:new Date().toISOString().slice(0,10),app_seconds:appSecs,game_seconds:gameSecs});
+      if(log.length>50) log.splice(0,log.length-50);
+      localStorage.setItem(LS_SESS_LOG,JSON.stringify(log));
+    }catch(e){}
+  };
+})();
 </script>
 </body>
 </html>
