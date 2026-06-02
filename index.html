@@ -3222,41 +3222,35 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   person_profiles: 'identified_only',
   capture_pageview: false,
   capture_pageleave: false,
-  session_idle_timeout_seconds: 300,
+  autocapture: false,
+  disable_session_recording: true,
+  loaded: function(ph) {
+    // Suppress PostHog's own $pageleave / $pageview so only our event fires
+    ph.config.capture_pageleave = false;
+  }
 });
-
-// ── Helper — only one event type is ever sent ──
-function _ph_send(props) {
-  try {
-    // Use fetch + keepalive as primary (works during unload, supported everywhere)
-    // Fall back to posthog.capture for normal mid-session fires
-    const body = JSON.stringify({
-      api_key: 'phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq',
-      event: 'app_session_summary',
-      properties: { ...props, $lib: 'lexigo' },
-      timestamp: new Date().toISOString(),
-    });
-    // Primary: posthog SDK (works mid-session, handles identity)
-    posthog.capture('app_session_summary', props);
-  } catch(e) {}
-}
 
 // ── Session start timestamp ──
 const _ph_startMs = Date.now();
-let _ph_firedOnce = false;
+
+// _ph_sent: true once a final beacon has been dispatched this page-lifetime.
+// Reset to false on visibilitychange:visible so we capture the FULL session
+// even if the user backgrounds the tab mid-way (e.g. to check PostHog).
+let _ph_sent    = false;
+let _ph_sending = false; // re-entrancy guard
 
 // ── Word / class delta accumulators ──
-let _ph_words_added   = 0;
-let _ph_words_deleted = 0;
+let _ph_words_added     = 0;
+let _ph_words_deleted   = 0;
 let _ph_classes_added   = 0;
 let _ph_classes_deleted = 0;
 
 // ── Per-game accumulators ──
 const _ph_games = {
   match:           { time_played_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
-  multiple_choice: { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
-  type_it:         { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   full_hint_words_used:0, sessions:{} },
-  cards:           { time_played_seconds:0, times_played:0, cards_flipped:0,                      sessions:{} },
+  multiple_choice: { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,  sessions:{} },
+  type_it:         { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,  full_hint_words_used:0, sessions:{} },
+  cards:           { time_played_seconds:0, times_played:0, cards_flipped:0,                     sessions:{} },
 };
 
 // ── Active game session cursor ──
@@ -3266,19 +3260,19 @@ function _ph_gameKey(ex) {
   return { match:'match', choice:'multiple_choice', type:'type_it', flash:'cards' }[ex] || ex;
 }
 
-// ── Start a game session ──
+// ── Start a game session — stamp time BEFORE any game logic runs ──
 function _ph_gameStart(ex) {
-  if (_ph_cur) _ph_gameEnd();
+  _ph_gameEnd(); // close any previously open session first
   _ph_cur = {
-    key:              _ph_gameKey(ex),
-    startMs:          Date.now(),
-    correct_matches:  0,
-    wrong_matches:    0,
-    correct_answers:  0,
-    wrong_answers:    0,
+    key:                  _ph_gameKey(ex),
+    startMs:              Date.now(), // stamped immediately
+    correct_matches:      0,
+    wrong_matches:        0,
+    correct_answers:      0,
+    wrong_answers:        0,
     full_hint_words_used: 0,
-    cards_flipped:    0,
-    ended:            false,
+    cards_flipped:        0,
+    ended:                false,
   };
 }
 
@@ -3286,10 +3280,13 @@ function _ph_gameStart(ex) {
 function _ph_gameEnd() {
   if (!_ph_cur || _ph_cur.ended) return;
   _ph_cur.ended = true;
-  const g   = _ph_cur;
-  _ph_cur   = null;
+  const g  = _ph_cur;
+  _ph_cur  = null;
 
   const dur = Math.round((Date.now() - g.startMs) / 1000);
+  // Discard ghost sessions under 2 s (e.g. accidental back-button tap)
+  if (dur < 2) return;
+
   const acc = _ph_games[g.key];
   if (!acc) return;
 
@@ -3317,19 +3314,15 @@ function _ph_gameEnd() {
     acc.wrong_answers            += g.wrong_answers;
     acc.full_hint_words_used     += g.full_hint_words_used;
   } else if (g.key === 'cards') {
-    sessData.cards_flipped  = g.cards_flipped;
-    acc.cards_flipped      += g.cards_flipped;
+    sessData.cards_flipped = g.cards_flipped;
+    acc.cards_flipped     += g.cards_flipped;
   }
 
   acc.sessions[`Session ${sessNum}`] = sessData;
 }
 
-// ── Build and fire the single summary event ──
-function _ph_fireSessionEnd() {
-  if (_ph_firedOnce) return;
-  _ph_firedOnce = true;
-  if (_ph_cur) _ph_gameEnd();
-
+// ── Build payload ──
+function _ph_buildPayload() {
   const total_game_plays_seconds =
     _ph_games.match.time_played_seconds +
     _ph_games.multiple_choice.time_played_seconds +
@@ -3388,44 +3381,110 @@ function _ph_fireSessionEnd() {
     'cards seconds played':           _ph_games.cards.time_played_seconds,
   };
 
-  _ph_send({
-    games,
-    total_app_usage_seconds,
-    total_game_plays_seconds,
-    final_state,
-  });
+  return { games, total_app_usage_seconds, total_game_plays_seconds, final_state };
 }
 
-// ── Triggers — fire once on session exit ──
+// ── Fire the summary event ──
+// On unload: sendBeacon (guaranteed single delivery, survives page teardown).
+// sendBeacon requires application/x-www-form-urlencoded or Blob; PostHog accepts
+// plain JSON via Blob with type application/json.
+function _ph_fireSessionSummary() {
+  if (_ph_sent || _ph_sending) return;
+  _ph_sending = true;
+
+  // Close any open game session before measuring
+  if (_ph_cur) _ph_gameEnd();
+
+  // Skip completely empty sessions (no games, no word actions)
+  const anyGame  = Object.values(_ph_games).some(g => g.times_played > 0);
+  const anyWords = _ph_words_added > 0 || _ph_words_deleted > 0;
+  if (!anyGame && !anyWords) { _ph_sending = false; return; }
+
+  const props   = _ph_buildPayload();
+  _ph_sent      = true;
+  _ph_sending   = false;
+
+  // Build a PostHog-compatible batch body
+  let distinctId = 'anon';
+  try { distinctId = posthog.get_distinct_id() || 'anon'; } catch(e) {}
+
+  const body = JSON.stringify({
+    api_key:     'phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq',
+    batch: [{
+      event:       'app_session_summary',
+      distinct_id: distinctId,
+      properties:  { ...props, $lib: 'lexigo' },
+      timestamp:   new Date().toISOString(),
+    }],
+  });
+
+  // sendBeacon: survives page unload, zero duplicates
+  const beaconSent = navigator.sendBeacon
+    ? navigator.sendBeacon('https://us.i.posthog.com/batch/', new Blob([body], { type: 'application/json' }))
+    : false;
+
+  // Fallback: posthog SDK (for browsers without sendBeacon or if queue was full)
+  if (!beaconSent) {
+    try { posthog.capture('app_session_summary', props); } catch(e) {}
+  }
+}
+
+// ── Unload triggers ──
+// visibilitychange:hidden — covers tab switch & app background on all mobile browsers.
+// pagehide                — covers bfcache navigation & iOS Safari swipe-away.
+// beforeunload            — covers desktop close / hard navigate.
+//
+// CRITICAL FIX: on visibilitychange:visible we reset _ph_sent so the NEXT
+// hide/close captures the full accumulated session. Without this, switching
+// to PostHog mid-session to check results locks out all future captures.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') _ph_fireSessionEnd();
+  if (document.visibilityState === 'hidden') {
+    _ph_fireSessionSummary();
+  } else {
+    // User returned — allow a fresh summary on the next hide/close
+    _ph_sent    = false;
+    _ph_sending = false;
+    // Re-stamp the active game so its startMs isn't stale across the gap
+    if (_ph_cur) _ph_cur.startMs = Date.now();
+  }
 });
-window.addEventListener('pagehide', _ph_fireSessionEnd);
-window.addEventListener('beforeunload', _ph_fireSessionEnd);
+
+window.addEventListener('pagehide', () => {
+  if (!_ph_sent) _ph_fireSessionSummary();
+});
+
+window.addEventListener('beforeunload', () => {
+  if (!_ph_sent) _ph_fireSessionSummary();
+});
 
 // ════════════════════════════════════════════════════════════════
 // LIFECYCLE HOOKS
 // ════════════════════════════════════════════════════════════════
 
-// ── Game start / end ──
+// ── Game start: stamp time BEFORE orig runs (avoids ms drift from UI work) ──
 const _ph_orig_startGame = startGame;
 startGame = function(ex) {
+  _ph_gameStart(ex);       // ← startMs set first
   _ph_orig_startGame(ex);
-  _ph_gameStart(ex);
 };
 
+// ── Game exit ──
+// exitGame(skipSave=true) is also called internally by showExerciseComplete.
+// The _ph_cur.ended guard makes the second _ph_gameEnd() call a safe no-op.
 const _ph_orig_exitGame = exitGame;
 exitGame = function(skipSave) {
   _ph_gameEnd();
   _ph_orig_exitGame(skipSave);
 };
 
+// ── Exercise complete: end session with accurate time before any UI changes ──
 const _ph_orig_showExerciseComplete = showExerciseComplete;
 showExerciseComplete = function() {
   _ph_gameEnd();
   _ph_orig_showExerciseComplete();
 };
 
+// ── Reset: end current session, restart fresh ──
 const _ph_orig_resetCurrentGame = resetCurrentGame;
 resetCurrentGame = function() {
   _ph_gameEnd();
@@ -3483,17 +3542,13 @@ flipCard = function() {
   if (wasFront && flipped && _ph_cur) _ph_cur.cards_flipped++;
 };
 
-// ── Match: snapshot keys BEFORE tap, evaluate AFTER ──
-// Correct matches: original clears mcSelLeft/Right via setTimeout (async),
-// so we cannot rely on post-call null-check for correct pairs.
-// Instead: we know the pair result purely from comparing hadLeft === hadRight.
-// We only fire when BOTH slots were occupied before the tap (a complete pair attempt).
+// ── Match: snapshot keys BEFORE tap, evaluate result AFTER ──
 const _ph_orig_onMCardTap = onMCardTap;
 onMCardTap = function(el, side, key) {
   const hadLeft  = mcSelLeftKey;
   const hadRight = mcSelRightKey;
   _ph_orig_onMCardTap(el, side, key);
-  // Both slots were filled before this tap → a pair was evaluated
+  // A pair attempt only occurs when both slots were already filled before this tap
   if (hadLeft !== null && hadRight !== null) {
     if (!_ph_cur) return;
     if (hadLeft === hadRight) _ph_cur.correct_matches++;
@@ -3501,8 +3556,7 @@ onMCardTap = function(el, side, key) {
   }
 };
 
-// ── Multiple Choice: one count per question, guarded against double-fire ──
-// On mobile both touchstart and click can fire; the `fired` flag prevents double-counting.
+// ── Multiple Choice: one count per question, guarded against touch+click double-fire ──
 const _ph_orig_showChoiceButtons = showChoiceButtons;
 showChoiceButtons = function(wrap, w, ringStart) {
   _ph_orig_showChoiceButtons(wrap, w, ringStart);
@@ -3510,7 +3564,7 @@ showChoiceButtons = function(wrap, w, ringStart) {
   const grid = wrap.querySelector('.choices-grid');
   if (!grid) return;
 
-  let fired = false; // guard: count exactly once per question
+  let fired = false;
   const _ph_choiceListener = (e) => {
     if (fired) return;
     const btn = e.target.closest('.c-btn');
@@ -3534,8 +3588,7 @@ showChoiceButtons = function(wrap, w, ringStart) {
 };
 
 // ── Type It: MutationObserver on input class ──
-// wrong class is transient (removed after 700 ms); correct class is permanent.
-// Observer stays alive across retries; only disconnects on correct.
+// .wrong is transient (removed after 700 ms); .correct is permanent.
 const _ph_orig_renderType = renderType;
 renderType = function() {
   _ph_orig_renderType();
@@ -3550,7 +3603,7 @@ renderType = function() {
     hintBtn.addEventListener('click', () => { _hintUsedThisWord = true; }, { passive: true });
   }
 
-  let _wrongCountedThisAttempt = false; // prevent double-count if class flickers
+  let _wrongCountedThisAttempt = false;
   const obs = new MutationObserver(() => {
     if (!_ph_cur) { obs.disconnect(); return; }
     const cl = inputEl.className;
@@ -3562,7 +3615,6 @@ renderType = function() {
       _wrongCountedThisAttempt = true;
       _ph_cur.wrong_answers++;
       _hintUsedThisWord = false;
-      // Reset after the transient class is removed so next attempt can count
       setTimeout(() => { _wrongCountedThisAttempt = false; }, 800);
     }
   });
