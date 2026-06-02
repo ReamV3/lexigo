@@ -805,7 +805,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .ec-star:nth-child(1){animation-delay:.1s;}
 .ec-star:nth-child(2){animation-delay:.22s;}
 .ec-star:nth-child(3){animation-delay:.34s;}
-@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}</style>
+@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}
+
+/* SESSION LOG */
+.sess-toggle{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+  cursor:pointer;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);
+  letter-spacing:.08em;text-transform:uppercase;margin-top:8px;}
+.sess-toggle .chev{transition:transform .25s;font-style:normal;}
+.sess-toggle.open .chev{transform:rotate(180deg);}
+.sess-body{width:100%;max-width:520px;display:none;flex-direction:column;gap:6px;margin-top:6px;}
+.sess-body.open{display:flex;}
+.sess-stat{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--accent2);
+  letter-spacing:.06em;padding:6px 14px;}
+.sess-row{padding:10px 14px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);display:flex;flex-direction:column;gap:3px;}
+.sess-row-title{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text);letter-spacing:.04em;}
+.sess-row-detail{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--muted);letter-spacing:.04em;}</style>
 </head>
 <body>
 
@@ -882,6 +898,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 <!-- hidden file input for import, kept at top level -->
 <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)" style="display:none">
 <div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.1.0</div>
+<button class="sess-toggle" id="sessToggle" onclick="toggleSessLog()">
+  App Session Usage <em class="chev">▾</em>
+</button>
+<div class="sess-body" id="sessBody"></div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -3635,6 +3655,58 @@ renderType = function() {
 };
 
 // ── End Lexigo Analytics ──
+
+// ── Session log ──
+const LS_SESS_LOG='lx_session_log', LS_SESS_OPEN='lx_usage_open';
+function fmtSecs(s){ const m=Math.floor(s/60),sec=s%60; return m+'m '+String(sec).padStart(2,'0')+'s'; }
+function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function toggleSessLog(){
+  const btn=document.getElementById('sessToggle');
+  const body=document.getElementById('sessBody');
+  const open=!body.classList.contains('open');
+  btn.classList.toggle('open',open);
+  body.classList.toggle('open',open);
+  localStorage.setItem(LS_SESS_OPEN,open?'1':'0');
+  if(open) renderSessLog();
+}
+function renderSessLog(){
+  const body=document.getElementById('sessBody');
+  body.innerHTML='';
+  let log=[]; try{ log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]'); }catch{}
+  const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
+  const stat=document.createElement('div'); stat.className='sess-stat';
+  stat.textContent='Total sessions: '+useCount;
+  body.appendChild(stat);
+  if(!log.length){ const e=document.createElement('div'); e.className='sess-row-detail'; e.style.padding='6px 14px'; e.textContent='No sessions recorded yet.'; body.appendChild(e); return; }
+  [...log].reverse().forEach(s=>{
+    const row=document.createElement('div'); row.className='sess-row';
+    row.innerHTML=`<div class="sess-row-title">Session ${s.n} · ${fmtDate(s.date)}</div>
+      <div class="sess-row-detail">Total time in app: ${fmtSecs(s.app_seconds)}</div>
+      <div class="sess-row-detail">Time playing games: ${fmtSecs(s.game_seconds)}</div>`;
+    body.appendChild(row);
+  });
+}
+// Restore open state on load
+if(localStorage.getItem(LS_SESS_OPEN)==='1'){
+  document.getElementById('sessToggle')?.classList.add('open');
+  document.getElementById('sessBody')?.classList.add('open');
+  renderSessLog();
+}
+// Hook into existing _ph_fireSessionSummary to also write to local log
+const _ph_orig_fire=_ph_fireSessionSummary;
+_ph_fireSessionSummary=function(){
+  _ph_orig_fire();
+  try{
+    const log=JSON.parse(localStorage.getItem(LS_SESS_LOG)||'[]');
+    const useCount=parseInt(localStorage.getItem(_PH_USE_CNT_KEY)||'0',10);
+    const appSecs=Math.round((Date.now()-_ph_startMs)/1000);
+    const gameSecs=Object.values(_ph_games).reduce((a,g)=>a+g.time_played_seconds,0);
+    log.push({ n:useCount, date:new Date().toISOString().slice(0,10), app_seconds:appSecs, game_seconds:gameSecs });
+    if(log.length>50) log.splice(0,log.length-50);
+    localStorage.setItem(LS_SESS_LOG,JSON.stringify(log));
+  }catch(e){}
+};
+
 </script>
 </body>
 </html>
