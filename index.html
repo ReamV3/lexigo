@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .game-icon svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
 .icon-match{background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
 .icon-choice{background:rgba(94,200,255,.15);color:#5ec8ff;border:1px solid rgba(94,200,255,.3);}
-.icon-flash{background:rgba(232,184,109,.15);color:var(--accent);border:1px solid rgba(232,184,109,.3);}
+.icon-flash{background:rgba(34,211,238,.15);color:#22d3ee;border:1px solid rgba(34,211,238,.3);}
 .game-name{font-size:1rem;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
 .game-desc{font-size:.73rem;color:var(--muted);}
 .game-setting-badge{
@@ -123,7 +123,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* GAME AREA */
 #gameArea{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;
   flex-direction:column;align-items:center;padding:24px 16px 48px;overflow-y:auto;}
-#gameArea.open{display:flex;}
+#gameArea.open{display:flex;animation:gameEnter .24s ease-out both;}
 #gameArea.type-active{padding-bottom:0;overflow:hidden;}
 .g-header{width:100%;max-width:520px;display:flex;align-items:center;gap:12px;margin-bottom:20px;}
 .g-back{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
@@ -874,7 +874,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .sprint-timer-ring{position:relative;width:88px;height:88px;flex-shrink:0;}
 .sprint-timer-ring svg{position:absolute;inset:0;transform:rotate(-90deg);}
 .sprint-timer-ring .str-track{stroke:var(--border);fill:none;stroke-width:5;}
-.sprint-timer-ring .str-fill{stroke:var(--accent);fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .3s;}
+.sprint-timer-ring .str-fill{stroke:#4ade80;fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .3s;}
 .sprint-timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-size:1.55rem;font-weight:700;color:var(--text);}
 .sprint-score-line{font-family:'Inter',sans-serif;font-size:.85rem;color:var(--muted);letter-spacing:.02em;text-align:center;}
 .sprint-score-line strong{color:var(--accent);font-size:1.1rem;font-weight:700;}
@@ -902,9 +902,49 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* ── Sprint/Cloze game-icon colors ── */
 .icon-sprint{background:rgba(232,184,109,.15);color:var(--accent);border:1px solid rgba(232,184,109,.3);}
 .icon-cloze{background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
+
+/* ── Screen flash overlay ── */
+#screenFlash{position:fixed;inset:0;pointer-events:none;z-index:350;opacity:0;}
+#screenFlash.sf-active{animation:sfFlash .5s ease-out both;}
+@keyframes sfFlash{0%{opacity:0;}18%{opacity:var(--sf-op,.1);}100%{opacity:0;}}
+
+/* ── Float-up popup ── */
+.float-up-pop{
+  position:fixed;transform:translateX(-50%);
+  font-family:'Inter',sans-serif;font-weight:800;font-size:1.45rem;
+  pointer-events:none;z-index:400;white-space:nowrap;
+  animation:floatUp .72s ease-out forwards;
+}
+@keyframes floatUp{
+  0%  {opacity:0;transform:translateX(-50%) translateY(0)    scale(.7);}
+  22% {opacity:1;transform:translateX(-50%) translateY(-14px) scale(1.15);}
+  100%{opacity:0;transform:translateX(-50%) translateY(-68px) scale(.85);}
+}
+
+/* ── Streak level variants ── */
+.streak-banner.sl2{font-size:3rem;color:var(--accent);text-shadow:0 0 40px rgba(232,184,109,.9),0 2px 20px rgba(232,184,109,.5);}
+.streak-banner.sl3{font-size:3.6rem;color:#c084fc;text-shadow:0 0 60px rgba(192,132,252,.95),0 2px 24px rgba(192,132,252,.6);animation:streakPopBig 1.1s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes streakPopBig{
+  0%  {transform:translate(-50%,-50%) scale(0) rotate(-8deg);opacity:0;}
+  40% {transform:translate(-50%,-50%) scale(1.18) rotate(2deg);opacity:1;}
+  65% {transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:1;}
+  100%{transform:translate(-50%,-50%) scale(.65);opacity:0;}
+}
+
+/* ── Game area entrance ── */
+@keyframes gameEnter{from{opacity:0;transform:scale(.985);}to{opacity:1;transform:scale(1);}}
+
+/* ── Sprint urgency pulse ── */
+.sprint-urgent .sprint-timer-ring{animation:ringPulse .55s ease-in-out infinite;}
+@keyframes ringPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+
+/* ── Sprint score bounce ── */
+@keyframes scoreBounce{0%{transform:scale(1);}35%{transform:scale(1.5);}70%{transform:scale(.92);}100%{transform:scale(1);}}
+.score-bounce{animation:scoreBounce .38s cubic-bezier(.34,1.56,.64,1);}
 </style>
 </head>
 <body>
+<div id="screenFlash"></div>
 
 <!-- TOP BAR -->
 <div class="top-bar">
@@ -2039,8 +2079,8 @@ function startGame(ex){
     sprint:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`,
     cloze:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="10" y2="12"/><rect x="12" y="9" width="9" height="6" rx="2"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`
   };
-  const iconColors={match:'#a78bfa',choice:'#5ec8ff',flash:'var(--accent)',type:'var(--green)',sprint:'var(--accent)',cloze:'#a78bfa'};
-  const iconBgs={match:'rgba(167,139,250,.15)',choice:'rgba(94,200,255,.15)',flash:'rgba(232,184,109,.15)',type:'rgba(110,231,183,.15)',sprint:'rgba(232,184,109,.15)',cloze:'rgba(167,139,250,.15)'};
+  const iconColors={match:'#a78bfa',choice:'#5ec8ff',flash:'#22d3ee',type:'var(--green)',sprint:'var(--accent)',cloze:'#a78bfa'};
+  const iconBgs={match:'rgba(167,139,250,.15)',choice:'rgba(94,200,255,.15)',flash:'rgba(34,211,238,.15)',type:'rgba(110,231,183,.15)',sprint:'rgba(232,184,109,.15)',cloze:'rgba(167,139,250,.15)'};
   const iconEl=document.getElementById('gTitleIcon');
   iconEl.innerHTML=icons[ex];
   iconEl.style.color=iconColors[ex];
@@ -2298,6 +2338,7 @@ function showFlashAssessButtons(){
   const w=deck[idx];
 
   const handleGot=()=>{
+    screenFlash('var(--green)','normal');
     applySched(w.w, true, 'fwd', false);
     recordCorrect(w.w); renderWords();
     choiceAnsweredKeys.add(w.w);
@@ -2500,6 +2541,7 @@ function showChoiceButtons(wrap, w, ringStart){
         if(_ph_cur) _ph_cur.correct_answers++;
         btn.classList.add('correct');
         celebrateButton(btn);
+        floatUpText('+1', btn, 'var(--green)');
         applySched(w.w, true, 'fwd', true);
         recordCorrect(w.w); renderWords();
         choiceAnsweredKeys.add(w.w);
@@ -2509,10 +2551,10 @@ function showChoiceButtons(wrap, w, ringStart){
         updateResetBtn();
         setFB('✓ Correct!',true);
         grid.querySelectorAll('.c-btn').forEach(b=>{ if(b!==btn) b.disabled=true; });
-        if(choiceStreak===3) showStreak('🔥 3 streak!');
-        else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!');
-        else if(choiceStreak===10) showStreak('🌟 10 streak!');
-        else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!');
+        if(choiceStreak===3) showStreak('🔥 3 streak!',1);
+        else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!',2);
+        else if(choiceStreak===10) showStreak('🌟 10 streak!',3);
+        else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!',3);
         const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
         if(allDone){
           setTimeout(()=>showExerciseComplete(),900);
@@ -2525,6 +2567,7 @@ function showChoiceButtons(wrap, w, ringStart){
         btn.classList.add('wrong','locked');
         btn.disabled=true;
         playWrong();
+        screenFlash('var(--red)','weak');
         if(_ph_cur) _ph_cur.wrong_answers++;
         choiceStreak=0;
         applySched(w.w, false, 'fwd', true);
@@ -2637,12 +2680,14 @@ function showConfusionPopup(wrongTranslation, w, currentIsReexposure){
   }, 3000);
 }
 
-function showStreak(msg){
+function showStreak(msg, level=1){
   const el=document.createElement('div');
-  el.className='streak-banner';
+  el.className='streak-banner'+(level>=3?' sl3':level>=2?' sl2':'');
   el.textContent=msg;
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(),900);
+  playStreakSound(level);
+  if(level>=2) screenFlash(level>=3?'#c084fc':'var(--accent)',level>=3?'strong':'normal');
+  setTimeout(()=>el.remove(), level>=3?1400:900);
 }
 
 // MATCH — CARD PAIRS GAME
@@ -2804,6 +2849,7 @@ function onMCardTap(el,side,key){
       mcTapTimes.push(pairTime);
       mcStreak++; mcSolved++;
       if(_ph_cur) _ph_cur.correct_matches++;
+      screenFlash('var(--green)','weak');
       recordCorrect(lKey); renderWords();
       choiceAnsweredKeys.add(lKey);
       saveProgress();
@@ -3238,6 +3284,8 @@ function renderType(){
           wp2.bestTypeMs=elapsed;
           save();
           pbNote=' ⚡ best';
+          floatUpText('⚡ PB!', submitBtn, 'var(--accent)');
+          screenFlash('var(--accent)','normal');
         }
       }
 
@@ -3408,7 +3456,15 @@ function renderSprint(){
           recordCorrect(w.w);
           sprintCardsCleared++;
           if(_ph_cur) _ph_cur.cards_cleared=((_ph_cur.cards_cleared||0)+1);
-          document.getElementById('sprintCleared').textContent=sprintCardsCleared;
+          const scoreEl=document.getElementById('sprintCleared');
+          if(scoreEl){
+            scoreEl.textContent=sprintCardsCleared;
+            scoreEl.classList.remove('score-bounce');
+            void scoreEl.offsetWidth;
+            scoreEl.classList.add('score-bounce');
+            scoreEl.addEventListener('animationend',()=>scoreEl.classList.remove('score-bounce'),{once:true});
+          }
+          floatUpText('+1', btn, 'var(--green)');
         } else {
           btn.classList.add('wrong');
           applySched(w.w, false, 'fwd', true);
@@ -3437,7 +3493,7 @@ function renderSprint(){
     const res=document.createElement('div');
     res.className='sprint-result';
     const trophy=document.createElement('div'); trophy.style.fontSize='3rem'; trophy.textContent='⚡';
-    const sc=document.createElement('div'); sc.className='sprint-result-score'; sc.textContent=sprintCardsCleared;
+    const sc=document.createElement('div'); sc.className='sprint-result-score'; sc.textContent='0';
     const rate=document.createElement('div'); rate.className='sprint-result-rate'; rate.textContent='cards cleared in 60 seconds';
     const pb=document.createElement('div'); pb.className='sprint-result-pb';
     if(isNewBest&&sprintCardsCleared>0) pb.textContent='🏆 New personal best!';
@@ -3449,6 +3505,17 @@ function renderSprint(){
     if(pb.textContent) res.appendChild(pb);
     res.appendChild(again);
     wrap.innerHTML=''; wrap.appendChild(res);
+    // Animate counter up
+    let displayNum=0;
+    const step=Math.max(1,Math.ceil(sprintCardsCleared/22));
+    const countUp=setInterval(()=>{
+      displayNum=Math.min(displayNum+step, sprintCardsCleared);
+      sc.textContent=displayNum;
+      if(displayNum>=sprintCardsCleared){
+        clearInterval(countUp);
+        if(isNewBest&&sprintCardsCleared>0) screenFlash('#4ade80','strong');
+      }
+    },45);
   }
 
   // ── Countdown ──
@@ -3462,7 +3529,15 @@ function renderSprint(){
     if(fill){
       const offset=circum*(1-sprintSecondsLeft/SPRINT_TOTAL);
       fill.style.strokeDashoffset=String(offset.toFixed(2));
-      if(sprintSecondsLeft<=10) fill.style.stroke='var(--red)';
+      if(sprintSecondsLeft<=10){
+        fill.style.stroke='var(--red)';
+        const spWrap=document.getElementById('sprintWrap');
+        if(spWrap&&!spWrap.classList.contains('sprint-urgent')){
+          spWrap.classList.add('sprint-urgent');
+          screenFlash('var(--red)','weak');
+        }
+      } else if(sprintSecondsLeft<=30) fill.style.stroke='#facc15';
+      else fill.style.stroke='#4ade80';
     }
     if(sprintSecondsLeft<=0){ endSprint(); }
   },1000);
@@ -3657,8 +3732,49 @@ function playWrong(){
 }
 
 // ── CELEBRATE BUTTON: bounce scale + sparkles ──
+// ── Screen flash ──
+function screenFlash(color, intensity='normal'){
+  const el=document.getElementById('screenFlash');
+  if(!el) return;
+  const op=intensity==='strong'?'0.18':intensity==='weak'?'0.06':'0.11';
+  el.style.background=color;
+  el.style.setProperty('--sf-op',op);
+  el.classList.remove('sf-active');
+  void el.offsetWidth;
+  el.classList.add('sf-active');
+  el.addEventListener('animationend',()=>el.classList.remove('sf-active'),{once:true});
+}
+
+// ── Float-up score popup ──
+function floatUpText(text, anchorEl, color='var(--accent)'){
+  if(!anchorEl) return;
+  try{
+    const r=anchorEl.getBoundingClientRect();
+    const el=document.createElement('div');
+    el.className='float-up-pop';
+    el.textContent=text;
+    el.style.cssText=`left:${r.left+r.width/2}px;top:${r.top+r.height*.15}px;color:${color};`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend',()=>el.remove(),{once:true});
+  }catch(e){}
+}
+
+// ── Streak ascending melody ──
+function playStreakSound(level){
+  if(!soundEnabled) return;
+  try{
+    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const t=audioCtx.currentTime;
+    if(level===1) [[523.25,0],[659.25,.1],[783.99,.2]].forEach(([f,d])=>pianoKey(audioCtx,f,.7,t+d));
+    else if(level===2) [[523.25,0],[587.33,.08],[659.25,.16],[783.99,.24],[1046.5,.34]].forEach(([f,d])=>pianoKey(audioCtx,f,.85,t+d));
+    else [[523.25,0],[659.25,.06],[783.99,.12],[1046.5,.18],[1318.5,.26]].forEach(([f,d])=>pianoKey(audioCtx,f,.95,t+d));
+  }catch(e){}
+}
+
 function celebrateButton(btn){
   playDing();
+  screenFlash('var(--green)','weak');
   btn.classList.remove('correct-anim');
   void btn.offsetWidth;
   btn.classList.add('correct-anim');
@@ -4302,6 +4418,7 @@ function _ph_buildPayload() {
     };
   }
 
+  const { word: _langWord, meaning: _langMeaning } = detectWordLang();
   const final_state = {
     // ── Words ──
     total_words:                              bank.words.length,
@@ -4309,6 +4426,8 @@ function _ph_buildPayload() {
     // ── Classes ──
     total_classes:                            bank.classes.length,
     total_classes_added_this_session:         _ph_classes_added - _ph_classes_deleted,
+    // ── Language ──
+    language_pair:                            bank.words.length > 0 ? `${_langWord}→${_langMeaning}` : 'unknown',
     // ── Usage ──
     'Game 1: Match seconds':                 _ph_games.match.time_played_seconds,
     'Game 2: Multiple Choice seconds':       _ph_games.multiple_choice.time_played_seconds,
