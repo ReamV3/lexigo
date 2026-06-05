@@ -512,16 +512,61 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   70%{transform:translate(-50%,-50%) scale(1);opacity:1;}
   100%{transform:translate(-50%,-50%) scale(.8);opacity:0;}
 }
-.fast-badge{
-  position:absolute;top:-10px;right:-10px;
-  background:var(--accent);color:#0e0e12;
-  font-family:'DM Mono',monospace;font-size:.65rem;font-weight:700;
-  padding:3px 8px;border-radius:50px;
-  pointer-events:none;
-  animation:fastPop .5s cubic-bezier(.34,1.56,.64,1) both;
-  z-index:10;
+/* flash self-assessment buttons */
+.flash-assess-row{display:flex;gap:12px;width:100%;max-width:520px;margin-top:4px;}
+.flash-got{flex:1;padding:16px 0;border-radius:14px;border:2px solid var(--green);background:rgba(110,231,183,.1);color:var(--green);font-family:'DM Mono',monospace;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.04em;}
+.flash-missed{flex:1;padding:16px 0;border-radius:14px;border:2px solid var(--red);background:rgba(248,113,113,.08);color:var(--red);font-family:'DM Mono',monospace;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.04em;}
+.flash-got:active{background:rgba(110,231,183,.22);}
+.flash-missed:active{background:rgba(248,113,113,.18);}
+/* retrieval pause dot */
+.retrieval-dot{width:12px;height:12px;border-radius:50%;background:var(--accent2);opacity:.7;animation:mcardPop .6s cubic-bezier(.34,1.56,.64,1) infinite alternate;}
+/* choice re-exposure underline */
+.choice-reexposure-word{border-bottom:2px solid var(--accent);padding-bottom:2px;}
+/* choice confusion note */
+.choice-confusion-note{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);text-align:center;margin-top:8px;padding:6px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border);animation:mIn .2s ease both;width:100%;max-width:520px;}
+/* confusion popup */
+.confusion-popup{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:350;
+  width:calc(100% - 32px);max-width:400px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;
+  padding:24px 24px 18px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  box-shadow:0 8px 40px rgba(0,0,0,.45);
+  animation:ob2In .22s cubic-bezier(.34,1.3,.64,1) both;
 }
-@keyframes fastPop{0%{transform:scale(0);}60%{transform:scale(1.15);}100%{transform:scale(1);}}
+.confusion-popup-wrong-ru{
+  font-family:'Inter',sans-serif;font-size:1.05rem;font-weight:500;
+  color:var(--muted);text-align:center;line-height:1.3;
+  text-decoration:line-through;text-decoration-color:rgba(248,113,113,.5);
+}
+.confusion-popup-wrong-en{
+  font-family:'Inter',sans-serif;font-size:1.55rem;font-weight:700;
+  color:var(--red);text-align:center;line-height:1.2;
+  text-decoration:line-through;text-decoration-color:rgba(248,113,113,.6);
+  opacity:.7;margin-bottom:8px;
+}
+.confusion-popup-correct{
+  font-family:'Inter',sans-serif;font-size:2rem;font-weight:700;
+  color:var(--green);text-align:center;line-height:1.2;
+  letter-spacing:-.02em;
+}
+.confusion-popup-bar{
+  width:100%;height:2px;border-radius:2px;background:var(--border);margin-top:10px;overflow:hidden;
+}
+.confusion-popup-bar-fill{
+  height:100%;background:var(--accent2);
+  transform-origin:left;
+  animation:confusionBarDrain 3s linear forwards;
+}
+@keyframes confusionBarDrain{from{transform:scaleX(1);}to{transform:scaleX(0);}}
+/* match ghost card */
+.mcard.ghost{opacity:.35;border-style:dashed;}
+/* type context frame */
+.type-context-frame{font-family:'Inter',sans-serif;font-size:.75rem;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:4px;}
+.type-context-blank{border-bottom:2px solid var(--accent2);min-width:60px;display:inline-block;vertical-align:bottom;}
+.type-context-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--accent2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;text-align:center;}
 
 /* TYPE GAME */
 /* type-active: prevent outer scroll while keyboard is open */
@@ -1169,8 +1214,35 @@ let modalSel=new Set();
 let addTargetClass=null;
 let wsActiveTab='all'; // 'all' or class number
 
+const CONTEXT_FRAMES=[
+  "I think about ___ sometimes.",
+  "She asked me about ___.",
+  "It reminded me of ___.",
+  "I never forgot ___.",
+  "He talked about ___ for a long time.",
+  "That made me think of ___.",
+  "I wasn't expecting ___.",
+  "We were talking about ___.",
+  "I couldn't stop thinking about ___.",
+  "It all started with ___.",
+  "Nobody told me about ___.",
+  "I finally understood ___.",
+  "Everything changed because of ___.",
+  "I always associated it with ___.",
+  "She never mentioned ___ again."
+];
+
 let exercise=null, deck=[], idx=0, flipped=false, choiceAnswered=false;
 let matchSel=null, matchDone=new Set(), matchPairs=[];
+// type game personal best + force repeat
+let _typeWordStartMs=0;
+let typeIsForceRepeat=false;
+// flash retrieval pause timer handle (so it can be cancelled on flip-back)
+let _flashRetrievalTimer=null;
+// match reading time
+let mcTapTimes=[];
+let _mcLeftTapMs=0;
+let mcGhostsActive=false;
 // New match card pairs state
 let mcPairs=[], mcPool=[], mcSolved=0, mcTotal=0, mcStreak=0;
 let mcSelLeft=null, mcSelRight=null, mcSelLeftKey=null, mcSelRightKey=null;
@@ -1193,6 +1265,7 @@ let choiceStreak=0;
 let choiceAnsweredKeys=new Set(); // track which words answered correctly this session
 let choiceCarousel=[]; // infinite ordered list
 let choiceCarouselIdx=0;
+let choiceIsReexposure=false; // true when showing a re-inserted word after wrong answer
 
 function load(){
   try{bank=JSON.parse(localStorage.getItem(LS_BANK))||{words:[],progress:{},classes:[]};}catch{bank={words:[],progress:{},classes:[]};}
@@ -1249,7 +1322,7 @@ function clearProgress(ex){
   }
 }
 
-function getP(w){ if(!bank.progress[w])bank.progress[w]={correct:0,excluded:false}; return bank.progress[w]; }
+function getP(w){ if(!bank.progress[w])bank.progress[w]={correct:0,excluded:false}; const p=bank.progress[w]; if(p.bestTypeMs===undefined)p.bestTypeMs=null; if(p.contextFrame===undefined)p.contextFrame=null; if(!p.wrongChoices)p.wrongChoices={}; return p; }
 function recordCorrect(w){ const p=getP(w); p.correct=(p.correct||0)+1; save(); }
 function toggleExclude(w){
   const p=getP(w); p.excluded=!p.excluded; save();
@@ -1798,6 +1871,8 @@ function startGame(ex){
   if(bank.classes.length===0){ showToast('Add some words first — tap ＋'); return; }
   exercise=ex; buildDeck();
   choiceStreak=0;
+  choiceIsReexposure=false;
+  typeIsForceRepeat=false;
 
   // Try to resume saved progress for this game + selection
   const saved=loadProgress(ex);
@@ -1869,7 +1944,12 @@ function startGame(ex){
   document.getElementById('gameArea').classList.add('open');
   if(ex==='match'){ document.getElementById('navRow').style.display='none'; renderMatch(); }
   else if(ex==='type'){ document.getElementById('navRow').style.display='none'; renderType(); }
-  else { document.getElementById('navRow').style.display='flex'; ex==='flash'?renderFlash():renderChoice(); }
+  else {
+    document.getElementById('navRow').style.display='flex';
+    const staleAssess=document.querySelector('.flash-assess-row');
+    if(staleAssess) staleAssess.remove();
+    ex==='flash'?renderFlash():renderChoice();
+  }
 }
 function exitGame(skipSave){
   // Save current progress before exiting (for all game modes)
@@ -1885,6 +1965,7 @@ function exitGame(skipSave){
   if(gh) gh.style.visibility='';
   if(pb) pb.style.visibility='';
   exercise=null;
+  if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(typeVVListener){
     window.visualViewport?.removeEventListener('resize', typeVVListener);
@@ -1900,6 +1981,12 @@ function exitGame(skipSave){
     tw.style.display='none'; tw.className=''; tw.innerHTML='';
   }
   ['cardWrap','choiceWrap','matchWrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  const existingAssessExit=document.querySelector('.flash-assess-row');
+  if(existingAssessExit) existingAssessExit.remove();
+  const existingConfNote=document.getElementById('choiceConfusionNote');
+  if(existingConfNote) existingConfNote.remove();
+  const existingPopup=document.getElementById('confusionPopup');
+  if(existingPopup) existingPopup.remove();
   const em=document.getElementById('emptyMsg'); if(em) em.style.display='none';
   const nr=document.getElementById('navRow'); if(nr) nr.style.display='none';
 }
@@ -1919,9 +2006,18 @@ function updateResetBtn(){
   btn.classList.toggle('visible', hasProg);
 }
 function resetCurrentGame(){
+  if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
+  const existingAssessR=document.querySelector('.flash-assess-row');
+  if(existingAssessR) existingAssessR.remove();
+  const existingNoteR=document.getElementById('choiceConfusionNote');
+  if(existingNoteR) existingNoteR.remove();
+  const existingPopupR=document.getElementById('confusionPopup');
+  if(existingPopupR) existingPopupR.remove();
   clearProgress(exercise);
   choiceAnsweredKeys=new Set();
   choiceStreak=0;
+  choiceIsReexposure=false;
+  typeIsForceRepeat=false;
   buildDeck();
   if(exercise==='choice'){
     choiceCarousel=shuffle(deck.filter(w=>!isExcluded(w.w)));
@@ -1940,7 +2036,6 @@ function resetCurrentGame(){
 
 // FLASH
 function renderFlash(){
-  // Show only card panel (no display toggling on cardWrap to prevent layout jump)
   document.getElementById('choiceWrap').style.display='none';
   document.getElementById('matchWrap').style.display='none';
   document.getElementById('emptyMsg').style.display='none';
@@ -1958,30 +2053,164 @@ function renderFlash(){
   inner.classList.remove('flipped');
   flipped=false;
   document.getElementById('feedback').textContent='';
+
+  // Reset back face content to normal (remove any blur/retrieval state)
+  const backFace=inner.querySelector('.card-face.back');
+  const backWord=document.getElementById('cardBack');
+  const backHint=backFace.querySelector('.card-hint');
+  const backLbl=backFace.querySelector('.card-lbl');
+  if(backWord){ backWord.style.filter=''; backWord.style.opacity=''; backWord.style.transition=''; }
+  if(backHint){ backHint.style.filter=''; backHint.style.opacity=''; backHint.style.transition=''; backHint.textContent='tap · or use arrows'; }
+  if(backLbl){ backLbl.style.filter=''; backLbl.style.opacity=''; backLbl.style.transition=''; }
+  // Remove any existing retrieval dot
+  const oldDot=backFace.querySelector('.retrieval-dot-wrap');
+  if(oldDot) oldDot.remove();
+
   document.getElementById('cardFront').textContent=w.w;
   document.getElementById('cardBack').textContent=w.t;
   document.getElementById('cardTag').textContent='Class '+w.c;
   document.getElementById('cardTagB').textContent='Class '+w.c;
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    inner.style.transition='';
-  }));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ inner.style.transition=''; }));
+
+  // Restore nav row to arrows (in case previous card had assessment buttons)
+  const navRow=document.getElementById('navRow');
+  navRow.style.display='flex';
+  const existingAssess=document.querySelector('.flash-assess-row');
+  if(existingAssess) existingAssess.remove();
+  document.getElementById('navPrev').style.display='';
+  document.getElementById('navNext').style.display='';
+  document.getElementById('progTxt').style.display='';
+
   setProg(idx+1,deck.length);
   updateResetBtn();
-  saveProgress(); // save position so resume works even without flipping
+  saveProgress();
 }
 function flipCard(){
   if(exercise!=='flash') return;
-  flipped=!flipped;
-  document.getElementById('cardInner').classList.toggle('flipped',flipped);
-  if(flipped){
-    recordCorrect(deck[idx].w); renderWords();
-    choiceAnsweredKeys.add(deck[idx].w);
-    saveProgress();
-    const allFlipped=deck.filter(w=>!isExcluded(w.w)).every(w=>choiceAnsweredKeys.has(w.w));
-    if(allFlipped){
-      setTimeout(()=>showExerciseComplete(),600);
-    }
+  if(!flipped){
+    // Flip to back: animate flip immediately, but blur content during retrieval pause
+    flipped=true;
+    const inner=document.getElementById('cardInner');
+    inner.classList.add('flipped');
+
+    const backFace=inner.querySelector('.card-face.back');
+    const backWord=document.getElementById('cardBack');
+    const backHint=backFace.querySelector('.card-hint');
+    const backLbl=backFace.querySelector('.card-lbl');
+
+    // Apply blur to content
+    backWord.style.filter='blur(6px)';
+    backWord.style.opacity='0.4';
+    if(backHint){ backHint.style.filter='blur(6px)'; backHint.style.opacity='0.4'; }
+    if(backLbl){ backLbl.style.filter='blur(6px)'; backLbl.style.opacity='0.4'; }
+
+    // Show pulsing retrieval dot
+    const dotWrap=document.createElement('div');
+    dotWrap.className='retrieval-dot-wrap';
+    dotWrap.style.cssText='position:absolute;display:flex;align-items:center;justify-content:center;inset:0;pointer-events:none;z-index:2;';
+    const dot=document.createElement('div');
+    dot.className='retrieval-dot';
+    dotWrap.appendChild(dot);
+    backFace.appendChild(dotWrap);
+
+    // After 1500ms reveal content
+    _flashRetrievalTimer=setTimeout(()=>{
+      _flashRetrievalTimer=null;
+      // Guard: if we've already flipped back, don't show buttons
+      if(!flipped) return;
+      dotWrap.remove();
+      backWord.style.transition='filter .2s,opacity .2s';
+      backWord.style.filter='';
+      backWord.style.opacity='';
+      if(backHint){ backHint.style.transition='filter .2s,opacity .2s'; backHint.style.filter=''; backHint.style.opacity=''; backHint.textContent='Got it? See buttons below'; }
+      if(backLbl){ backLbl.style.transition='filter .2s,opacity .2s'; backLbl.style.filter=''; backLbl.style.opacity=''; }
+      setTimeout(()=>{
+        if(backWord) backWord.style.transition='';
+        if(backHint) backHint.style.transition='';
+        if(backLbl) backLbl.style.transition='';
+      },220);
+      showFlashAssessButtons();
+    },1500);
+  } else {
+    // Flip back to front — cancel any pending retrieval timer
+    if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
+    flipped=false;
+    document.getElementById('cardInner').classList.remove('flipped');
+    // Remove retrieval dot if still present
+    const bFace=document.getElementById('cardInner').querySelector('.card-face.back');
+    const oldDot2=bFace&&bFace.querySelector('.retrieval-dot-wrap');
+    if(oldDot2) oldDot2.remove();
+    // Restore nav row
+    const navRow=document.getElementById('navRow');
+    navRow.style.display='flex';
+    document.getElementById('navPrev').style.display='';
+    document.getElementById('navNext').style.display='';
+    document.getElementById('progTxt').style.display='';
+    const existingAssess=document.querySelector('.flash-assess-row');
+    if(existingAssess) existingAssess.remove();
   }
+}
+function showFlashAssessButtons(){
+  const navRow=document.getElementById('navRow');
+  // Hide the entire navRow while showing assessment buttons
+  navRow.style.display='none';
+
+  // Remove old assess row if any
+  const oldAssess=document.querySelector('.flash-assess-row');
+  if(oldAssess) oldAssess.remove();
+
+  const assessRow=document.createElement('div');
+  assessRow.className='flash-assess-row';
+
+  const gotBtn=document.createElement('button');
+  gotBtn.className='flash-got';
+  gotBtn.textContent='Got it ✓';
+  gotBtn.setAttribute('tabindex','-1');
+
+  const missedBtn=document.createElement('button');
+  missedBtn.className='flash-missed';
+  missedBtn.textContent='Missed it ✗';
+  missedBtn.setAttribute('tabindex','-1');
+
+  const w=deck[idx];
+
+  const handleGot=()=>{
+    recordCorrect(w.w); renderWords();
+    choiceAnsweredKeys.add(w.w);
+    saveProgress();
+    assessRow.remove();
+    navRow.style.display='flex';
+    const allFlipped=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
+    if(allFlipped){
+      setTimeout(()=>showExerciseComplete(),400);
+    } else {
+      advanceDeck(1); renderFlash();
+    }
+  };
+  const handleMissed=()=>{
+    // Step back progress
+    const p=getP(w.w);
+    p.correct=Math.max(0,(p.correct||0)-1);
+    save();
+    choiceAnsweredKeys.delete(w.w);
+    assessRow.remove();
+    navRow.style.display='flex';
+    advanceDeck(1); renderFlash();
+  };
+
+  safeTap(gotBtn, handleGot,
+    (b)=>{ b.style.background='rgba(110,231,183,.22)'; },
+    (b)=>{ b.style.background=''; }
+  );
+  safeTap(missedBtn, handleMissed,
+    (b)=>{ b.style.background='rgba(248,113,113,.18)'; },
+    (b)=>{ b.style.background=''; }
+  );
+
+  assessRow.appendChild(gotBtn);
+  assessRow.appendChild(missedBtn);
+  // Insert after navRow
+  navRow.parentNode.insertBefore(assessRow, navRow.nextSibling);
 }
 
 // CHOICE — with mandatory countdown
@@ -1989,6 +2218,11 @@ function flipCard(){
 function renderChoice(){
   hideGamePanels();
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
+  // Remove any lingering confusion note or popup from previous wrong answer
+  const oldNote=document.getElementById('choiceConfusionNote');
+  if(oldNote) oldNote.remove();
+  const oldPopup=document.getElementById('confusionPopup');
+  if(oldPopup) oldPopup.remove();
   const wrap=document.getElementById('choiceWrap');
   wrap.innerHTML=''; wrap.style.display='block';
   choiceAnswered=false;
@@ -1998,15 +2232,18 @@ function renderChoice(){
   if(choiceCarousel.length===0){
     choiceCarousel=shuffle(deck.filter(w=>!isExcluded(w.w)));
     choiceCarouselIdx=0;
+    choiceIsReexposure=false;
   }
   if(choiceCarousel.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
   if(choiceCarouselIdx>=choiceCarousel.length){
     choiceCarousel=shuffle([...choiceCarousel]);
     choiceCarouselIdx=0;
+    choiceIsReexposure=false;
   }
   const w=choiceCarousel[choiceCarouselIdx];
   const total=choiceSpeedSecs;
   const ringStart=Date.now();
+  const isReexposure=choiceIsReexposure;
 
   // ── No-timer mode: word is tappable, no countdown ──
   if(total===0){
@@ -2027,6 +2264,7 @@ function renderChoice(){
     tapHint.style.cssText='font-family:DM Mono,monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:18px;text-align:center;';
     wordRingWrap.appendChild(staticBorder);
     wordRingWrap.appendChild(wordEl);
+    if(isReexposure) wordEl.classList.add('choice-reexposure-word');
     cdWrap.appendChild(wordRingWrap);
     cdWrap.appendChild(tapHint);
     wrap.appendChild(cdWrap);
@@ -2055,6 +2293,7 @@ function renderChoice(){
   wordEl.className='choice-word-big';
   wordEl.textContent=w.w;
   wordEl.style.position='relative'; wordEl.style.zIndex='1';
+  if(isReexposure) wordEl.classList.add('choice-reexposure-word');
 
   const ringSvgId='cdRing_'+Date.now();
   const ringSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -2116,6 +2355,7 @@ function showChoiceButtons(wrap, w, ringStart){
   wrap.innerHTML='';
   choiceAnswered=false;
   document.getElementById('feedback').textContent='';
+  const currentIsReexposure=choiceIsReexposure;
 
   const grid=document.createElement('div'); grid.className='choices-grid';
   const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
@@ -2134,30 +2374,20 @@ function showChoiceButtons(wrap, w, ringStart){
         choiceAnswered=true;
         choiceStreak++;
         if(_ph_cur) _ph_cur.correct_answers++;
-        // Speed bonus: answered within first half of allotted time
-        const elapsed=(Date.now()-(ringStart||0))/1000;
-        const wasFast=elapsed<(choiceSpeedSecs*0.5);
         btn.classList.add('correct');
-        if(wasFast){
-          const badge=document.createElement('span');
-          badge.className='fast-badge'; badge.textContent='FAST!';
-          btn.style.position='relative'; btn.appendChild(badge);
-        }
         celebrateButton(btn);
         recordCorrect(w.w); renderWords();
         choiceAnsweredKeys.add(w.w);
+        choiceIsReexposure=false;
         saveProgress();
         setGameProgress(choiceAnsweredKeys.size, deck.filter(w2=>!isExcluded(w2.w)).length);
         updateResetBtn();
-        const fbMsg=wasFast?'⚡ Fast! Correct!':'✓ Correct!';
-        setFB(fbMsg,true);
+        setFB('✓ Correct!',true);
         grid.querySelectorAll('.c-btn').forEach(b=>{ if(b!==btn) b.disabled=true; });
-        // Streak display
         if(choiceStreak===3) showStreak('🔥 3 streak!');
         else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!');
         else if(choiceStreak===10) showStreak('🌟 10 streak!');
         else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!');
-        // Check if all deck words answered correctly at least once
         const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
         if(allDone){
           setTimeout(()=>showExerciseComplete(),900);
@@ -2165,7 +2395,7 @@ function showChoiceButtons(wrap, w, ringStart){
           setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 900);
         }
       } else {
-        // Wrong: shake, reset streak, immediately skip to next word
+        choiceAnswered=true; // lock immediately — prevent tapping highlighted correct btn
         trigShake(btn);
         btn.classList.add('wrong','locked');
         btn.disabled=true;
@@ -2173,12 +2403,21 @@ function showChoiceButtons(wrap, w, ringStart){
         if(_ph_cur) _ph_cur.wrong_answers++;
         choiceStreak=0;
         setFB('✗ Next word!',false);
-        // Flash correct answer briefly then skip
+
+        // Track confusion
+        const wrongTranslation=opt.t;
+        const p=getP(w.w);
+        p.wrongChoices[wrongTranslation]=(p.wrongChoices[wrongTranslation]||0)+1;
+        save();
+
+        // Flash correct answer — lock all other buttons too
         grid.querySelectorAll('.c-btn').forEach(b=>{
           if(b.textContent===w.t){ b.classList.add('correct'); }
-          else if(b!==btn) b.disabled=true;
+          else if(b!==btn){ b.disabled=true; b.classList.add('locked'); }
         });
-        setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 900);
+
+        // Show confusion popup overlay, then re-queue word
+        showConfusionPopup(wrongTranslation, w, currentIsReexposure);
       }
     };
     let handled=false;
@@ -2188,6 +2427,60 @@ function showChoiceButtons(wrap, w, ringStart){
   });
   wrap.appendChild(grid);
   setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
+}
+
+function showConfusionPopup(wrongTranslation, w, currentIsReexposure){
+  const oldPopup=document.getElementById('confusionPopup');
+  if(oldPopup) oldPopup.remove();
+
+  // Find the Russian word for the wrong translation
+  const wrongWordEntry=bank.words.find(x=>x.t===wrongTranslation);
+  const wrongRu=wrongWordEntry?wrongWordEntry.w:null;
+
+  const popup=document.createElement('div');
+  popup.className='confusion-popup';
+  popup.id='confusionPopup';
+
+  // Wrong Russian word (if found) — small, struck through
+  if(wrongRu){
+    const wrongRuEl=document.createElement('div');
+    wrongRuEl.className='confusion-popup-wrong-ru';
+    wrongRuEl.textContent=wrongRu;
+    popup.appendChild(wrongRuEl);
+  }
+
+  // Wrong English translation — bigger, struck through, red
+  const wrongEnEl=document.createElement('div');
+  wrongEnEl.className='confusion-popup-wrong-en';
+  wrongEnEl.textContent=wrongTranslation;
+  popup.appendChild(wrongEnEl);
+
+  // Correct English answer — big, green
+  const correctEl=document.createElement('div');
+  correctEl.className='confusion-popup-correct';
+  correctEl.textContent=w.t;
+  popup.appendChild(correctEl);
+
+  // Drain bar
+  const bar=document.createElement('div');
+  bar.className='confusion-popup-bar';
+  const fill=document.createElement('div');
+  fill.className='confusion-popup-bar-fill';
+  bar.appendChild(fill);
+  popup.appendChild(bar);
+
+  document.body.appendChild(popup);
+
+  // Re-queue the word for immediate retry
+  const insertIdx=choiceCarouselIdx+1;
+  choiceCarousel.splice(insertIdx,0,w);
+  choiceIsReexposure=true;
+
+  setTimeout(()=>{
+    if(popup.parentNode) popup.remove();
+    choiceCarouselIdx++;
+    renderChoice();
+  }, 3000);
 }
 
 function showStreak(msg){
@@ -2209,6 +2502,7 @@ function renderMatch(){
   if(allPairs.length<2){document.getElementById('emptyMsg').style.display='block';document.getElementById('matchWrap').style.display='none';return;}
 
   mcTotal=allPairs.length; mcStreak=0;
+  mcTapTimes=[]; _mcLeftTapMs=0; mcGhostsActive=false;
   // Restore already-matched words from saved progress
   const alreadyMatched=new Set([...choiceAnsweredKeys]);
   const remaining=allPairs.filter(p=>!alreadyMatched.has(p.w));
@@ -2227,6 +2521,39 @@ function renderMatch(){
   renderMatchBoard();
 }
 
+function _bestShuffleByLength(arr){
+  if(arr.length<=1) return arr;
+  function countAdjacentSimilar(a){
+    let c=0;
+    for(let i=0;i<a.length-1;i++) if(Math.abs(a[i].t.length-a[i+1].t.length)<=2) c++;
+    return c;
+  }
+  let best=shuffle([...arr]);
+  let bestCount=countAdjacentSimilar(best);
+  for(let attempt=0;attempt<3&&bestCount>0;attempt++){
+    const candidate=shuffle([...arr]);
+    const c=countAdjacentSimilar(candidate);
+    if(c<bestCount){ best=candidate; bestCount=c; }
+  }
+  return best;
+}
+function _bestShuffleLeft(arr){
+  if(arr.length<=1) return arr;
+  function countAdjacentSimilarLeft(a){
+    let c=0;
+    for(let i=0;i<a.length-1;i++) if(Math.abs(a[i].w.length-a[i+1].w.length)<=2) c++;
+    return c;
+  }
+  let best=shuffle([...arr]);
+  let bestCount=countAdjacentSimilarLeft(best);
+  for(let attempt=0;attempt<3&&bestCount>0;attempt++){
+    const candidate=shuffle([...arr]);
+    const c=countAdjacentSimilarLeft(candidate);
+    if(c<bestCount){ best=candidate; bestCount=c; }
+  }
+  return best;
+}
+
 function renderMatchBoard(){
   const board=document.getElementById('matchBoard');
   board.innerHTML='';
@@ -2235,9 +2562,14 @@ function renderMatchBoard(){
   board.appendChild(leftCol); board.appendChild(rightCol);
 
   const active=mcPairs.filter(p=>!p.matched);
-  // Shuffle each column independently — creates the unpredictable mixing
-  const leftOrder=shuffle([...active]);
-  const rightOrder=shuffle([...active]);
+
+  // Determine if ghosts should be shown
+  const showGhosts=mcSolved>=Math.floor(mcTotal*0.5) && active.length>3;
+  mcGhostsActive=showGhosts;
+
+  // Length-based shuffle filter
+  const leftOrder=_bestShuffleLeft([...active]);
+  const rightOrder=_bestShuffleByLength([...active]);
 
   leftOrder.forEach(pair=>{
     const el=document.createElement('div');
@@ -2253,6 +2585,28 @@ function renderMatchBoard(){
     attachMCardHandlers(el,'right',pair.w);
     pair.rightEl=el; rightCol.appendChild(el);
   });
+
+  // Add ghost cards if threshold met
+  if(showGhosts){
+    const matched=mcPairs.filter(p=>p.matched);
+    if(matched.length>0){
+      const ghostPair=matched[Math.floor(Math.random()*matched.length)];
+      // Left ghost
+      const ghostL=document.createElement('div');
+      ghostL.className='mcard ghost';
+      ghostL.textContent=ghostPair.w;
+      ghostL.addEventListener('touchstart',(e)=>{e.preventDefault();trigShake(ghostL);},{passive:false});
+      ghostL.addEventListener('click',()=>trigShake(ghostL));
+      leftCol.appendChild(ghostL);
+      // Right ghost (same pair — decoy, not a valid match)
+      const ghostR=document.createElement('div');
+      ghostR.className='mcard ghost';
+      ghostR.textContent=ghostPair.t;
+      ghostR.addEventListener('touchstart',(e)=>{e.preventDefault();trigShake(ghostR);},{passive:false});
+      ghostR.addEventListener('click',()=>trigShake(ghostR));
+      rightCol.appendChild(ghostR);
+    }
+  }
 }
 
 function attachMCardHandlers(el, side, key){
@@ -2271,11 +2625,13 @@ function attachMCardHandlers(el, side, key){
 
 function onMCardTap(el,side,key){
   if(el.classList.contains('fading')) return;
+  if(el.classList.contains('ghost')) return; // ghost cards handled separately
 
   if(side==='left'){
     if(mcSelLeft===el){ mcSelLeft.classList.remove('selected'); mcSelLeft=mcSelLeftKey=null; return; }
     if(mcSelLeft) mcSelLeft.classList.remove('selected');
     mcSelLeft=el; mcSelLeftKey=key; el.classList.add('selected');
+    _mcLeftTapMs=Date.now(); // record left-tap time
   } else {
     if(mcSelRight===el){ mcSelRight.classList.remove('selected'); mcSelRight=mcSelRightKey=null; return; }
     if(mcSelRight) mcSelRight.classList.remove('selected');
@@ -2290,6 +2646,8 @@ function onMCardTap(el,side,key){
 
     if(lKey===rKey){
       // ✅ Correct
+      const pairTime=Date.now()-_mcLeftTapMs;
+      mcTapTimes.push(pairTime);
       mcStreak++; mcSolved++;
       if(_ph_cur) _ph_cur.correct_matches++;
       recordCorrect(lKey); renderWords();
@@ -2308,17 +2666,22 @@ function onMCardTap(el,side,key){
           if(pair) pair.matched=true;
 
           if(mcPool.length>0){
-            // Add new full pair from pool — reshuffle makes it impossible to spot which is new
             const newPair=mcPool.shift();
             mcPairs.push({...newPair,matched:false});
           }
-          // When pool empty: board naturally shrinks (6→5→4→3→2→1)
 
           const active=mcPairs.filter(p=>!p.matched);
           if(active.length===0){
             if(mcSolved>=mcTotal){
-              // All words in the exercise done
-              setTimeout(()=>showExerciseComplete(),400);
+              // Show avg match time then exercise complete
+              if(mcTapTimes.length>0){
+                const avg=(mcTapTimes.reduce((a,b)=>a+b,0)/mcTapTimes.length/1000).toFixed(1);
+                const scoreEl=document.getElementById('matchScore');
+                scoreEl.textContent='Avg match time: '+avg+'s';
+                setTimeout(()=>showExerciseComplete(),2000);
+              } else {
+                setTimeout(()=>showExerciseComplete(),400);
+              }
             } else {
               setFB('🎉 All matched!',true);
               setTimeout(()=>renderMatch(),1600);
@@ -2397,10 +2760,45 @@ function renderType(){
   typeAnswer=answer;
   const answerLetters=[...answer];
 
+  // Record start time for personal best
+  _typeWordStartMs=Date.now();
+
+  // Check context mode
+  const wp=getP(w.w);
+  const inContextMode=(wp.correct||0)>=3;
+  if(inContextMode && (wp.contextFrame===null||wp.contextFrame===undefined)){
+    wp.contextFrame=Math.floor(Math.random()*15);
+    save();
+  }
+
   // ── Word block: flex:1, centers word+dots vertically ──
   const wordBlock=document.createElement('div');
   wordBlock.className='type-word-block';
   wordBlock.id='typeWordBlock';
+
+  // Context frame display
+  if(inContextMode){
+    const ctxLabel=document.createElement('div');
+    ctxLabel.className='type-context-label';
+    ctxLabel.textContent='context';
+    wordBlock.appendChild(ctxLabel);
+
+    const frameStr=CONTEXT_FRAMES[wp.contextFrame];
+    const ctxFrame=document.createElement('div');
+    ctxFrame.className='type-context-frame';
+    const parts=frameStr.split('___');
+    if(parts.length===2){
+      ctxFrame.appendChild(document.createTextNode(parts[0]));
+      const blank=document.createElement('span');
+      blank.className='type-context-blank';
+      blank.innerHTML='&nbsp;';
+      ctxFrame.appendChild(blank);
+      ctxFrame.appendChild(document.createTextNode(parts[1]));
+    } else {
+      ctxFrame.textContent=frameStr;
+    }
+    wordBlock.appendChild(ctxFrame);
+  }
 
   const wordRow=document.createElement('div');
   wordRow.className='type-word-row';
@@ -2412,6 +2810,13 @@ function renderType(){
   hintBtn.innerHTML='<svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>';
   hintBtn.type='button'; hintBtn.title='Hint'; hintBtn.setAttribute('tabindex','-1');
   hintBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+
+  // Force repeat: disable hint button
+  if(typeIsForceRepeat){
+    hintBtn.disabled=true;
+    hintBtn.style.opacity='0.35';
+  }
+
   wordRow.appendChild(promptEl);
   wordRow.appendChild(hintBtn);
 
@@ -2471,7 +2876,6 @@ function renderType(){
   wrap.appendChild(bottomBar);
 
   // ── Keyboard-aware layout: both blocks are position:fixed ──
-  // Bottom bar sits above keyboard; word block fills the gap between header and bottom bar.
   function adjustForKeyboard(){
     const vv = window.visualViewport;
     const vvTop    = vv ? vv.offsetTop  : 0;
@@ -2482,14 +2886,12 @@ function renderType(){
     const hPad = 16;
     const leftPos = (vvWidth - maxW) / 2;
 
-    // Keyboard is open when visual viewport shrinks significantly
     const kbOpen = vvHeight < window.innerHeight * 0.8;
     const gameHeader = document.querySelector('#gameArea .g-header');
     const progBar    = document.querySelector('#gameArea .prog-bar');
     if(gameHeader) gameHeader.style.visibility = kbOpen ? 'hidden' : 'visible';
     if(progBar)    progBar.style.visibility    = kbOpen ? 'hidden' : 'visible';
 
-    // Bottom bar: fixed just above keyboard
     const kbBottom = window.innerHeight - vvTop - vvHeight;
     const barBottom = Math.max(kbBottom, 0);
     bottomBar.style.cssText = `
@@ -2503,7 +2905,6 @@ function renderType(){
       box-sizing:border-box;
     `;
 
-    // Word block: when keyboard open, start from top of visual viewport; else from below header
     const barH = bottomBar.offsetHeight || 120;
     const wordTop = kbOpen ? vvTop + 8 : (gameHeader ? gameHeader.getBoundingClientRect().bottom + 8 : 90);
     const wordBottom = vvTop + vvHeight - barH;
@@ -2519,7 +2920,6 @@ function renderType(){
       pointer-events:auto;
     `;
   }
-  // Run after one paint so header has laid out
   requestAnimationFrame(()=>{ adjustForKeyboard(); });
   if(typeVVListener){
     window.visualViewport?.removeEventListener('resize', typeVVListener);
@@ -2551,8 +2951,8 @@ function renderType(){
     }
     return -1;
   }
-  const goNavPrev=()=>{ const ni=findAdjacentUnresolved(-1); if(ni>=0){idx=ni;renderType();} };
-  const goNavNext=()=>{ const ni=findAdjacentUnresolved(1);  if(ni>=0){idx=ni;renderType();} };
+  const goNavPrev=()=>{ typeIsForceRepeat=false; const ni=findAdjacentUnresolved(-1); if(ni>=0){idx=ni;renderType();} };
+  const goNavNext=()=>{ typeIsForceRepeat=false; const ni=findAdjacentUnresolved(1);  if(ni>=0){idx=ni;renderType();} };
   navPrevBtn.addEventListener('mousedown',(e)=>e.preventDefault());
   navNextBtn.addEventListener('mousedown',(e)=>e.preventDefault());
   safeTap(navPrevBtn,goNavPrev,(b)=>{b.style.borderColor='var(--accent2)';b.style.color='var(--accent2)';},
@@ -2580,6 +2980,7 @@ function renderType(){
 
   // ── Hint ──
   const doHint=()=>{
+    if(typeIsForceRepeat) return; // hints disabled for forced clean attempt
     const dots=Array.from(dotsRow.querySelectorAll('.type-dot:not(.space)'));
     syncDots();
     const nextDotIdx=dots.findIndex(d=>!d.classList.contains('revealed')&&!d.classList.contains('user'));
@@ -2596,6 +2997,15 @@ function renderType(){
     try{inputEl.setSelectionRange(filledStr.length,filledStr.length);}catch(e){}
     if(dots.every(d=>d.classList.contains('revealed')||d.classList.contains('user'))) triggerAllRevealed();
   };
+
+  function _maybeInsertForceRepeat(){
+    if(typeHintsGiven>=3){
+      const insertPos=Math.min(idx+2, deck.length);
+      deck.splice(insertPos,0,w);
+      // Mark to trigger on next render of this word
+      deck[insertPos]._forceRepeat=true;
+    }
+  }
 
   function showNextBtn(onTap){
     inputBar.style.display='none';
@@ -2624,12 +3034,16 @@ function renderType(){
     fbEl.className='type-feedback-inline ok';
     playDing();
     const goNext=()=>{
+      _maybeInsertForceRepeat();
+      typeIsForceRepeat=false;
       choiceAnsweredKeys.add(w.w); saveProgress();
       const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
       if(allDone){showExerciseComplete();}
       else{
         const tot=deck.length;
         for(let i=1;i<=tot;i++){const ni=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){idx=ni;break;}}
+        // Check if next word is a force repeat
+        if(deck[idx]&&deck[idx]._forceRepeat){ delete deck[idx]._forceRepeat; typeIsForceRepeat=true; } else { typeIsForceRepeat=false; }
         renderType();
       }
     };
@@ -2653,16 +3067,32 @@ function renderType(){
       },300);
       celebrateButton(submitBtn);
       recordCorrect(w.w); renderWords();
+
+      // Personal best tracking (no hints used)
+      let pbNote='';
+      if(typeHintsGiven===0){
+        const elapsed=Date.now()-_typeWordStartMs;
+        const wp2=getP(w.w);
+        if(wp2.bestTypeMs===null||elapsed<wp2.bestTypeMs){
+          wp2.bestTypeMs=elapsed;
+          save();
+          pbNote=' ⚡ best';
+        }
+      }
+
       choiceAnsweredKeys.add(w.w); saveProgress(); updateNavState();
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')'  :'';
-      fbEl.textContent='✓ Correct!'+hintNote; fbEl.className='type-feedback-inline ok';
+      fbEl.textContent='✓ Correct!'+hintNote+pbNote; fbEl.className='type-feedback-inline ok';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
       const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
       const goNext=()=>{
+        _maybeInsertForceRepeat();
+        typeIsForceRepeat=false;
         if(allDone){showExerciseComplete();}
         else{
           const tot=deck.length;
           for(let i=1;i<=tot;i++){const ni=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){idx=ni;break;}}
+          if(deck[idx]&&deck[idx]._forceRepeat){ delete deck[idx]._forceRepeat; typeIsForceRepeat=true; } else { typeIsForceRepeat=false; }
           renderType();
         }
       };
@@ -2778,6 +3208,8 @@ function hideGamePanels(){
 }
 function nextCard(){
   if(!deck.length) return;
+  // If flash assess buttons are showing, don't navigate (user must tap Got it / Missed it)
+  if(exercise==='flash' && document.querySelector('.flash-assess-row')) return;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(exercise==='choice'){
     // Choice game uses its own carousel
@@ -2790,6 +3222,8 @@ function nextCard(){
 }
 function prevCard(){
   if(!deck.length) return;
+  // If flash assess buttons are showing, don't navigate (user must tap Got it / Missed it)
+  if(exercise==='flash' && document.querySelector('.flash-assess-row')) return;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(exercise==='choice'){
     choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1);
@@ -2924,7 +3358,10 @@ document.addEventListener('keydown',e=>{
   if(!exercise) return;
   if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); nextCard(); }
   if(e.key==='ArrowLeft'){ e.preventDefault(); prevCard(); }
-  if(e.key==='Enter'&&exercise==='flash') flipCard();
+  if(e.key==='Enter'&&exercise==='flash'){
+    // Only allow flip if retrieval pause is not in progress
+    if(!_flashRetrievalTimer) flipCard();
+  }
   if(e.key==='Escape') exitGame();
 });
 
