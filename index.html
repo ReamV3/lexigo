@@ -526,26 +526,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .choice-confusion-note{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);text-align:center;margin-top:8px;padding:6px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border);animation:mIn .2s ease both;width:100%;max-width:520px;}
 /* confusion popup */
 .confusion-popup{
-  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  z-index:350;
-  width:calc(100% - 32px);max-width:400px;
+  position:fixed;z-index:350;pointer-events:none;
+}
+.confusion-popup-card{
+  width:100%;height:100%;
   background:var(--card);border:1px solid var(--border);
-  border-radius:20px;
-  padding:24px 24px 18px;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-  box-shadow:0 8px 40px rgba(0,0,0,.45);
-  animation:ob2In .22s cubic-bezier(.34,1.3,.64,1) both;
+  border-radius:18px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 4px 32px rgba(0,0,0,.4);
+  pointer-events:auto;
+  animation:ob2In .2s cubic-bezier(.34,1.3,.64,1) both;
+  padding:20px;
+}
+.confusion-popup-wrong-row{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;
 }
 .confusion-popup-wrong-ru{
-  font-family:'Inter',sans-serif;font-size:1.05rem;font-weight:500;
-  color:var(--muted);text-align:center;line-height:1.3;
-  text-decoration:line-through;text-decoration-color:rgba(248,113,113,.5);
+  font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:500;
+  color:var(--red);opacity:.65;
 }
 .confusion-popup-wrong-en{
-  font-family:'Inter',sans-serif;font-size:1.55rem;font-weight:700;
-  color:var(--red);text-align:center;line-height:1.2;
-  text-decoration:line-through;text-decoration-color:rgba(248,113,113,.6);
-  opacity:.7;margin-bottom:8px;
+  font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:500;
+  color:var(--red);opacity:.65;
 }
 .confusion-popup-correct{
   font-family:'Inter',sans-serif;font-size:2rem;font-weight:700;
@@ -553,7 +556,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   letter-spacing:-.02em;
 }
 .confusion-popup-bar{
-  width:100%;height:2px;border-radius:2px;background:var(--border);margin-top:10px;overflow:hidden;
+  width:80%;height:2px;border-radius:2px;background:var(--border);margin-top:4px;overflow:hidden;
 }
 .confusion-popup-bar-fill{
   height:100%;background:var(--accent2);
@@ -2402,8 +2405,6 @@ function showChoiceButtons(wrap, w, ringStart){
         playWrong();
         if(_ph_cur) _ph_cur.wrong_answers++;
         choiceStreak=0;
-        setFB('✗ Next word!',false);
-
         // Track confusion
         const wrongTranslation=opt.t;
         const p=getP(w.w);
@@ -2441,25 +2442,46 @@ function showConfusionPopup(wrongTranslation, w, currentIsReexposure){
   popup.className='confusion-popup';
   popup.id='confusionPopup';
 
-  // Wrong Russian word (if found) — small, struck through
-  if(wrongRu){
-    const wrongRuEl=document.createElement('div');
-    wrongRuEl.className='confusion-popup-wrong-ru';
-    wrongRuEl.textContent=wrongRu;
-    popup.appendChild(wrongRuEl);
-  }
+  const card=document.createElement('div');
+  card.className='confusion-popup-card';
 
-  // Wrong English translation — bigger, struck through, red
-  const wrongEnEl=document.createElement('div');
+  // Wrong answer on one line: "Russian  ·  english" both struck through
+  const wrongRow=document.createElement('div');
+  wrongRow.className='confusion-popup-wrong-row';
+
+  // X icon (SVG)
+  const xIcon=document.createElement('span');
+  xIcon.style.cssText='display:inline-flex;align-items:center;flex-shrink:0;color:var(--red);opacity:.8;';
+  xIcon.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  wrongRow.appendChild(xIcon);
+
+  // English wrong translation
+  const wrongEnEl=document.createElement('span');
   wrongEnEl.className='confusion-popup-wrong-en';
   wrongEnEl.textContent=wrongTranslation;
-  popup.appendChild(wrongEnEl);
+  wrongRow.appendChild(wrongEnEl);
+
+  // dash
+  const dash=document.createElement('span');
+  dash.textContent='—';
+  dash.style.cssText='color:var(--red);opacity:.5;font-size:1rem;';
+  wrongRow.appendChild(dash);
+
+  // Foreign (Russian) wrong word
+  if(wrongRu){
+    const wrongRuEl=document.createElement('span');
+    wrongRuEl.className='confusion-popup-wrong-ru';
+    wrongRuEl.textContent=wrongRu;
+    wrongRow.appendChild(wrongRuEl);
+  }
+
+  card.appendChild(wrongRow);
 
   // Correct English answer — big, green
   const correctEl=document.createElement('div');
   correctEl.className='confusion-popup-correct';
   correctEl.textContent=w.t;
-  popup.appendChild(correctEl);
+  card.appendChild(correctEl);
 
   // Drain bar
   const bar=document.createElement('div');
@@ -2467,9 +2489,18 @@ function showConfusionPopup(wrongTranslation, w, currentIsReexposure){
   const fill=document.createElement('div');
   fill.className='confusion-popup-bar-fill';
   bar.appendChild(fill);
-  popup.appendChild(bar);
+  card.appendChild(bar);
 
+  popup.appendChild(card);
   document.body.appendChild(popup);
+
+  // Position popup exactly over the choices grid
+  const grid=document.querySelector('.choices-grid');
+  if(grid){
+    const r=grid.getBoundingClientRect();
+    popup.style.cssText=`position:fixed;z-index:350;pointer-events:none;`+
+      `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;`;
+  }
 
   // Re-queue the word for immediate retry
   const insertIdx=choiceCarouselIdx+1;
