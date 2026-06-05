@@ -853,7 +853,56 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .ec-star:nth-child(1){animation-delay:.1s;}
 .ec-star:nth-child(2){animation-delay:.22s;}
 .ec-star:nth-child(3){animation-delay:.34s;}
-@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}</style>
+@keyframes ecStarPop{from{transform:scale(0) rotate(-20deg);}to{transform:scale(1) rotate(0deg);}}
+
+/* ── Intake guard nudge ── */
+.intake-guard{
+  width:100%;max-width:520px;
+  background:rgba(232,184,109,.13);border:1px solid rgba(232,184,109,.35);
+  border-radius:12px;padding:9px 16px;margin-bottom:10px;
+  font-family:'DM Mono',monospace;font-size:.72rem;
+  color:var(--accent);letter-spacing:.04em;line-height:1.5;
+  display:none;
+}
+
+/* ── Warm-up badge on Match ── */
+.badge-warmup{background:rgba(148,163,184,.18);color:var(--muted);border-color:rgba(148,163,184,.25);}
+
+/* ── Sprint game ── */
+.sprint-wrap{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:12px;}
+.sprint-top{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;}
+.sprint-timer-ring{position:relative;width:88px;height:88px;flex-shrink:0;}
+.sprint-timer-ring svg{position:absolute;inset:0;transform:rotate(-90deg);}
+.sprint-timer-ring .str-track{stroke:var(--border);fill:none;stroke-width:5;}
+.sprint-timer-ring .str-fill{stroke:var(--accent);fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .3s;}
+.sprint-timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-size:1.55rem;font-weight:700;color:var(--text);}
+.sprint-score-line{font-family:'Inter',sans-serif;font-size:.85rem;color:var(--muted);letter-spacing:.02em;text-align:center;}
+.sprint-score-line strong{color:var(--accent);font-size:1.1rem;font-weight:700;}
+.sprint-word-el{font-family:'Inter',sans-serif;font-weight:700;font-size:clamp(2.4rem,9vw,4rem);text-align:center;color:var(--text);line-height:1.15;letter-spacing:-.02em;width:100%;}
+.sprint-result{text-align:center;padding:24px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.sprint-result-score{font-family:'Inter',sans-serif;font-size:3rem;font-weight:700;color:var(--accent);}
+.sprint-result-rate{font-family:'Inter',sans-serif;font-size:1rem;color:var(--muted);}
+.sprint-result-pb{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--green);margin-top:4px;}
+.sprint-result-btn{margin-top:18px;padding:14px 36px;border-radius:14px;border:none;background:var(--accent);color:#000;font-family:'Inter',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;}
+
+/* ── Cloze game (shares type-it CSS; these are add-ons) ── */
+.cloze-frame-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;text-align:center;}
+.cloze-sentence{font-family:'Inter',sans-serif;font-size:1.05rem;color:var(--muted);text-align:center;line-height:1.7;margin-top:4px;}
+.cloze-blank{display:inline-block;border-bottom:2px solid var(--accent);min-width:60px;height:1.1em;vertical-align:bottom;}
+
+/* ── Type game "Don't know" button ── */
+.type-dontknow{
+  background:transparent;border:1px solid var(--border);border-radius:10px;
+  font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);
+  padding:6px 14px;cursor:pointer;align-self:center;
+  transition:border-color .15s,color .15s;
+}
+.type-dontknow:hover,.type-dontknow:active{border-color:var(--red);color:var(--red);}
+
+/* ── Sprint/Cloze game-icon colors ── */
+.icon-sprint{background:rgba(232,184,109,.15);color:var(--accent);border:1px solid rgba(232,184,109,.3);}
+.icon-cloze{background:rgba(167,139,250,.15);color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
+</style>
 </head>
 <body>
 
@@ -888,15 +937,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 </div>
 <div class="game-list" style="gap:0;">
   <div class="game-card-row" style="margin-bottom:10px;">
-    <div class="game-card" id="gc-match">
-      <div class="game-icon icon-match">
-        <svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/><circle cx="18" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
-      </div>
-      <div><div class="game-name">Match</div><div class="game-desc" id="desc-match">Tap to connect pairs</div></div>
-      <div class="game-arrow">›</div>
-    </div>
-  </div>
-  <div class="game-card-row" style="margin-bottom:10px;">
     <div class="game-card" id="gc-choice">
       <div class="game-icon icon-choice">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/><polyline points="9 15 11 17 15 13"/></svg>
@@ -917,6 +957,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <button class="card-inline-toggle" id="typeDirToggle" onclick="toggleTypeDir(event)" title="Toggle direction"><span class="tog-hint">dir</span><span class="tog-val" id="typeDirLabel">→</span></button>
   </div>
   <div class="game-card-row" style="margin-bottom:10px;">
+    <div class="game-card" id="gc-sprint">
+      <div class="game-icon icon-sprint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/><path d="M16.5 3.5 A9 9 0 0 1 20.5 10"/></svg>
+      </div>
+      <div><div class="game-name">Throughput Sprint</div><div class="game-desc" id="desc-sprint">60 seconds — how many can you clear?</div></div>
+      <div class="game-arrow">›</div>
+    </div>
+  </div>
+  <div class="game-card-row" style="margin-bottom:10px;">
     <div class="game-card" id="gc-flash">
       <div class="game-icon icon-flash">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>
@@ -925,11 +974,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
       <div class="game-arrow">›</div>
     </div>
   </div>
+  <div class="game-card-row" style="margin-bottom:10px;display:none;">
+    <div class="game-card" id="gc-cloze">
+      <div class="game-icon icon-cloze">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="10" y2="12"/><rect x="12" y="9" width="9" height="6" rx="2"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+      <div><div class="game-name">Context Fill</div><div class="game-desc" id="desc-cloze">Type the word in a sentence</div></div>
+      <div class="game-arrow">›</div>
+    </div>
+  </div>
+  <div class="game-card-row" style="margin-bottom:10px;">
+    <div class="game-card" id="gc-match">
+      <div class="game-icon icon-match">
+        <svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/><circle cx="18" cy="17" r="2" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div><div class="game-name">Match<span class="game-setting-badge badge-warmup">warm-up</span></div><div class="game-desc" id="desc-match">Tap to connect pairs</div></div>
+      <div class="game-arrow">›</div>
+    </div>
+  </div>
 </div>
 
 <!-- hidden file input for import, kept at top level -->
 <input type="file" id="importFileInput" accept=".json" onchange="importBank(this)" style="display:none">
-<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.1.0</div>
+<div style="margin-top:20px;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--border);letter-spacing:.1em;">v3.2.0</div>
 
 <!-- ═══════════ GAME AREA ═══════════ -->
 <div id="gameArea">
@@ -974,6 +1041,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 
   <div id="typeWrap"></div>
+  <div id="sprintWrap" class="sprint-wrap" style="display:none;"></div>
 
   <div class="empty-state" id="emptyMsg" style="display:none">
     <strong>No words to practice</strong><br>
@@ -1335,6 +1403,50 @@ function toggleExclude(w){
 function isExcluded(w){ return !!getP(w).excluded; }
 function strikes(w){ return Math.min(getP(w).correct||0,5); }
 function mastered(w){ return (getP(w).correct||0)>=5; }
+
+// ── SRS Scheduler ──
+// Each word stores sched:{fwd:[a,b], rev:[a,b]}
+// fwd = word→translation, rev = translation→word
+// Fail   → [a+1, 1]
+// Recall success (Type/Cards/Cloze) → [a+b, 2*b]
+// Recog  success (Choice/Sprint)    → [a+floor(b/2), b]  (weaker advance)
+function _initSched(p){
+  if(!p.sched) p.sched={fwd:[1,1],rev:[1,1]};
+  if(!p.sched.fwd) p.sched.fwd=[1,1];
+  if(!p.sched.rev) p.sched.rev=[1,1];
+}
+function getSched(w, dir){
+  const p=getP(w); _initSched(p);
+  return p.sched[dir==='rev'?'rev':'fwd'];
+}
+function applySched(w, success, dir, isRecognition){
+  const p=getP(w); _initSched(p);
+  const key=dir==='rev'?'rev':'fwd';
+  let [a,b]=p.sched[key];
+  if(success){
+    if(isRecognition){ a=a+Math.max(1,Math.floor(b/2)); }
+    else { a=a+b; b=b*2; }
+  } else { a=a+1; b=1; }
+  p.sched[key]=[a,b];
+  save();
+}
+function schedDir(){ return (exercise==='type'||exercise==='cloze')&&typeDir==='en-ru'?'rev':'fwd'; }
+function sortBySchedule(pool){
+  const sd=schedDir();
+  return [...pool].sort((x,y)=>{
+    const [ax,bx]=getSched(x.w,sd);
+    const [ay,by]=getSched(y.w,sd);
+    if(ax!==ay) return ax-ay;
+    if(bx!==by) return bx-by;
+    return Math.random()-.5;
+  });
+}
+function checkIntakeGuard(){
+  const pool=(selected.has('all')?[...bank.words]:bank.words.filter(w=>selected.has(w.c))).filter(w=>!isExcluded(w.w));
+  const frontloaded=pool.filter(w=>{ const [,b]=getSched(w.w,'fwd'); return b===1; });
+  const g=document.getElementById('intakeGuard');
+  if(g) g.style.display=frontloaded.length>8?'block':'none';
+}
 function classProg(c){
   const ws=bank.words.filter(w=>w.c===c);
   if(!ws.length) return {pct:0,total:0};
@@ -1844,22 +1956,20 @@ let deckPool=[], deckUsed=new Set();
 function buildDeck(){
   let pool=selected.has('all')?[...bank.words]:bank.words.filter(w=>selected.has(w.c));
   pool=pool.filter(w=>!isExcluded(w.w));
-  // Reset exhaustion state when selection changes
   deckPool=pool;
   deckUsed=new Set();
-  deck=shuffle(pool); idx=0;
+  deck=sortBySchedule(pool);
+  idx=0;
 }
-// Get next card respecting exhaustion — advances idx cyclically but exhausts all before repeating
 function advanceDeck(dir){
   if(!deck.length) return;
   if(dir>0){
     idx++;
     if(idx>=deck.length){
-      // All shown — reshuffle but don't repeat last card first
-      const last=deck[deck.length-1];
-      deck=shuffle(deckPool.filter(w=>!isExcluded(w.w)));
-      // Avoid same first card as last card shown
-      if(deck.length>1 && deck[0].w===last.w){
+      // Re-sort by updated schedules when deck exhausted
+      deck=sortBySchedule(deckPool.filter(w=>!isExcluded(w.w)));
+      // Avoid repeating the same first card
+      if(deck.length>1 && deck[0].w===deckPool[0]?.w){
         const tmp=deck[0]; deck[0]=deck[1]; deck[1]=tmp;
       }
       idx=0;
@@ -1893,10 +2003,10 @@ function startGame(ex){
     }
   }
 
-  // Build infinite carousel for choice game — only unanswered words
+  // Build carousel for choice game — unanswered words, schedule-ordered
   if(ex==='choice'){
     const unanswered=deck.filter(w=>!isExcluded(w.w)&&!choiceAnsweredKeys.has(w.w));
-    choiceCarousel=shuffle(unanswered.length>0 ? unanswered : deck.filter(w=>!isExcluded(w.w)));
+    choiceCarousel=unanswered.length>0 ? unanswered : deck.filter(w=>!isExcluded(w.w));
     choiceCarouselIdx=0;
   }
 
@@ -1920,15 +2030,17 @@ function startGame(ex){
   }
   // Show reset button if there's saved progress
   updateResetBtn();
-  const names={match:'Match',choice:'Multiple Choice',flash:'Cards',type:'Type It'};
+  const names={match:'Match',choice:'Multiple Choice',flash:'Cards',type:'Type It',sprint:'Throughput Sprint',cloze:'Context Fill'};
   const icons={
     match:`<svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/><circle cx="18" cy="17" r="2" fill="currentColor" stroke="none"/></svg>`,
     choice:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3" stroke-linecap="round"/><polyline points="9 15 11 17 15 13"/></svg>`,
     flash:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>`,
-    type:`<svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`
+    type:`<svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    sprint:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`,
+    cloze:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="10" y2="12"/><rect x="12" y="9" width="9" height="6" rx="2"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`
   };
-  const iconColors={match:'#a78bfa',choice:'#5ec8ff',flash:'var(--accent)',type:'var(--green)'};
-  const iconBgs={match:'rgba(167,139,250,.15)',choice:'rgba(94,200,255,.15)',flash:'rgba(232,184,109,.15)',type:'rgba(110,231,183,.15)'};
+  const iconColors={match:'#a78bfa',choice:'#5ec8ff',flash:'var(--accent)',type:'var(--green)',sprint:'var(--accent)',cloze:'#a78bfa'};
+  const iconBgs={match:'rgba(167,139,250,.15)',choice:'rgba(94,200,255,.15)',flash:'rgba(232,184,109,.15)',type:'rgba(110,231,183,.15)',sprint:'rgba(232,184,109,.15)',cloze:'rgba(167,139,250,.15)'};
   const iconEl=document.getElementById('gTitleIcon');
   iconEl.innerHTML=icons[ex];
   iconEl.style.color=iconColors[ex];
@@ -1946,13 +2058,15 @@ function startGame(ex){
   flipped=false; choiceAnswered=false;
   document.getElementById('gameArea').classList.add('open');
   if(ex==='match'){ document.getElementById('navRow').style.display='none'; renderMatch(); }
-  else if(ex==='type'){ document.getElementById('navRow').style.display='none'; renderType(); }
+  else if(ex==='type'||ex==='cloze'){ document.getElementById('navRow').style.display='none'; ex==='cloze'?renderCloze():renderType(); }
+  else if(ex==='sprint'){ document.getElementById('navRow').style.display='none'; renderSprint(); }
   else {
     document.getElementById('navRow').style.display='flex';
     const staleAssess=document.querySelector('.flash-assess-row');
     if(staleAssess) staleAssess.remove();
     ex==='flash'?renderFlash():renderChoice();
   }
+  checkIntakeGuard();
 }
 function exitGame(skipSave){
   // Save current progress before exiting (for all game modes)
@@ -1970,6 +2084,7 @@ function exitGame(skipSave){
   exercise=null;
   if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
+  if(sprintCountdownTimer){ clearInterval(sprintCountdownTimer); sprintCountdownTimer=null; }
   if(typeVVListener){
     window.visualViewport?.removeEventListener('resize', typeVVListener);
     window.visualViewport?.removeEventListener('scroll', typeVVListener);
@@ -1984,6 +2099,7 @@ function exitGame(skipSave){
     tw.style.display='none'; tw.className=''; tw.innerHTML='';
   }
   ['cardWrap','choiceWrap','matchWrap'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  const sw=document.getElementById('sprintWrap'); if(sw){ sw.style.display='none'; sw.innerHTML=''; }
   const existingAssessExit=document.querySelector('.flash-assess-row');
   if(existingAssessExit) existingAssessExit.remove();
   const existingConfNote=document.getElementById('choiceConfusionNote');
@@ -2023,15 +2139,19 @@ function resetCurrentGame(){
   typeIsForceRepeat=false;
   buildDeck();
   if(exercise==='choice'){
-    choiceCarousel=shuffle(deck.filter(w=>!isExcluded(w.w)));
+    choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w)));
     choiceCarouselIdx=0;
     renderChoice();
   } else if(exercise==='type'){
     idx=0; renderType();
+  } else if(exercise==='cloze'){
+    idx=0; renderCloze();
   } else if(exercise==='flash'){
     idx=0; renderFlash();
   } else if(exercise==='match'){
     mcSolved=0; renderMatch();
+  } else if(exercise==='sprint'){
+    renderSprint();
   }
   updateResetBtn();
   showToast('↺ Progress reset');
@@ -2178,6 +2298,7 @@ function showFlashAssessButtons(){
   const w=deck[idx];
 
   const handleGot=()=>{
+    applySched(w.w, true, 'fwd', false);
     recordCorrect(w.w); renderWords();
     choiceAnsweredKeys.add(w.w);
     saveProgress();
@@ -2191,7 +2312,7 @@ function showFlashAssessButtons(){
     }
   };
   const handleMissed=()=>{
-    // Step back progress
+    applySched(w.w, false, 'fwd', false);
     const p=getP(w.w);
     p.correct=Math.max(0,(p.correct||0)-1);
     save();
@@ -2379,6 +2500,7 @@ function showChoiceButtons(wrap, w, ringStart){
         if(_ph_cur) _ph_cur.correct_answers++;
         btn.classList.add('correct');
         celebrateButton(btn);
+        applySched(w.w, true, 'fwd', true);
         recordCorrect(w.w); renderWords();
         choiceAnsweredKeys.add(w.w);
         choiceIsReexposure=false;
@@ -2405,6 +2527,7 @@ function showChoiceButtons(wrap, w, ringStart){
         playWrong();
         if(_ph_cur) _ph_cur.wrong_answers++;
         choiceStreak=0;
+        applySched(w.w, false, 'fwd', true);
         // Track confusion
         const wrongTranslation=opt.t;
         const p=getP(w.w);
@@ -2773,6 +2896,7 @@ function matchClick(){} // legacy stub
 function renderType(){
   hideGamePanels();
   typeHintsGiven=0;
+  let _typeHadWrong=false;
   document.getElementById('feedback').textContent='';
 
   // Add class to gameArea for overflow handling
@@ -2794,9 +2918,9 @@ function renderType(){
   // Record start time for personal best
   _typeWordStartMs=Date.now();
 
-  // Check context mode
+  // Check context mode — always on for cloze, unlocks at correct>=3 for type
   const wp=getP(w.w);
-  const inContextMode=(wp.correct||0)>=3;
+  const inContextMode=exercise==='cloze'||(wp.correct||0)>=3;
   if(inContextMode && (wp.contextFrame===null||wp.contextFrame===undefined)){
     wp.contextFrame=Math.floor(Math.random()*15);
     save();
@@ -3085,23 +3209,29 @@ function renderType(){
   const doSubmit=()=>{
     const val=inputEl.value.trim();
     if(!val) return;
-    const correct=val.toLowerCase()===answer.toLowerCase();
+    // Accept any synonym (split on ; or /)
+    const canonicalAnswer=answer;
+    const acceptedAnswers=answer.split(/[;\/]/).map(s=>s.trim()).filter(Boolean);
+    const correct=acceptedAnswers.some(a=>val.toLowerCase()===a.toLowerCase());
     if(correct){
       inputEl.classList.add('correct');
       dotsRow.querySelectorAll('.type-dot:not(.space)').forEach(d=>{d.classList.remove('revealed');d.classList.add('user');});
       setTimeout(()=>{
         dotsRow.innerHTML='';
         const ansEl=document.createElement('div');
-        ansEl.textContent=answer;
+        ansEl.textContent=canonicalAnswer;
         ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--accent);text-align:center;';
         dotsRow.appendChild(ansEl);
       },300);
       celebrateButton(submitBtn);
+      // SRS: full recall if clean, recognition-level if hints/wrong attempts used
+      const isClean=typeHintsGiven===0&&!_typeHadWrong;
+      applySched(w.w, true, schedDir(), !isClean);
       recordCorrect(w.w); renderWords();
 
       // Personal best tracking (no hints used)
       let pbNote='';
-      if(typeHintsGiven===0){
+      if(typeHintsGiven===0&&!_typeHadWrong){
         const elapsed=Date.now()-_typeWordStartMs;
         const wp2=getP(w.w);
         if(wp2.bestTypeMs===null||elapsed<wp2.bestTypeMs){
@@ -3115,6 +3245,8 @@ function renderType(){
       const hintNote=typeHintsGiven>0?' ('+typeHintsGiven+' hint'+(typeHintsGiven>1?'s':'')+')'  :'';
       fbEl.textContent='✓ Correct!'+hintNote+pbNote; fbEl.className='type-feedback-inline ok';
       inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
+      const dontKnowBtn=bottomBar.querySelector('.type-dontknow');
+      if(dontKnowBtn) dontKnowBtn.style.display='none';
       const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
       const goNext=()=>{
         _maybeInsertForceRepeat();
@@ -3124,16 +3256,51 @@ function renderType(){
           const tot=deck.length;
           for(let i=1;i<=tot;i++){const ni=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[ni].w)&&!isExcluded(deck[ni].w)){idx=ni;break;}}
           if(deck[idx]&&deck[idx]._forceRepeat){ delete deck[idx]._forceRepeat; typeIsForceRepeat=true; } else { typeIsForceRepeat=false; }
-          renderType();
+          exercise==='cloze'?renderCloze():renderType();
         }
       };
       const nb=showNextBtn(goNext); nb.textContent=allDone?'finish 🎉':'next →';
     } else {
+      _typeHadWrong=true;
       inputEl.classList.add('wrong'); trigShake(inputEl); playWrong();
       fbEl.textContent='✗ Try again'; fbEl.className='type-feedback-inline no';
       setTimeout(()=>{ inputEl.classList.remove('wrong'); fbEl.className='type-feedback-inline'; inputEl.select(); },700);
     }
   };
+
+  // ── Don't know button ──
+  const dontKnowBtn=document.createElement('button');
+  dontKnowBtn.className='type-dontknow';
+  dontKnowBtn.type='button';
+  dontKnowBtn.textContent="Don't know";
+  dontKnowBtn.setAttribute('tabindex','-1');
+  dontKnowBtn.addEventListener('mousedown',(e)=>e.preventDefault());
+  const doDontKnow=()=>{
+    if(inputEl.disabled) return;
+    applySched(w.w, false, schedDir(), false);
+    // Show the answer briefly then move on
+    inputEl.disabled=true; submitBtn.disabled=true; hintBtn.disabled=true;
+    dontKnowBtn.style.display='none';
+    dotsRow.innerHTML='';
+    const ansEl=document.createElement('div');
+    ansEl.textContent=answer;
+    ansEl.style.cssText='font-family:Inter,sans-serif;font-size:1.4rem;font-weight:700;color:var(--red);text-align:center;';
+    dotsRow.appendChild(ansEl);
+    fbEl.textContent='Answer: '+answer; fbEl.className='type-feedback-inline no';
+    const goNext=()=>{
+      typeIsForceRepeat=false;
+      // Don't add to answeredKeys — word should reappear this session
+      const tot=deck.length;
+      let ni=-1;
+      for(let i=1;i<=tot;i++){const n=(idx+i)%tot;if(!choiceAnsweredKeys.has(deck[n].w)&&!isExcluded(deck[n].w)){ni=n;break;}}
+      if(ni>=0){idx=ni; exercise==='cloze'?renderCloze():renderType();}
+      else showExerciseComplete();
+    };
+    const nb=showNextBtn(goNext); nb.textContent='next →';
+  };
+  dontKnowBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doDontKnow();},{passive:false});
+  dontKnowBtn.addEventListener('click',doDontKnow);
+  bottomBar.appendChild(dontKnowBtn);
 
   submitBtn.addEventListener('touchstart',(e)=>{e.preventDefault();doSubmit();},{passive:false});
   submitBtn.addEventListener('click',doSubmit);
@@ -3145,6 +3312,164 @@ function renderType(){
   requestAnimationFrame(()=>inputEl.focus());
 }
 
+
+// ── CLOZE game — Type It with forced context frame ──
+function renderCloze(){
+  // Force assign a context frame for every word, then delegate to renderType
+  // renderType checks exercise==='cloze' to always show context
+  const pool=selected.has('all')?[...bank.words]:bank.words.filter(w=>selected.has(w.c));
+  const active=pool.filter(w=>!isExcluded(w.w));
+  active.forEach(w=>{
+    const wp=getP(w.w);
+    if(wp.contextFrame===null||wp.contextFrame===undefined){
+      wp.contextFrame=Math.floor(Math.random()*CONTEXT_FRAMES.length);
+    }
+  });
+  save();
+  renderType(); // renderType already handles cloze mode via exercise==='cloze' check
+}
+
+// ── THROUGHPUT SPRINT game ──
+let sprintCountdownTimer=null;
+const LS_SPRINT_BEST='vt2_sprint_best';
+function renderSprint(){
+  hideGamePanels();
+  if(deck.length===0){ document.getElementById('emptyMsg').style.display='block'; return; }
+
+  const wrap=document.getElementById('sprintWrap');
+  wrap.style.display='flex';
+  wrap.innerHTML='';
+
+  let sprintSecondsLeft=60;
+  let sprintCardsCleared=0;
+  const SPRINT_TOTAL=60;
+  const R=38, CX=44, CY=44, SZ=88;
+  const circum=Math.PI*2*R;
+
+  // ── Top section: ring + score, all centered ──
+  const top=document.createElement('div');
+  top.className='sprint-top';
+
+  const ringWrap=document.createElement('div');
+  ringWrap.className='sprint-timer-ring';
+  ringWrap.innerHTML=`<svg width="${SZ}" height="${SZ}" viewBox="0 0 ${SZ} ${SZ}">
+    <circle class="str-track" cx="${CX}" cy="${CY}" r="${R}"/>
+    <circle class="str-fill" id="sprintRingFill" cx="${CX}" cy="${CY}" r="${R}"
+      stroke-dasharray="${circum.toFixed(2)}" stroke-dashoffset="0"/>
+  </svg><div class="sprint-timer-num" id="sprintTimerNum">60</div>`;
+
+  const scoreLine=document.createElement('div');
+  scoreLine.className='sprint-score-line';
+  scoreLine.innerHTML='<strong id="sprintCleared">0</strong> cleared';
+
+  top.appendChild(ringWrap);
+  top.appendChild(scoreLine);
+  wrap.appendChild(top);
+
+  // ── Word ──
+  const wordEl=document.createElement('div');
+  wordEl.className='choice-word-big';
+  wrap.appendChild(wordEl);
+
+  // ── Choices grid ──
+  const grid=document.createElement('div');
+  grid.className='choices-grid';
+  wrap.appendChild(grid);
+
+  let sprintIdx=0;
+  let sprintDeck=[...deck.filter(w=>!isExcluded(w.w))];
+  if(sprintDeck.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
+
+  function showSprintCard(){
+    if(sprintCountdownTimer===null) return; // ended
+    if(sprintIdx>=sprintDeck.length){
+      sprintDeck=sortBySchedule(deckPool.filter(w=>!isExcluded(w.w)));
+      sprintIdx=0;
+    }
+    const w=sprintDeck[sprintIdx];
+    wordEl.textContent=w.w;
+    grid.innerHTML='';
+    const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
+    const otherClass=bank.words.filter(x=>x.w!==w.w&&x.c!==w.c);
+    let distractors=shuffle(sameClass).slice(0,3);
+    if(distractors.length<3) distractors=distractors.concat(shuffle(otherClass).slice(0,3-distractors.length));
+    shuffle([w,...distractors]).forEach(opt=>{
+      const btn=document.createElement('button');
+      btn.className='c-btn'; btn.textContent=opt.t;
+      btn.setAttribute('tabindex','-1');
+      let handled=false;
+      const handler=()=>{
+        if(sprintCountdownTimer===null) return;
+        const ok=opt.w===w.w;
+        if(ok){
+          btn.classList.add('correct');
+          celebrateButton(btn);
+          applySched(w.w, true, 'fwd', true);
+          recordCorrect(w.w);
+          sprintCardsCleared++;
+          if(_ph_cur) _ph_cur.cards_cleared=((_ph_cur.cards_cleared||0)+1);
+          document.getElementById('sprintCleared').textContent=sprintCardsCleared;
+        } else {
+          btn.classList.add('wrong');
+          applySched(w.w, false, 'fwd', true);
+          trigShake(btn);
+          playWrong();
+        }
+        sprintIdx++;
+        setTimeout(showSprintCard, ok?200:450);
+      };
+      btn.addEventListener('touchstart',(e)=>{e.preventDefault();handled=true;handler();},{passive:false});
+      btn.addEventListener('click',()=>{if(handled){handled=false;return;}handler();});
+      grid.appendChild(btn);
+    });
+  }
+
+  function endSprint(){
+    if(sprintCountdownTimer){ clearInterval(sprintCountdownTimer); sprintCountdownTimer=null; }
+    const perMin=(sprintCardsCleared/1).toFixed(0); // 60s = 1 min
+    const selKey=selected.has('all')?'all':[...selected].sort().join(',');
+    const bestKey=LS_SPRINT_BEST+'_'+selKey;
+    const prevBest=parseInt(localStorage.getItem(bestKey)||'0');
+    const isNewBest=sprintCardsCleared>prevBest;
+    if(isNewBest) localStorage.setItem(bestKey,String(sprintCardsCleared));
+
+    wrap.innerHTML='';
+    const res=document.createElement('div');
+    res.className='sprint-result';
+    const trophy=document.createElement('div'); trophy.style.fontSize='3rem'; trophy.textContent='⚡';
+    const sc=document.createElement('div'); sc.className='sprint-result-score'; sc.textContent=sprintCardsCleared;
+    const rate=document.createElement('div'); rate.className='sprint-result-rate'; rate.textContent='cards cleared in 60 seconds';
+    const pb=document.createElement('div'); pb.className='sprint-result-pb';
+    if(isNewBest&&sprintCardsCleared>0) pb.textContent='🏆 New personal best!';
+    else if(prevBest>0) pb.textContent='Best: '+prevBest;
+    const again=document.createElement('button'); again.className='sprint-result-btn'; again.textContent='Sprint Again';
+    again.addEventListener('touchstart',(e)=>{e.preventDefault();renderSprint();},{passive:false});
+    again.addEventListener('click',renderSprint);
+    res.appendChild(trophy); res.appendChild(sc); res.appendChild(rate);
+    if(pb.textContent) res.appendChild(pb);
+    res.appendChild(again);
+    wrap.innerHTML=''; wrap.appendChild(res);
+  }
+
+  // ── Countdown ──
+  const ringFill=document.getElementById('sprintRingFill');
+  if(ringFill) ringFill.style.strokeDashoffset='0';
+  sprintCountdownTimer=setInterval(()=>{
+    sprintSecondsLeft--;
+    const numEl=document.getElementById('sprintTimerNum');
+    if(numEl) numEl.textContent=sprintSecondsLeft;
+    const fill=document.getElementById('sprintRingFill');
+    if(fill){
+      const offset=circum*(1-sprintSecondsLeft/SPRINT_TOTAL);
+      fill.style.strokeDashoffset=String(offset.toFixed(2));
+      if(sprintSecondsLeft<=10) fill.style.stroke='var(--red)';
+    }
+    if(sprintSecondsLeft<=0){ endSprint(); }
+  },1000);
+
+  showSprintCard();
+  setGameProgress(0,0);
+}
 
 // ── Toggles ──
 function toggleSpeed(e){
@@ -3198,10 +3523,14 @@ function updateGameDescs(){
   const choiceDesc=document.getElementById('desc-choice');
   const typeDesc=document.getElementById('desc-type');
   const flashDesc=document.getElementById('desc-flash');
+  const sprintDesc=document.getElementById('desc-sprint');
+  const clozeDesc=document.getElementById('desc-cloze');
   if(matchDesc) matchDesc.textContent='Tap to connect pairs'+(loadProgress('match')?' · resume':'');
   if(choiceDesc) choiceDesc.textContent='Pick the right translation'+(loadProgress('choice')?' · resume':'');
   if(typeDesc) typeDesc.textContent='Type the answer from memory'+(loadProgress('type')?' · resume':'');
   if(flashDesc) flashDesc.textContent='Tap to flip — self-paced review'+(loadProgress('flash')?' · resume':'');
+  if(sprintDesc) sprintDesc.textContent='60 seconds — how many can you clear?';
+  if(clozeDesc) clozeDesc.textContent='Type the word in a sentence'+(loadProgress('cloze')?' · resume':'');
   // Update badges
   const choiceBadge=document.getElementById('choice-setting-badge');
   if(choiceBadge) choiceBadge.textContent=choiceSpeedSecs===0?'∞':(choiceSpeedSecs+'s');
@@ -3236,6 +3565,8 @@ function hideGamePanels(){
   ['cardWrap','choiceWrap','matchWrap','emptyMsg'].forEach(id=>document.getElementById(id).style.display='none');
   const tw=document.getElementById('typeWrap');
   if(tw){ tw.style.display='none'; tw.className=''; }
+  const sw=document.getElementById('sprintWrap');
+  if(sw){ sw.style.display='none'; sw.innerHTML=''; }
 }
 function nextCard(){
   if(!deck.length) return;
@@ -3399,7 +3730,7 @@ document.addEventListener('keydown',e=>{
 function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
 
 // ── Boot ──
-load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); updateThemeBtn(); updateSoundBtn();
+load(); loadSpeed(); loadTypeDir(); updateClassPill(); buildDeck(); checkIntakeGuard(); updateThemeBtn(); updateSoundBtn();
 // Reveal body now that state is loaded — prevents flash of main screen before onboarding
 document.body.style.opacity='1';
 updateGameDescs();
@@ -3583,20 +3914,31 @@ ob3Btn.addEventListener('click',()=>{
 // ── safeTap: highlight stays while finger held, action on touchend inside element ──
 function safeTap(el, onAction, onDown, onUp){
   let active=false;
+  let startX=0, startY=0;
   el.addEventListener('touchstart',(e)=>{
-    e.preventDefault();
+    // passive — do NOT preventDefault here so native scroll is never blocked
     active=true;
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
     if(onDown) onDown(el);
     else el.classList.add('mcard-touch-active');
-  },{passive:false});
+  },{passive:true});
+  el.addEventListener('touchmove',(e)=>{
+    if(!active) return;
+    // If finger moved more than 8px it's a scroll — cancel the tap immediately
+    if(Math.abs(e.touches[0].clientX-startX)>8||Math.abs(e.touches[0].clientY-startY)>8){
+      active=false;
+      if(onUp) onUp(el);
+      else el.classList.remove('mcard-touch-active');
+    }
+  },{passive:true});
   el.addEventListener('touchend',(e)=>{
-    e.preventDefault();
     if(!active) return;
     active=false;
-    // Remove highlight first
     if(onUp) onUp(el);
     else el.classList.remove('mcard-touch-active');
-    // Fire action only if finger released inside element
+    // Prevent ghost click only when we're handling the tap ourselves
+    e.preventDefault();
     const t=e.changedTouches[0];
     const r=el.getBoundingClientRect();
     const inside=t.clientX>=r.left-20&&t.clientX<=r.right+20&&t.clientY>=r.top-20&&t.clientY<=r.bottom+20;
@@ -3631,7 +3973,7 @@ if(classPillEl){
   );
 });
 // Game cards — highlight persists while held, clears on release
-[['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type']].forEach(([id,ex])=>{
+[['gc-match','match'],['gc-choice','choice'],['gc-flash','flash'],['gc-type','type'],['gc-sprint','sprint'],['gc-cloze','cloze']].forEach(([id,ex])=>{
   const card=document.getElementById(id);
   if(!card) return;
   safeTap(card,
@@ -3783,7 +4125,9 @@ function _ph_updateSessionLog() {
       _ph_games.match.time_played_seconds +
       _ph_games.multiple_choice.time_played_seconds +
       _ph_games.type_it.time_played_seconds +
-      _ph_games.cards.time_played_seconds;
+      _ph_games.cards.time_played_seconds +
+      _ph_games.throughput_sprint.time_played_seconds +
+      _ph_games.cloze.time_played_seconds;
     cur.total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
     localStorage.setItem(_PH_SESSION_LOG_KEY, JSON.stringify(log));
   } catch(e) {}
@@ -3806,17 +4150,19 @@ let _ph_classes_deleted = 0;
 
 // ── Per-game accumulators ──
 const _ph_games = {
-  match:           { time_played_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,  sessions:{} },
-  multiple_choice: { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,  sessions:{} },
-  type_it:         { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,  full_hint_words_used:0, sessions:{} },
-  cards:           { time_played_seconds:0, times_played:0, cards_flipped:0,                     sessions:{} },
+  match:              { time_played_seconds:0, times_played:0, correct_matches:0, wrong_matches:0,   sessions:{} },
+  multiple_choice:    { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
+  type_it:            { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   full_hint_words_used:0, sessions:{} },
+  cards:              { time_played_seconds:0, times_played:0, cards_flipped:0,                      sessions:{} },
+  throughput_sprint:  { time_played_seconds:0, times_played:0, cards_cleared:0,                      sessions:{} },
+  cloze:              { time_played_seconds:0, times_played:0, correct_answers:0, wrong_answers:0,   sessions:{} },
 };
 
 // ── Active game session cursor ──
 let _ph_cur = null;
 
 function _ph_gameKey(ex) {
-  return { match:'match', choice:'multiple_choice', type:'type_it', flash:'cards' }[ex] || ex;
+  return { match:'match', choice:'multiple_choice', type:'type_it', flash:'cards', sprint:'throughput_sprint', cloze:'cloze' }[ex] || ex;
 }
 
 // ── Start a game session — stamp time BEFORE any game logic runs ──
@@ -3824,13 +4170,14 @@ function _ph_gameStart(ex) {
   _ph_gameEnd(); // close any previously open session first
   _ph_cur = {
     key:                  _ph_gameKey(ex),
-    startMs:              Date.now(), // stamped immediately
+    startMs:              Date.now(),
     correct_matches:      0,
     wrong_matches:        0,
     correct_answers:      0,
     wrong_answers:        0,
     full_hint_words_used: 0,
     cards_flipped:        0,
+    cards_cleared:        0,
     ended:                false,
   };
 }
@@ -3875,6 +4222,14 @@ function _ph_gameEnd() {
   } else if (g.key === 'cards') {
     sessData.cards_flipped = g.cards_flipped;
     acc.cards_flipped     += g.cards_flipped;
+  } else if (g.key === 'throughput_sprint') {
+    sessData.cards_cleared = g.cards_cleared || 0;
+    acc.cards_cleared     += g.cards_cleared || 0;
+  } else if (g.key === 'cloze') {
+    sessData.correct_answers = g.correct_answers;
+    sessData.wrong_answers   = g.wrong_answers;
+    acc.correct_answers     += g.correct_answers;
+    acc.wrong_answers       += g.wrong_answers;
   }
 
   acc.sessions[`Session ${sessNum}`] = sessData;
@@ -3886,7 +4241,9 @@ function _ph_buildPayload() {
     _ph_games.match.time_played_seconds +
     _ph_games.multiple_choice.time_played_seconds +
     _ph_games.type_it.time_played_seconds +
-    _ph_games.cards.time_played_seconds;
+    _ph_games.cards.time_played_seconds +
+    _ph_games.throughput_sprint.time_played_seconds +
+    _ph_games.cloze.time_played_seconds;
 
   const total_app_usage_seconds = Math.round((Date.now() - _ph_startMs) / 1000);
 
@@ -3927,19 +4284,38 @@ function _ph_buildPayload() {
       sessions:            m.sessions,
     };
   }
+  if (_ph_games.throughput_sprint.times_played > 0) {
+    const m = _ph_games.throughput_sprint;
+    games['Game 5: Throughput Sprint'] = {
+      time_played_seconds: m.time_played_seconds,
+      cards_cleared:       m.cards_cleared,
+      sessions:            m.sessions,
+    };
+  }
+  if (_ph_games.cloze.times_played > 0) {
+    const m = _ph_games.cloze;
+    games['Game 6: Context Fill'] = {
+      time_played_seconds: m.time_played_seconds,
+      correct_answers:     m.correct_answers,
+      wrong_answers:       m.wrong_answers,
+      sessions:            m.sessions,
+    };
+  }
 
   const final_state = {
     // ── Words ──
-    total_words:                           bank.words.length,
-    total_words_added_this_session:        _ph_words_added - _ph_words_deleted,
+    total_words:                              bank.words.length,
+    total_words_added_this_session:           _ph_words_added - _ph_words_deleted,
     // ── Classes ──
-    total_classes:                         bank.classes.length,
-    total_classes_added_this_session:      _ph_classes_added - _ph_classes_deleted,
+    total_classes:                            bank.classes.length,
+    total_classes_added_this_session:         _ph_classes_added - _ph_classes_deleted,
     // ── Usage ──
-    'Game 1: Match seconds':              _ph_games.match.time_played_seconds,
-    'Game 2: Multiple Choice seconds':    _ph_games.multiple_choice.time_played_seconds,
-    'Game 3: Type It seconds':            _ph_games.type_it.time_played_seconds,
-    'Game 4: Cards seconds':              _ph_games.cards.time_played_seconds,
+    'Game 1: Match seconds':                 _ph_games.match.time_played_seconds,
+    'Game 2: Multiple Choice seconds':       _ph_games.multiple_choice.time_played_seconds,
+    'Game 3: Type It seconds':               _ph_games.type_it.time_played_seconds,
+    'Game 4: Cards seconds':                 _ph_games.cards.time_played_seconds,
+    'Game 5: Throughput Sprint seconds':     _ph_games.throughput_sprint.time_played_seconds,
+    'Game 6: Context Fill seconds':          _ph_games.cloze.time_played_seconds,
   };
 
   // ── app_session_usage: collapsed array with app_use_count + per-session history ──
@@ -4150,6 +4526,31 @@ renderType = function() {
       _ph_cur.wrong_answers++;
       _hintUsedThisWord = false;
       setTimeout(() => { _wrongCountedThisAttempt = false; }, 800);
+    }
+  });
+  obs.observe(inputEl, { attributes: true, attributeFilter: ['class'] });
+};
+
+// ── Cloze: same MutationObserver approach as Type It ──
+const _ph_orig_renderCloze = renderCloze;
+renderCloze = function() {
+  _ph_orig_renderCloze();
+  const wrap = document.getElementById('typeWrap');
+  if (!wrap) return;
+  const inputEl = wrap.querySelector('.type-input');
+  if (!inputEl) return;
+
+  let _clozeWrongCounted = false;
+  const obs = new MutationObserver(() => {
+    if (!_ph_cur) { obs.disconnect(); return; }
+    const cl = inputEl.className;
+    if (cl.includes('correct')) {
+      _ph_cur.correct_answers++;
+      obs.disconnect();
+    } else if (cl.includes('wrong') && !_clozeWrongCounted) {
+      _clozeWrongCounted = true;
+      _ph_cur.wrong_answers++;
+      setTimeout(() => { _clozeWrongCounted = false; }, 800);
     }
   });
   obs.observe(inputEl, { attributes: true, attributeFilter: ['class'] });
