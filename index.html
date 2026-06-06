@@ -36,7 +36,7 @@ a:focus,a:active,a:focus-visible{
 }
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;
   display:flex;flex-direction:column;align-items:center;padding:28px 16px 60px;transition:background .3s,color .3s;
-  opacity:0;}
+  overflow-x:hidden;opacity:0;}
 
 /* TOP BAR */
 .top-bar{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;}
@@ -944,13 +944,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* ── Multiple Choice Card Game ── */
 #choiceWrap{flex-direction:column;align-items:center;}
-.mc-card-scene{width:min(calc(100vw - 40px),380px);display:flex;flex-direction:column;align-items:center;}
+.mc-card-scene{width:min(calc(100vw - 40px),380px);display:flex;flex-direction:column;align-items:center;position:relative;}
+#gameArea.choice-active .feedback,
+#gameArea.choice-active .prog-bar{display:none;}
+/* Wrapper that receives all flip/move transforms; overflows so the ring SVG shows outside */
+.mc-card-unit{position:relative;width:100%;overflow:visible;transform-origin:center center;will-change:transform,opacity;}
 .mc-card{
   width:100%;aspect-ratio:3/4;
   background:var(--card);border:1px solid var(--border);border-radius:24px;
   box-shadow:0 4px 20px rgba(0,0,0,.16),0 1px 4px rgba(0,0,0,.08);
   position:relative;overflow:hidden;
-  transform-origin:center center;will-change:transform,opacity;
   user-select:none;-webkit-user-select:none;
 }
 .mc-card.mc-tappable{cursor:pointer;}
@@ -2255,6 +2258,7 @@ function startGame(ex){
     document.getElementById('navRow').style.display= ex==='flash'?'flex':'none';
     const staleAssess=document.querySelector('.flash-assess-row');
     if(staleAssess) staleAssess.remove();
+    if(ex==='choice') document.getElementById('gameArea').classList.add('choice-active');
     ex==='flash'?renderFlash():renderChoice();
   }
   checkIntakeGuard();
@@ -2266,7 +2270,7 @@ function exitGame(skipSave){
   updateGameDescs();
   const resetBtn=document.getElementById('gReset');
   if(resetBtn) resetBtn.classList.remove('visible');
-  document.getElementById('gameArea').classList.remove('open','type-active');
+  document.getElementById('gameArea').classList.remove('open','type-active','choice-active');
   // Restore header visibility in case it was hidden by keyboard
   const gh=document.querySelector('#gameArea .g-header');
   const pb=document.querySelector('#gameArea .prog-bar');
@@ -2533,23 +2537,37 @@ function showFlashAssessButtons(){
 
 // ── MC card flip animation helper ──
 // transform-origin is set via CSS (.mc-card { transform-origin: center 78% })
-function mcFlipCard(cardEl, onMidpoint, durationMs){
+function mcFlipCard(cardEl, onMidpoint, durationMs, noFade){
   durationMs = durationMs || 380;
   cardEl.style.transformOrigin = 'center center';
-  cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.55,.05,.67,.19),opacity ${Math.round(durationMs*.8)}ms ease`;
-  cardEl.style.transform  = 'perspective(600px) rotateY(-90deg)';
-  cardEl.style.opacity    = '0';
-  setTimeout(()=>{
-    onMidpoint();
-    cardEl.style.transition = 'none';
-    cardEl.style.transform  = 'perspective(600px) rotateY(90deg)';
+  if(noFade){
+    cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.55,.05,.67,.19)`;
+    cardEl.style.transform  = 'perspective(600px) rotateY(-90deg)';
+    setTimeout(()=>{
+      onMidpoint();
+      cardEl.style.transition = 'none';
+      cardEl.style.transform  = 'perspective(600px) rotateY(90deg)';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.25,.46,.45,.94)`;
+        cardEl.style.transform  = 'perspective(600px) rotateY(0deg)';
+      }));
+    }, durationMs);
+  } else {
+    cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.55,.05,.67,.19),opacity ${Math.round(durationMs*.8)}ms ease`;
+    cardEl.style.transform  = 'perspective(600px) rotateY(-90deg)';
     cardEl.style.opacity    = '0';
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.25,.46,.45,.94),opacity ${Math.round(durationMs*.7)}ms ease`;
-      cardEl.style.transform  = 'perspective(600px) rotateY(0deg)';
-      cardEl.style.opacity    = '1';
-    }));
-  }, durationMs);
+    setTimeout(()=>{
+      onMidpoint();
+      cardEl.style.transition = 'none';
+      cardEl.style.transform  = 'perspective(600px) rotateY(90deg)';
+      cardEl.style.opacity    = '0';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.25,.46,.45,.94),opacity ${Math.round(durationMs*.7)}ms ease`;
+        cardEl.style.transform  = 'perspective(600px) rotateY(0deg)';
+        cardEl.style.opacity    = '1';
+      }));
+    }, durationMs);
+  }
 }
 
 // ── Build correction view DOM ──
@@ -2579,102 +2597,64 @@ function _mcBuildCorrection(card, wrongOptText, wrongOptWord, correctText){
   card.appendChild(tapHint);
 }
 
-let _mcEnterFromLeft = false; // controls tinder direction
-let _mcNoEnterAnim  = false; // skip slide-in animation (re-show same card after wrong)
+// Persistent card state — built once, reused across questions
+let _mcCardUnit=null,_mcCard=null,_mcScene=null,_mcWordLabel=null,_mcCountEl=null;
+let _mcRingEl=null,_mcBadgeEl=null;
+// Transition state — shared by _mcWheelNext, revealChoices, onCorrTap
+let _mcBusy=false;          // true while any card animation is in-flight
+let _mcPendingNav=null;     // last queued nav intent while busy {loadFn,dir,correct}
+let _mcAnswerTimer=null;    // correct/wrong auto-advance timeout (2000ms / 900ms)
+let _mcAfterFlipTimer=null; // ring+timer setup delay (afterFlipMs)
+let _mcLoadGen=0;           // incremented each _loadMCQuestion; stale closures bail on mismatch
 
-function renderChoice(){
-  hideGamePanels();
-  if(choiceCountdownTimer){ clearTimeout(choiceCountdownTimer); clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
-  document.getElementById('feedback').textContent='';
+// Fires the last queued nav if one was stored while _mcBusy was true.
+function _mcFirePending(){
+  if(!_mcPendingNav) return;
+  const p=_mcPendingNav; _mcPendingNav=null;
+  _mcWheelNext(p.loadFn, p.dir, p.correct);
+}
 
+// Loads question content into the persistent card. afterFlipMs delays ring creation
+// so the ring appears only after the flip-in animation has finished.
+function _loadMCQuestion(afterFlipMs){
+  const card=_mcCard, cardUnit=_mcCardUnit, wordLabel=_mcWordLabel, countEl=_mcCountEl;
+  if(!card) return;
+  if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;}
+  if(_mcAfterFlipTimer){clearTimeout(_mcAfterFlipTimer);_mcAfterFlipTimer=null;}
+  _mcLoadGen++; const myGen=_mcLoadGen;
   if(!choiceCarousel.length){ choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w))); choiceCarouselIdx=0; choiceIsReexposure=false; }
-  if(!choiceCarousel.length){ document.getElementById('emptyMsg').style.display='block'; return; }
   if(choiceCarouselIdx>=choiceCarousel.length){ choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w))); choiceCarouselIdx=0; }
-
-  const w = choiceCarousel[choiceCarouselIdx];
-  const prompt = typeDir==='ru-en' ? w.w : w.t;
-  const correctAnswer = typeDir==='ru-en' ? w.t : w.w;
-  const isReexposure = choiceIsReexposure;
-  choiceIsReexposure = false;
-  const fromLeft  = _mcEnterFromLeft;
-  _mcEnterFromLeft = false;
-  const noEnterAnim = _mcNoEnterAnim;
-  _mcNoEnterAnim = false;
-  const totalActive = deck.filter(wd=>!isExcluded(wd.w)).length;
-
-  const wrap = document.getElementById('choiceWrap');
-  wrap.innerHTML = ''; wrap.style.display='flex';
-  setGameProgress(choiceAnsweredKeys.size, totalActive);
-
-  // Word label above card (shows "✓ Correct!" after answer)
-  const wordLabel = document.createElement('div');
-  wordLabel.className = 'mc-word-label';
-  wrap.appendChild(wordLabel);
-
-  // Card
-  const scene = document.createElement('div');
-  scene.className = 'mc-card-scene';
-  const enterClass = noEnterAnim ? '' : (fromLeft ? 'mc-entering-back' : 'mc-entering');
-  const card = document.createElement('div');
-  card.className = 'mc-card ' + enterClass + (choiceSpeedSecs===0 ? ' mc-tappable' : '');
-  card.id = 'mcMainCard';
-  card.addEventListener('animationend', ()=>{ card.classList.remove('mc-entering','mc-entering-back'); }, {once:true});
-
-  // Front face: just the word centered
-  const front = document.createElement('div');
-  front.className = 'mc-card-front';
+  const w=choiceCarousel[choiceCarouselIdx];
+  const prompt=typeDir==='ru-en'?w.w:w.t;
+  const correctAnswer=typeDir==='ru-en'?w.t:w.w;
+  const isReexposure=choiceIsReexposure;
+  choiceIsReexposure=false;
+  const totalActive=deck.filter(wd=>!isExcluded(wd.w)).length;
+  if(_mcRingEl){_mcRingEl.remove();_mcRingEl=null;}
+  if(_mcBadgeEl){_mcBadgeEl.remove();_mcBadgeEl=null;}
+  card.style.cssText='';
+  card.innerHTML='';
+  card.className='mc-card'+(choiceSpeedSecs===0?' mc-tappable':'');
+  const front=document.createElement('div');
+  front.className='mc-card-front';
   if(isReexposure){
     const badge=document.createElement('div');
-    badge.className='mc-reexpo-badge';
-    badge.textContent="Let's try again!";
+    badge.className='mc-reexpo-badge'; badge.textContent="Let's try again!";
     front.appendChild(badge);
   }
-  const wordEl = document.createElement('div');
-  wordEl.className = 'mc-word-inside';
-  wordEl.textContent = prompt;
+  const wordEl=document.createElement('div');
+  wordEl.className='mc-word-inside'; wordEl.textContent=prompt;
   front.appendChild(wordEl);
   if(choiceSpeedSecs===0){
     const hint=document.createElement('div');
-    hint.className='mc-tap-hint';
-    hint.textContent='tap to reveal';
+    hint.className='mc-tap-hint'; hint.textContent='tap to reveal';
     front.appendChild(hint);
   }
   card.appendChild(front);
-  scene.appendChild(card);
-  wrap.appendChild(scene);
-
-  // Nav: prev | count | next
-  const nav = document.createElement('div');
-  nav.className = 'mc-nav';
-
-  const prevBtn = document.createElement('button');
-  prevBtn.className='mc-nav-btn'; prevBtn.setAttribute('tabindex','-1');
-  prevBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
-
-  const countEl = document.createElement('div');
-  countEl.className = 'mc-nav-count';
-  countEl.textContent = choiceAnsweredKeys.size + ' / ' + totalActive;
-
-  const nextBtn = document.createElement('button');
-  nextBtn.className='mc-nav-btn'; nextBtn.setAttribute('tabindex','-1');
-  nextBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
-
-  const clearTimer=()=>{ if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;} };
-  const slideLeft=(cb)=>{ clearTimer(); card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease'; card.style.transform='translateX(-145%) rotate(-14deg) scale(.88)'; card.style.opacity='0'; setTimeout(cb,300); };
-  const slideRight=(cb)=>{ clearTimer(); card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease'; card.style.transform='translateX(145%) rotate(14deg) scale(.88)'; card.style.opacity='0'; setTimeout(cb,300); };
-
-  // Right arrow: card swings right (clockwise wheel), new card enters from left
-  // Left arrow:  card swings left (counter-clockwise), new card enters from right
-  const doNavPrev=()=>slideLeft(()=>{ choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1); renderChoice(); });
-  const doNavNext=()=>slideRight(()=>{ _mcEnterFromLeft=true; choiceCarouselIdx++; renderChoice(); });
-  prevBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavPrev();},{passive:false}); prevBtn.addEventListener('click',doNavPrev);
-  nextBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavNext();},{passive:false}); nextBtn.addEventListener('click',doNavNext);
-
-  nav.appendChild(prevBtn); nav.appendChild(countEl); nav.appendChild(nextBtn);
-  wrap.appendChild(nav);
+  if(wordLabel){ wordLabel.textContent=''; wordLabel.classList.remove('mc-wl-visible'); }
+  if(countEl) countEl.textContent=choiceAnsweredKeys.size+' / '+totalActive;
+  setGameProgress(choiceAnsweredKeys.size,totalActive);
   updateResetBtn();
-
-  // Distractor builder
   function buildOptions(){
     const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
     const otherClass=bank.words.filter(x=>x.w!==w.w&&x.c!==w.c);
@@ -2682,49 +2662,43 @@ function renderChoice(){
     if(dist.length<3) dist=dist.concat(shuffle(otherClass).slice(0,3-dist.length));
     return shuffle([w,...dist.slice(0,3)]);
   }
-
-  // Border ring timer that traces the card frame (point 1)
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  function createRingEl(){
+    if(!card.querySelector('.mc-card-front')) return;
     const cW=card.offsetWidth||320, cH=card.offsetHeight||427;
-    const rx=20, sw=3, pad=sw/2;
-    const rW=cW-pad*2, rH=cH-pad*2;
+    const sw=6, expand=sw;
+    const svgW=cW+2*expand, svgH=cH+2*expand;
+    const rx=24, pad=expand, rW=cW, rH=cH;
     const perim=+(2*(rW-2*rx)+2*(rH-2*rx)+2*Math.PI*rx).toFixed(2);
     const ns='http://www.w3.org/2000/svg';
     const rsvg=document.createElementNS(ns,'svg');
-    rsvg.setAttribute('width',cW); rsvg.setAttribute('height',cH);
-    rsvg.setAttribute('viewBox','0 0 '+cW+' '+cH);
-    rsvg.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3;overflow:visible;';
-    const mk=(stroke,dash)=>{
-      const r=document.createElementNS(ns,'rect');
-      r.setAttribute('x',pad); r.setAttribute('y',pad);
-      r.setAttribute('width',rW); r.setAttribute('height',rH);
-      r.setAttribute('rx',rx); r.setAttribute('ry',rx);
-      r.setAttribute('fill','none'); r.setAttribute('stroke',stroke);
-      r.setAttribute('stroke-width',sw); r.setAttribute('stroke-linecap','round');
-      if(dash){ r.setAttribute('stroke-dasharray',String(perim)); r.setAttribute('stroke-dashoffset','0'); }
-      return r;
-    };
-    // For reexposure: <path> that starts at center-top so the drain begins under the notch
-    const mkCenterTop=(stroke,dash)=>{
-      const cx=pad+rW/2;
-      const d=[
-        `M ${cx},${pad}`,
-        `h ${rW/2-rx}`,`a ${rx},${rx} 0 0 1 ${rx},${rx}`,
-        `v ${rH-2*rx}`,`a ${rx},${rx} 0 0 1 ${-rx},${rx}`,
-        `h ${-(rW-2*rx)}`,`a ${rx},${rx} 0 0 1 ${-rx},${-rx}`,
-        `v ${-(rH-2*rx)}`,`a ${rx},${rx} 0 0 1 ${rx},${-rx}`,
-        `h ${rW/2-rx}`,'Z'
-      ].join(' ');
-      const p=document.createElementNS(ns,'path');
-      p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke',stroke);
-      p.setAttribute('stroke-width',sw); p.setAttribute('stroke-linecap','round');
-      if(dash){ p.setAttribute('stroke-dasharray',String(perim)); p.setAttribute('stroke-dashoffset','0'); }
-      return p;
-    };
-    rsvg.appendChild(mk('rgba(255,255,255,0.05)',false));
-    const fillR=(isReexposure ? mkCenterTop : mk)(isReexposure ? 'var(--accent)' : 'var(--accent2)',true);
+    rsvg.setAttribute('width',svgW); rsvg.setAttribute('height',svgH);
+    rsvg.setAttribute('viewBox','0 0 '+svgW+' '+svgH);
+    // Positioned relative to cardUnit: top/left offset so ring surrounds the card
+    rsvg.style.cssText=`position:absolute;top:${-expand}px;left:${-expand}px;width:${svgW}px;height:${svgH}px;pointer-events:none;overflow:visible;`;
+    const cx=pad+rW/2;
+    const d=[`M ${cx},${pad}`,`h ${rW/2-rx}`,`a ${rx},${rx} 0 0 1 ${rx},${rx}`,`v ${rH-2*rx}`,`a ${rx},${rx} 0 0 1 ${-rx},${rx}`,`h ${-(rW-2*rx)}`,`a ${rx},${rx} 0 0 1 ${-rx},${-rx}`,`v ${-(rH-2*rx)}`,`a ${rx},${rx} 0 0 1 ${rx},${-rx}`,`h ${rW/2-rx}`,'Z'].join(' ');
+    const fillR=document.createElementNS(ns,'path');
+    fillR.setAttribute('d',d); fillR.setAttribute('fill','none');
+    fillR.setAttribute('stroke',isReexposure?'var(--accent)':'var(--accent2)');
+    fillR.setAttribute('stroke-width',String(sw)); fillR.setAttribute('stroke-linecap','round');
+    fillR.setAttribute('stroke-dasharray',String(perim)); fillR.setAttribute('stroke-dashoffset','0');
     rsvg.appendChild(fillR);
-    card.appendChild(rsvg);
+    // Insert before card inside cardUnit — card's opaque background covers the inner half of the stroke
+    cardUnit.insertBefore(rsvg, card);
+    _mcRingEl=rsvg;
+    if(isReexposure){
+      const badge=card.querySelector('.mc-reexpo-badge');
+      if(badge){
+        badge.remove();
+        badge.style.position='absolute';
+        badge.style.top=(-Math.round(sw/2))+'px';
+        badge.style.left=Math.round(cW/2)+'px';
+        badge.style.transform='translateX(-50%)';
+        badge.style.zIndex='10';
+        cardUnit.appendChild(badge);
+        _mcBadgeEl=badge;
+      }
+    }
     if(choiceSpeedSecs>0){
       fillR.style.transition='none';
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -2732,13 +2706,15 @@ function renderChoice(){
         fillR.setAttribute('stroke-dashoffset',String(perim));
       }));
     }
-  }));
-
-  // Reveal choices via side flip
+  }
   function revealChoices(){
-    clearTimer();
+    if(myGen!==_mcLoadGen||_mcBusy) return; // stale gen = nav happened; busy = mid-transition
+    _mcBusy=true;
+    if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;}
+    if(_mcRingEl){_mcRingEl.remove();_mcRingEl=null;}
+    if(_mcBadgeEl){_mcBadgeEl.remove();_mcBadgeEl=null;}
     const options=buildOptions();
-    mcFlipCard(card,()=>{
+    mcFlipCard(cardUnit,()=>{
       card.innerHTML='';
       const grid=document.createElement('div'); grid.className='mc-choices';
       let answered=false;
@@ -2747,25 +2723,125 @@ function renderChoice(){
         const btn=document.createElement('button');
         btn.className='mc-choice-btn'; btn.textContent=optText; btn.setAttribute('tabindex','-1');
         let tapped=false;
-        const onTap=()=>{
-          if(answered) return; answered=true;
-          handleMcAnswer(card,btn,opt,w,correctAnswer,prompt,wordLabel,countEl,totalActive,isReexposure);
-        };
+        const onTap=()=>{ if(answered||myGen!==_mcLoadGen) return; answered=true; handleMcAnswer(card,btn,opt,w,correctAnswer,prompt,wordLabel,countEl,totalActive,isReexposure); };
         btn.addEventListener('touchstart',e=>{e.preventDefault();tapped=true;onTap();},{passive:false});
         btn.addEventListener('click',()=>{if(tapped){tapped=false;return;}onTap();});
         grid.appendChild(btn);
       });
       card.appendChild(grid);
-    });
+    },undefined,true);
+    // Free the lock after fold+unfold; fire any pending nav queued during the flip
+    setTimeout(()=>{ _mcBusy=false; _mcFirePending(); }, 380*2+30);
   }
+  // Delay ring + timer/tap until after the enter animation settles
+  _mcAfterFlipTimer=setTimeout(()=>{
+    _mcAfterFlipTimer=null;
+    if(myGen!==_mcLoadGen) return; // word changed before timer fired — discard
+    requestAnimationFrame(()=>requestAnimationFrame(createRingEl));
+    if(choiceSpeedSecs===0){
+      let tapReady=true;
+      card.addEventListener('touchstart',e=>{if(!tapReady)return;e.preventDefault();tapReady=false;revealChoices();},{passive:false,once:true});
+      card.addEventListener('click',()=>{if(tapReady){tapReady=false;revealChoices();}},{once:true});
+    } else {
+      choiceCountdownTimer=setTimeout(revealChoices, choiceSpeedSecs*1000);
+    }
+  }, afterFlipMs||0);
+}
 
-  if(choiceSpeedSecs===0){
-    let tapReady=true;
-    card.addEventListener('touchstart',e=>{if(!tapReady)return;e.preventDefault();tapReady=false;revealChoices();},{passive:false,once:true});
-    card.addEventListener('click',()=>{if(tapReady){tapReady=false;revealChoices();}},{once:true});
-  } else {
-    choiceCountdownTimer=setTimeout(revealChoices, choiceSpeedSecs*1000);
-  }
+// Watch-dial / mechanical number-wheel transition.
+// Pure 2D arc: translateX + translateY + rotate only — no perspective depth, no rotateX/Y.
+// Geometry from a large flat wheel (radius ~2.5x cardHeight at ~28deg off-center):
+//   translateX  ~ 120% of card width   (sideways travel; card partially visible at edge)
+//   translateY  ~  22% of card height  (gentle dip — flat arc, not aggressive plunge)
+//   rotate      ~  28deg               (card tilts to match arc tangent)
+// Exit goes to THIS side; enter rises from the OPPOSITE side — true wheel rotation.
+// correct=true applies spring easing so the card settles with a satisfying click.
+function _mcWheelNext(loadCb, dir, correct){
+  const cardUnit=_mcCardUnit, scene=_mcScene;
+  if(!cardUnit||!scene){ loadCb(0); return; }
+  // Busy guard: queue the latest intent; earlier queued inputs are discarded
+  if(_mcBusy){ _mcPendingNav={loadFn:loadCb,dir,correct}; return; }
+  _mcBusy=true;
+  // Cancel any pending auto-advance — this navigation supersedes it
+  if(_mcAnswerTimer){clearTimeout(_mcAnswerTimer);_mcAnswerTimer=null;}
+  // Remove stale ghosts from any previously interrupted transition
+  scene.querySelectorAll('.mc-wheel-ghost').forEach(g=>g.remove());
+  // Hard-reset any leftover transform from mcFlipCard or an interrupted wheel animation
+  cardUnit.style.transition='none'; cardUnit.style.transform=''; cardUnit.style.opacity='1';
+  const dur=correct?440:400;
+  const s=dir==='left'?-1:1;
+  const exitTx =`translateX(${s*120}%) translateY(22%) rotate(${s*28}deg) scale(.84)`;
+  const enterTx=`translateX(${-s*120}%) translateY(22%) rotate(${-s*28}deg) scale(.84)`;
+  const restTx ='translateX(0%) translateY(0%) rotate(0deg) scale(1)';
+  const enterEase=correct?'cubic-bezier(.12,1.25,.35,1)':'cubic-bezier(.08,.82,.28,1)';
+  const ghost=cardUnit.cloneNode(true);
+  ghost.removeAttribute('id');
+  ghost.classList.add('mc-wheel-ghost'); // class used to purge stale ghosts on next call
+  ghost.style.position='absolute'; ghost.style.top='0'; ghost.style.left='0';
+  ghost.style.width='100%'; ghost.style.pointerEvents='none'; ghost.style.zIndex='5';
+  ghost.style.transform=''; ghost.style.opacity='1'; ghost.style.transition='';
+  scene.appendChild(ghost);
+  // Exit: eases out fast then decelerates down the arc; longer fade = more visible during motion
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.65)}ms ease`;
+    ghost.style.transform=exitTx;
+    ghost.style.opacity='0';
+  }));
+  // Load new content; ring/timer deferred until enter animation settles
+  loadCb(dur+120);
+  // Enter: rise from opposite arc position into center
+  cardUnit.style.transition='none';
+  cardUnit.style.transform=enterTx;
+  cardUnit.style.opacity='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    cardUnit.style.transition=`transform ${dur}ms ${enterEase},opacity ${Math.round(dur*.65)}ms ease`;
+    cardUnit.style.transform=restTx;
+    cardUnit.style.opacity='1';
+  }));
+  setTimeout(()=>{
+    ghost.remove();
+    cardUnit.style.transition=''; cardUnit.style.transform=''; cardUnit.style.opacity='';
+    _mcBusy=false; _mcFirePending(); // release lock and fire any queued nav
+  }, dur+80);
+}
+
+function renderChoice(){
+  hideGamePanels();
+  if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;}
+  document.getElementById('feedback').textContent='';
+  if(!choiceCarousel.length){ choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w))); choiceCarouselIdx=0; choiceIsReexposure=false; }
+  if(!choiceCarousel.length){ document.getElementById('emptyMsg').style.display='block'; return; }
+  const wrap=document.getElementById('choiceWrap');
+  wrap.style.display='flex';
+  // Reuse persistent card if already in DOM
+  if(_mcCard && wrap.contains(_mcCard)){ _loadMCQuestion(); return; }
+  // First call: build persistent DOM frame
+  wrap.innerHTML='';
+  const totalActive=deck.filter(wd=>!isExcluded(wd.w)).length;
+  setGameProgress(choiceAnsweredKeys.size,totalActive);
+  const wordLabel=document.createElement('div');
+  wordLabel.className='mc-word-label'; wrap.appendChild(wordLabel); _mcWordLabel=wordLabel;
+  const scene=document.createElement('div'); scene.className='mc-card-scene'; _mcScene=scene;
+  const cardUnit=document.createElement('div'); cardUnit.className='mc-card-unit'; _mcCardUnit=cardUnit;
+  const card=document.createElement('div'); card.id='mcMainCard'; _mcCard=card;
+  cardUnit.appendChild(card); scene.appendChild(cardUnit); wrap.appendChild(scene);
+  const nav=document.createElement('div'); nav.className='mc-nav';
+  const prevBtn=document.createElement('button');
+  prevBtn.className='mc-nav-btn'; prevBtn.setAttribute('tabindex','-1');
+  prevBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
+  const countEl=document.createElement('div'); countEl.className='mc-nav-count'; _mcCountEl=countEl;
+  const nextBtn=document.createElement('button');
+  nextBtn.className='mc-nav-btn'; nextBtn.setAttribute('tabindex','-1');
+  nextBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  const clrTimer=()=>{if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;}};
+  const clrAnswerTimer=()=>{if(_mcAnswerTimer){clearTimeout(_mcAnswerTimer);_mcAnswerTimer=null;}};
+  const doNavPrev=()=>{ clrTimer(); clrAnswerTimer(); _mcWheelNext(ms=>{ choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1); _loadMCQuestion(ms); },'left'); };
+  const doNavNext=()=>{ clrTimer(); clrAnswerTimer(); _mcWheelNext(ms=>{ choiceCarouselIdx++; _loadMCQuestion(ms); },'right'); };
+  prevBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavPrev();},{passive:false}); prevBtn.addEventListener('click',doNavPrev);
+  nextBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavNext();},{passive:false}); nextBtn.addEventListener('click',doNavNext);
+  nav.appendChild(prevBtn); nav.appendChild(countEl); nav.appendChild(nextBtn);
+  wrap.appendChild(nav); updateResetBtn();
+  _loadMCQuestion();
 }
 
 function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabel, countEl, totalActive, isReexposure){
@@ -2778,7 +2854,9 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
     if(_ph_cur) _ph_cur.correct_answers++;
     tappedBtn.classList.add('mc-correct');
     screenFlash('var(--green)','weak');
-    playDing();
+    // Only play ding when no streak sound will also fire (avoids double sound)
+    const _sl=(choiceStreak===3)?1:(choiceStreak===5)?2:(choiceStreak>=10&&choiceStreak%5===0)?3:0;
+    if(!_sl) playDing();
     floatUpText('+1', tappedBtn, 'var(--green)');
     applySched(w.w, true, 'fwd', true);
     recordCorrect(w.w); renderWords();
@@ -2808,13 +2886,12 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
       cc.appendChild(wEl); cc.appendChild(tEl); card.appendChild(cc);
     }, 300);
 
-    // Slide left → next card
+    // Flip to next question on the same card
     const allDone=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
-    setTimeout(()=>{
+    _mcAnswerTimer=setTimeout(()=>{
+      _mcAnswerTimer=null;
       if(allDone){ showExerciseComplete(); return; }
-      card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease';
-      card.style.transform='translateX(-145%) rotate(-10deg) scale(.88)'; card.style.opacity='0';
-      setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 300);
+      _mcWheelNext(ms=>{ choiceCarouselIdx++; _loadMCQuestion(ms); },'right',true);
     }, 2000);
 
   } else {
@@ -2836,12 +2913,11 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
       setGameProgress(newAnswered2, totalActive);
       if(countEl) countEl.textContent=newAnswered2+' / '+totalActive;
       saveProgress();
-      setTimeout(()=>{
+      _mcAnswerTimer=setTimeout(()=>{
+        _mcAnswerTimer=null;
         const allDone2=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
         if(allDone2){ showExerciseComplete(); return; }
-        card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease';
-        card.style.transform='translateX(-145%) rotate(-10deg) scale(.88)'; card.style.opacity='0';
-        setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 300);
+        _mcWheelNext(ms=>{ choiceCarouselIdx++; _loadMCQuestion(ms); },'right');
       }, 900);
     } else {
       choiceIsReexposure=true;
@@ -2857,15 +2933,11 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
 
         let tapDone=false;
         const onCorrTap=()=>{
-          if(tapDone) return; tapDone=true;
-          card.style.cursor='default';
-          // Fold to edge (90°) — text is invisible at that angle, no mirrored-text artefact
-          card.style.transformOrigin='center center';
-          card.style.transition='transform 280ms cubic-bezier(.4,0,.2,1),opacity 200ms ease';
-          card.style.transform='perspective(600px) rotateY(-90deg)';
-          card.style.opacity='0';
-          _mcNoEnterAnim=true;
-          setTimeout(()=>{ renderChoice(); }, 280);
+          if(tapDone||_mcBusy) return; tapDone=true;
+          _mcBusy=true;
+          mcFlipCard(_mcCardUnit,()=>{ _loadMCQuestion(280); },280,true);
+          // 280ms fold + 280ms unfold + 60ms margin; then release lock and fire any queued nav
+          setTimeout(()=>{ _mcBusy=false; _mcFirePending(); }, 280*2+60);
         };
         card.addEventListener('touchstart',e=>{e.preventDefault();onCorrTap();},{passive:false,once:true});
         card.addEventListener('click',onCorrTap,{once:true});
@@ -3090,17 +3162,17 @@ function renderMatchBoard(){
 }
 
 function attachMCardHandlers(el, side, key){
-  let touchActive=false;
+  let touchActive=false, touchGuard=false;
   el.addEventListener('touchstart',(e)=>{
     e.preventDefault(); touchActive=true;
     el.classList.add('mcard-touch-active');
   },{passive:false});
   el.addEventListener('touchend',(e)=>{
     e.preventDefault(); el.classList.remove('mcard-touch-active');
-    if(touchActive){ touchActive=false; onMCardTap(el,side,key); }
+    if(touchActive){ touchActive=false; touchGuard=true; onMCardTap(el,side,key); }
   },{passive:false});
   el.addEventListener('touchcancel',()=>{ touchActive=false; el.classList.remove('mcard-touch-active'); },{passive:true});
-  el.addEventListener('click',()=>onMCardTap(el,side,key));
+  el.addEventListener('click',()=>{ if(touchGuard){touchGuard=false;return;} onMCardTap(el,side,key); });
 }
 
 function onMCardTap(el,side,key){
