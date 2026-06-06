@@ -941,6 +941,156 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* ── Sprint score bounce ── */
 @keyframes scoreBounce{0%{transform:scale(1);}35%{transform:scale(1.5);}70%{transform:scale(.92);}100%{transform:scale(1);}}
 .score-bounce{animation:scoreBounce .38s cubic-bezier(.34,1.56,.64,1);}
+
+/* ── Multiple Choice Card Game ── */
+#choiceWrap{flex-direction:column;align-items:center;}
+.mc-card-scene{width:min(calc(100vw - 40px),380px);display:flex;flex-direction:column;align-items:center;}
+.mc-card{
+  width:100%;aspect-ratio:3/4;
+  background:var(--card);border:1px solid var(--border);border-radius:24px;
+  box-shadow:0 4px 20px rgba(0,0,0,.16),0 1px 4px rgba(0,0,0,.08);
+  position:relative;overflow:hidden;
+  transform-origin:center center;will-change:transform,opacity;
+  user-select:none;-webkit-user-select:none;
+}
+.mc-card.mc-tappable{cursor:pointer;}
+/* Card front: just the word, centered */
+.mc-card-front{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;
+}
+.mc-word-inside{
+  font-family:'Inter',sans-serif;font-weight:700;
+  font-size:clamp(1.5rem,6.5vw,2.4rem);color:var(--text);
+  text-align:center;line-height:1.25;
+}
+.mc-tap-hint{
+  position:absolute;bottom:20px;left:0;right:0;
+  font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);
+  letter-spacing:.12em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:5px;pointer-events:none;
+}
+.mc-reexposure-dot{
+  position:absolute;top:16px;right:16px;
+  width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.75;
+}
+/* 2×2 choices — fill entire card */
+.mc-choices{
+  position:absolute;inset:0;
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+  gap:10px;padding:14px;
+}
+.mc-choice-btn{
+  background:var(--surface);border:1.5px solid var(--border);border-radius:16px;
+  width:100%;height:100%;
+  font-family:'Inter',sans-serif;font-size:clamp(.8rem,3vw,.95rem);font-weight:600;
+  color:var(--text);cursor:pointer;text-align:center;line-height:1.3;
+  display:flex;align-items:center;justify-content:center;padding:8px;
+  transition:background .12s,border-color .12s,transform .1s;
+}
+.mc-choice-btn:active{transform:scale(.95);}
+.mc-choice-btn.mc-correct{background:rgba(110,231,183,.2);border-color:var(--green);color:var(--green);}
+.mc-choice-btn.mc-wrong{background:rgba(248,113,113,.14);border-color:var(--red);color:var(--red);}
+/* Correct answer centered on card */
+.mc-correct-center{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:24px;
+}
+.mc-correct-word{
+  font-family:'Inter',sans-serif;font-weight:700;
+  font-size:clamp(2rem,8vw,3rem);color:var(--green);
+  text-align:center;line-height:1.15;
+  animation:mcFadeUp .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+.mc-correct-trans{
+  font-family:'Inter',sans-serif;font-weight:600;
+  font-size:clamp(1.3rem,5vw,1.75rem);color:var(--green);
+  text-align:center;line-height:1.3;opacity:.75;
+  animation:mcFadeUp .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+.mc-correct-big{
+  font-family:'Inter',sans-serif;font-weight:700;
+  font-size:clamp(2rem,7.5vw,2.8rem);color:var(--green);
+  text-align:center;line-height:1.2;padding:20px;
+  animation:mcFadeUp .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes mcFadeUp{
+  from{transform:translateY(10px);opacity:0;}
+  to  {transform:translateY(0);   opacity:1;}
+}
+/* Correction view */
+.mc-correction{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:22px 18px;
+  animation:mcFadeUp .38s cubic-bezier(.25,.46,.45,.94) both;
+}
+.mc-corr-block{
+  width:100%;border-radius:16px;padding:13px 15px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.mc-corr-block.mc-wrong-block{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.22);}
+.mc-corr-block.mc-right-block{background:rgba(110,231,183,.08);border:1px solid rgba(110,231,183,.22);}
+.mc-corr-lbl{
+  font-family:'DM Mono',monospace;font-size:.57rem;letter-spacing:.12em;text-transform:uppercase;
+}
+.mc-corr-block.mc-wrong-block .mc-corr-lbl{color:var(--red);}
+.mc-corr-block.mc-right-block  .mc-corr-lbl{color:var(--green);}
+.mc-corr-pair{font-family:'Inter',sans-serif;font-size:.92rem;font-weight:600;color:var(--text);text-align:center;line-height:1.4;}
+.mc-corr-answer{font-family:'Inter',sans-serif;font-size:1.35rem;font-weight:700;color:var(--green);text-align:center;}
+.mc-corr-tap{
+  position:absolute;bottom:16px;left:0;right:0;
+  font-family:'DM Mono',monospace;font-size:.57rem;color:var(--muted);
+  letter-spacing:.12em;text-transform:uppercase;text-align:center;pointer-events:none;
+}
+/* Re-exposure center-top notch */
+.mc-reexpo-badge{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  background:var(--accent);color:#0e0e12;
+  font-family:'DM Mono',monospace;font-size:.65rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:7px 20px 7px;
+  border-radius:0 0 14px 14px;
+  pointer-events:none;z-index:4;white-space:nowrap;
+}
+/* Word label above card */
+.mc-word-label{
+  font-family:'DM Mono',monospace;font-size:.68rem;
+  color:var(--muted);letter-spacing:.08em;text-transform:uppercase;
+  text-align:center;margin-bottom:8px;min-height:16px;
+  opacity:0;transition:opacity .3s ease;
+}
+.mc-word-label.mc-wl-visible{opacity:1;}
+/* Nav below card */
+.mc-nav{display:flex;align-items:center;gap:20px;margin-top:14px;}
+.mc-nav-btn{
+  width:50px;height:50px;border-radius:50%;
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.mc-nav-btn:active{transform:scale(.92);}
+/* Spinning-wheel arc animations — entrance mirrors exit exactly */
+@keyframes mcSpinInRight{
+  from{transform:translateX(145%) rotate(14deg) scale(.88);opacity:0;}
+  to  {transform:translateX(0)    rotate(0deg)  scale(1);  opacity:1;}
+}
+@keyframes mcSpinInLeft{
+  from{transform:translateX(-145%) rotate(-14deg) scale(.88);opacity:0;}
+  to  {transform:translateX(0)     rotate(0deg)   scale(1);  opacity:1;}
+}
+.mc-card.mc-entering     {animation:mcSpinInRight .35s cubic-bezier(.25,.46,.45,.94) both;}
+.mc-card.mc-entering-back{animation:mcSpinInLeft  .35s cubic-bezier(.25,.46,.45,.94) both;}
+/* Word count between nav arrows */
+.mc-nav-count{
+  font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);
+  letter-spacing:.06em;min-width:56px;text-align:center;
+}
+/* choiceWrap fills available height and centers the card */
+#choiceWrap{flex:1;width:100%;max-width:520px;justify-content:center;}
 </style>
 </head>
 <body>
@@ -2101,7 +2251,8 @@ function startGame(ex){
   else if(ex==='type'||ex==='cloze'){ document.getElementById('navRow').style.display='none'; ex==='cloze'?renderCloze():renderType(); }
   else if(ex==='sprint'){ document.getElementById('navRow').style.display='none'; renderSprint(); }
   else {
-    document.getElementById('navRow').style.display='flex';
+    // flash uses global navRow; choice has its own nav below the card
+    document.getElementById('navRow').style.display= ex==='flash'?'flex':'none';
     const staleAssess=document.querySelector('.flash-assess-row');
     if(staleAssess) staleAssess.remove();
     ex==='flash'?renderFlash():renderChoice();
@@ -2380,221 +2531,351 @@ function showFlashAssessButtons(){
 
 // CHOICE — with mandatory countdown
 
+// ── MC card flip animation helper ──
+// transform-origin is set via CSS (.mc-card { transform-origin: center 78% })
+function mcFlipCard(cardEl, onMidpoint, durationMs){
+  durationMs = durationMs || 380;
+  cardEl.style.transformOrigin = 'center center';
+  cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.55,.05,.67,.19),opacity ${Math.round(durationMs*.8)}ms ease`;
+  cardEl.style.transform  = 'perspective(600px) rotateY(-90deg)';
+  cardEl.style.opacity    = '0';
+  setTimeout(()=>{
+    onMidpoint();
+    cardEl.style.transition = 'none';
+    cardEl.style.transform  = 'perspective(600px) rotateY(90deg)';
+    cardEl.style.opacity    = '0';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      cardEl.style.transition = `transform ${durationMs}ms cubic-bezier(.25,.46,.45,.94),opacity ${Math.round(durationMs*.7)}ms ease`;
+      cardEl.style.transform  = 'perspective(600px) rotateY(0deg)';
+      cardEl.style.opacity    = '1';
+    }));
+  }, durationMs);
+}
+
+// ── Build correction view DOM ──
+function _mcBuildCorrection(card, wrongOptText, wrongOptWord, correctText){
+  card.innerHTML = '';
+  card.style.cursor = 'pointer';
+  const wrap = document.createElement('div');
+  wrap.className = 'mc-correction';
+
+  const wrongBlock = document.createElement('div');
+  wrongBlock.className = 'mc-corr-block mc-wrong-block';
+  wrongBlock.innerHTML = `<div class="mc-corr-lbl">you chose</div>
+    <div class="mc-corr-pair">${wrongOptText} — ${wrongOptWord}</div>`;
+
+  const rightBlock = document.createElement('div');
+  rightBlock.className = 'mc-corr-block mc-right-block';
+  rightBlock.innerHTML = `<div class="mc-corr-lbl">✓ correct answer</div>
+    <div class="mc-corr-answer">${correctText}</div>`;
+
+  const tapHint = document.createElement('div');
+  tapHint.className = 'mc-corr-tap';
+  tapHint.textContent = 'tap to continue';
+
+  wrap.appendChild(wrongBlock);
+  wrap.appendChild(rightBlock);
+  card.appendChild(wrap);
+  card.appendChild(tapHint);
+}
+
+let _mcEnterFromLeft = false; // controls tinder direction
+let _mcNoEnterAnim  = false; // skip slide-in animation (re-show same card after wrong)
+
 function renderChoice(){
   hideGamePanels();
-  if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
-  // Remove any lingering confusion note or popup from previous wrong answer
-  const oldNote=document.getElementById('choiceConfusionNote');
-  if(oldNote) oldNote.remove();
-  const oldPopup=document.getElementById('confusionPopup');
-  if(oldPopup) oldPopup.remove();
-  const wrap=document.getElementById('choiceWrap');
-  wrap.innerHTML=''; wrap.style.display='block';
-  choiceAnswered=false;
+  if(choiceCountdownTimer){ clearTimeout(choiceCountdownTimer); clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   document.getElementById('feedback').textContent='';
 
-  // Carousel: rebuild if exhausted
-  if(choiceCarousel.length===0){
-    choiceCarousel=shuffle(deck.filter(w=>!isExcluded(w.w)));
-    choiceCarouselIdx=0;
-    choiceIsReexposure=false;
-  }
-  if(choiceCarousel.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
-  if(choiceCarouselIdx>=choiceCarousel.length){
-    choiceCarousel=shuffle([...choiceCarousel]);
-    choiceCarouselIdx=0;
-    choiceIsReexposure=false;
-  }
-  const w=choiceCarousel[choiceCarouselIdx];
-  const total=choiceSpeedSecs;
-  const ringStart=Date.now();
-  const isReexposure=choiceIsReexposure;
+  if(!choiceCarousel.length){ choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w))); choiceCarouselIdx=0; choiceIsReexposure=false; }
+  if(!choiceCarousel.length){ document.getElementById('emptyMsg').style.display='block'; return; }
+  if(choiceCarouselIdx>=choiceCarousel.length){ choiceCarousel=sortBySchedule(deck.filter(w=>!isExcluded(w.w))); choiceCarouselIdx=0; }
 
-  // ── No-timer mode: word is tappable, no countdown ──
-  if(total===0){
-    const cdWrap=document.createElement('div');
-    cdWrap.className='choice-countdown-wrap';
-    const wordRingWrap=document.createElement('div');
-    wordRingWrap.style.cssText='position:relative;display:inline-flex;align-items:center;justify-content:center;padding:20px 32px;cursor:pointer;user-select:none;-webkit-user-select:none;';
-    const wordEl=document.createElement('div');
-    wordEl.className='choice-word-big';
-    wordEl.textContent=w.w;
-    wordEl.style.position='relative'; wordEl.style.zIndex='1';
-    // Static pill border (no animation)
-    const staticBorder=document.createElement('div');
-    staticBorder.style.cssText='position:absolute;inset:-6px;border:2.5px dashed var(--accent2);border-radius:9999px;pointer-events:none;opacity:.55;';
-    // Tap hint label
-    const tapHint=document.createElement('div');
-    tapHint.textContent='tap to see options';
-    tapHint.style.cssText='font-family:DM Mono,monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:18px;text-align:center;';
-    wordRingWrap.appendChild(staticBorder);
-    wordRingWrap.appendChild(wordEl);
-    if(isReexposure) wordEl.classList.add('choice-reexposure-word');
-    cdWrap.appendChild(wordRingWrap);
-    cdWrap.appendChild(tapHint);
-    wrap.appendChild(cdWrap);
-    setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
-    // Tap handler — anywhere on the word block reveals answers
-    let revealed=false;
-    const revealFn=(e)=>{
-      if(revealed) return;
-      revealed=true;
-      if(e&&e.preventDefault) e.preventDefault();
-      showChoiceButtons(wrap, w, Date.now()); // ringStart = now, so no "fast" bonus possible
+  const w = choiceCarousel[choiceCarouselIdx];
+  const prompt = typeDir==='ru-en' ? w.w : w.t;
+  const correctAnswer = typeDir==='ru-en' ? w.t : w.w;
+  const isReexposure = choiceIsReexposure;
+  choiceIsReexposure = false;
+  const fromLeft  = _mcEnterFromLeft;
+  _mcEnterFromLeft = false;
+  const noEnterAnim = _mcNoEnterAnim;
+  _mcNoEnterAnim = false;
+  const totalActive = deck.filter(wd=>!isExcluded(wd.w)).length;
+
+  const wrap = document.getElementById('choiceWrap');
+  wrap.innerHTML = ''; wrap.style.display='flex';
+  setGameProgress(choiceAnsweredKeys.size, totalActive);
+
+  // Word label above card (shows "✓ Correct!" after answer)
+  const wordLabel = document.createElement('div');
+  wordLabel.className = 'mc-word-label';
+  wrap.appendChild(wordLabel);
+
+  // Card
+  const scene = document.createElement('div');
+  scene.className = 'mc-card-scene';
+  const enterClass = noEnterAnim ? '' : (fromLeft ? 'mc-entering-back' : 'mc-entering');
+  const card = document.createElement('div');
+  card.className = 'mc-card ' + enterClass + (choiceSpeedSecs===0 ? ' mc-tappable' : '');
+  card.id = 'mcMainCard';
+  card.addEventListener('animationend', ()=>{ card.classList.remove('mc-entering','mc-entering-back'); }, {once:true});
+
+  // Front face: just the word centered
+  const front = document.createElement('div');
+  front.className = 'mc-card-front';
+  if(isReexposure){
+    const badge=document.createElement('div');
+    badge.className='mc-reexpo-badge';
+    badge.textContent="Let's try again!";
+    front.appendChild(badge);
+  }
+  const wordEl = document.createElement('div');
+  wordEl.className = 'mc-word-inside';
+  wordEl.textContent = prompt;
+  front.appendChild(wordEl);
+  if(choiceSpeedSecs===0){
+    const hint=document.createElement('div');
+    hint.className='mc-tap-hint';
+    hint.textContent='tap to reveal';
+    front.appendChild(hint);
+  }
+  card.appendChild(front);
+  scene.appendChild(card);
+  wrap.appendChild(scene);
+
+  // Nav: prev | count | next
+  const nav = document.createElement('div');
+  nav.className = 'mc-nav';
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className='mc-nav-btn'; prevBtn.setAttribute('tabindex','-1');
+  prevBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>';
+
+  const countEl = document.createElement('div');
+  countEl.className = 'mc-nav-count';
+  countEl.textContent = choiceAnsweredKeys.size + ' / ' + totalActive;
+
+  const nextBtn = document.createElement('button');
+  nextBtn.className='mc-nav-btn'; nextBtn.setAttribute('tabindex','-1');
+  nextBtn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  const clearTimer=()=>{ if(choiceCountdownTimer){clearTimeout(choiceCountdownTimer);clearInterval(choiceCountdownTimer);choiceCountdownTimer=null;} };
+  const slideLeft=(cb)=>{ clearTimer(); card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease'; card.style.transform='translateX(-145%) rotate(-14deg) scale(.88)'; card.style.opacity='0'; setTimeout(cb,300); };
+  const slideRight=(cb)=>{ clearTimer(); card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease'; card.style.transform='translateX(145%) rotate(14deg) scale(.88)'; card.style.opacity='0'; setTimeout(cb,300); };
+
+  // Right arrow: card swings right (clockwise wheel), new card enters from left
+  // Left arrow:  card swings left (counter-clockwise), new card enters from right
+  const doNavPrev=()=>slideLeft(()=>{ choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1); renderChoice(); });
+  const doNavNext=()=>slideRight(()=>{ _mcEnterFromLeft=true; choiceCarouselIdx++; renderChoice(); });
+  prevBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavPrev();},{passive:false}); prevBtn.addEventListener('click',doNavPrev);
+  nextBtn.addEventListener('touchstart',e=>{e.preventDefault();doNavNext();},{passive:false}); nextBtn.addEventListener('click',doNavNext);
+
+  nav.appendChild(prevBtn); nav.appendChild(countEl); nav.appendChild(nextBtn);
+  wrap.appendChild(nav);
+  updateResetBtn();
+
+  // Distractor builder
+  function buildOptions(){
+    const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
+    const otherClass=bank.words.filter(x=>x.w!==w.w&&x.c!==w.c);
+    let dist=shuffle(sameClass).slice(0,3);
+    if(dist.length<3) dist=dist.concat(shuffle(otherClass).slice(0,3-dist.length));
+    return shuffle([w,...dist.slice(0,3)]);
+  }
+
+  // Border ring timer that traces the card frame (point 1)
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const cW=card.offsetWidth||320, cH=card.offsetHeight||427;
+    const rx=20, sw=3, pad=sw/2;
+    const rW=cW-pad*2, rH=cH-pad*2;
+    const perim=+(2*(rW-2*rx)+2*(rH-2*rx)+2*Math.PI*rx).toFixed(2);
+    const ns='http://www.w3.org/2000/svg';
+    const rsvg=document.createElementNS(ns,'svg');
+    rsvg.setAttribute('width',cW); rsvg.setAttribute('height',cH);
+    rsvg.setAttribute('viewBox','0 0 '+cW+' '+cH);
+    rsvg.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:3;overflow:visible;';
+    const mk=(stroke,dash)=>{
+      const r=document.createElementNS(ns,'rect');
+      r.setAttribute('x',pad); r.setAttribute('y',pad);
+      r.setAttribute('width',rW); r.setAttribute('height',rH);
+      r.setAttribute('rx',rx); r.setAttribute('ry',rx);
+      r.setAttribute('fill','none'); r.setAttribute('stroke',stroke);
+      r.setAttribute('stroke-width',sw); r.setAttribute('stroke-linecap','round');
+      if(dash){ r.setAttribute('stroke-dasharray',String(perim)); r.setAttribute('stroke-dashoffset','0'); }
+      return r;
     };
-    wordRingWrap.addEventListener('touchstart',revealFn,{passive:false});
-    wordRingWrap.addEventListener('click',revealFn);
-    return;
-  }
-
-  // ── Timer mode: word + animated ring ──
-  const cdWrap=document.createElement('div');
-  cdWrap.className='choice-countdown-wrap';
-
-  const wordRingWrap=document.createElement('div');
-  wordRingWrap.style.cssText='position:relative;display:inline-flex;align-items:center;justify-content:center;padding:20px 32px;';
-
-  const wordEl=document.createElement('div');
-  wordEl.className='choice-word-big';
-  wordEl.textContent=w.w;
-  wordEl.style.position='relative'; wordEl.style.zIndex='1';
-  if(isReexposure) wordEl.classList.add('choice-reexposure-word');
-
-  const ringSvgId='cdRing_'+Date.now();
-  const ringSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  ringSvg.setAttribute('id',ringSvgId);
-  ringSvg.style.cssText='position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0;';
-
-  wordRingWrap.appendChild(wordEl);
-  wordRingWrap.appendChild(ringSvg);
-  cdWrap.appendChild(wordRingWrap);
-  wrap.appendChild(cdWrap);
-  setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
-
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      const cW=wordRingWrap.offsetWidth||200;
-      const cH=wordRingWrap.offsetHeight||80;
-      const rx=Math.min(cW,cH)/2;
-      const pad=6;
-      const x=-pad; const y=-pad; const w2=cW+pad*2; const h2=cH+pad*2;
-      const perimeter=2*(w2+h2);
-      ringSvg.setAttribute('viewBox',`${x} ${y} ${w2} ${h2}`);
-      ringSvg.style.left=x+'px'; ringSvg.style.top=y+'px';
-      ringSvg.style.width=w2+'px'; ringSvg.style.height=h2+'px';
-      const bgRect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      bgRect.setAttribute('x',x); bgRect.setAttribute('y',y);
-      bgRect.setAttribute('width',w2); bgRect.setAttribute('height',h2);
-      bgRect.setAttribute('rx',rx); bgRect.setAttribute('ry',rx);
-      bgRect.setAttribute('fill','none'); bgRect.setAttribute('stroke','var(--border)'); bgRect.setAttribute('stroke-width','2.5');
-      ringSvg.appendChild(bgRect);
-      const fgRect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      fgRect.setAttribute('id','cdFgRect');
-      fgRect.setAttribute('x',x); fgRect.setAttribute('y',y);
-      fgRect.setAttribute('width',w2); fgRect.setAttribute('height',h2);
-      fgRect.setAttribute('rx',rx); fgRect.setAttribute('ry',rx);
-      fgRect.setAttribute('fill','none'); fgRect.setAttribute('stroke','var(--accent2)');
-      fgRect.setAttribute('stroke-width','3'); fgRect.setAttribute('stroke-linecap','round');
-      fgRect.setAttribute('stroke-dasharray',String(perimeter));
-      fgRect.setAttribute('stroke-dashoffset','0');
-      fgRect.style.transition='none';
-      ringSvg.appendChild(fgRect);
-      requestAnimationFrame(()=>{
-        fgRect.style.transition=`stroke-dashoffset ${total}s linear`;
-        fgRect.setAttribute('stroke-dashoffset',String(perimeter));
-      });
-    });
-  });
-
-  let remaining=total;
-  choiceCountdownTimer=setInterval(()=>{
-    remaining--;
-    if(remaining<=0){
-      clearInterval(choiceCountdownTimer); choiceCountdownTimer=null;
-      showChoiceButtons(wrap, w, ringStart);
+    // For reexposure: <path> that starts at center-top so the drain begins under the notch
+    const mkCenterTop=(stroke,dash)=>{
+      const cx=pad+rW/2;
+      const d=[
+        `M ${cx},${pad}`,
+        `h ${rW/2-rx}`,`a ${rx},${rx} 0 0 1 ${rx},${rx}`,
+        `v ${rH-2*rx}`,`a ${rx},${rx} 0 0 1 ${-rx},${rx}`,
+        `h ${-(rW-2*rx)}`,`a ${rx},${rx} 0 0 1 ${-rx},${-rx}`,
+        `v ${-(rH-2*rx)}`,`a ${rx},${rx} 0 0 1 ${rx},${-rx}`,
+        `h ${rW/2-rx}`,'Z'
+      ].join(' ');
+      const p=document.createElementNS(ns,'path');
+      p.setAttribute('d',d); p.setAttribute('fill','none'); p.setAttribute('stroke',stroke);
+      p.setAttribute('stroke-width',sw); p.setAttribute('stroke-linecap','round');
+      if(dash){ p.setAttribute('stroke-dasharray',String(perim)); p.setAttribute('stroke-dashoffset','0'); }
+      return p;
+    };
+    rsvg.appendChild(mk('rgba(255,255,255,0.05)',false));
+    const fillR=(isReexposure ? mkCenterTop : mk)(isReexposure ? 'var(--accent)' : 'var(--accent2)',true);
+    rsvg.appendChild(fillR);
+    card.appendChild(rsvg);
+    if(choiceSpeedSecs>0){
+      fillR.style.transition='none';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        fillR.style.transition='stroke-dashoffset '+choiceSpeedSecs+'s linear';
+        fillR.setAttribute('stroke-dashoffset',String(perim));
+      }));
     }
-  },1000);
+  }));
+
+  // Reveal choices via side flip
+  function revealChoices(){
+    clearTimer();
+    const options=buildOptions();
+    mcFlipCard(card,()=>{
+      card.innerHTML='';
+      const grid=document.createElement('div'); grid.className='mc-choices';
+      let answered=false;
+      options.forEach(opt=>{
+        const optText=typeDir==='ru-en'?opt.t:opt.w;
+        const btn=document.createElement('button');
+        btn.className='mc-choice-btn'; btn.textContent=optText; btn.setAttribute('tabindex','-1');
+        let tapped=false;
+        const onTap=()=>{
+          if(answered) return; answered=true;
+          handleMcAnswer(card,btn,opt,w,correctAnswer,prompt,wordLabel,countEl,totalActive,isReexposure);
+        };
+        btn.addEventListener('touchstart',e=>{e.preventDefault();tapped=true;onTap();},{passive:false});
+        btn.addEventListener('click',()=>{if(tapped){tapped=false;return;}onTap();});
+        grid.appendChild(btn);
+      });
+      card.appendChild(grid);
+    });
+  }
+
+  if(choiceSpeedSecs===0){
+    let tapReady=true;
+    card.addEventListener('touchstart',e=>{if(!tapReady)return;e.preventDefault();tapReady=false;revealChoices();},{passive:false,once:true});
+    card.addEventListener('click',()=>{if(tapReady){tapReady=false;revealChoices();}},{once:true});
+  } else {
+    choiceCountdownTimer=setTimeout(revealChoices, choiceSpeedSecs*1000);
+  }
 }
 
-function showChoiceButtons(wrap, w, ringStart){
-  wrap.innerHTML='';
-  choiceAnswered=false;
-  document.getElementById('feedback').textContent='';
-  const currentIsReexposure=choiceIsReexposure;
+function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabel, countEl, totalActive, isReexposure){
+  const isOk = opt.w===w.w;
+  card.querySelectorAll('.mc-choice-btn').forEach(b=>b.disabled=true);
 
-  const grid=document.createElement('div'); grid.className='choices-grid';
-  const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
-  const otherClass=bank.words.filter(x=>x.w!==w.w&&x.c!==w.c);
-  let distractors=shuffle(sameClass).slice(0,3);
-  if(distractors.length<3) distractors=distractors.concat(shuffle(otherClass).slice(0,3-distractors.length));
+  if(isOk){
+    // ── CORRECT ──
+    choiceStreak++;
+    if(_ph_cur) _ph_cur.correct_answers++;
+    tappedBtn.classList.add('mc-correct');
+    screenFlash('var(--green)','weak');
+    playDing();
+    floatUpText('+1', tappedBtn, 'var(--green)');
+    applySched(w.w, true, 'fwd', true);
+    recordCorrect(w.w); renderWords();
+    choiceAnsweredKeys.add(w.w);
+    saveProgress();
+    const newAnswered = choiceAnsweredKeys.size;
+    setGameProgress(newAnswered, totalActive);
+    if(countEl) countEl.textContent = newAnswered + ' / ' + totalActive;
+    if(choiceStreak===3) showStreak('🔥 3 streak!',1);
+    else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!',2);
+    else if(choiceStreak===10) showStreak('🌟 10 streak!',3);
+    else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!',3);
 
-  shuffle([w,...distractors]).forEach(opt=>{
-    const btn=document.createElement('button');
-    btn.className='c-btn'; btn.textContent=opt.t;
-    btn.setAttribute('tabindex','-1');
-    const handler=()=>{
-      if(choiceAnswered) return;
-      const ok=opt.w===w.w;
-      if(ok){
-        choiceAnswered=true;
-        choiceStreak++;
-        if(_ph_cur) _ph_cur.correct_answers++;
-        btn.classList.add('correct');
-        celebrateButton(btn);
-        floatUpText('+1', btn, 'var(--green)');
-        applySched(w.w, true, 'fwd', true);
-        recordCorrect(w.w); renderWords();
-        choiceAnsweredKeys.add(w.w);
-        choiceIsReexposure=false;
-        saveProgress();
-        setGameProgress(choiceAnsweredKeys.size, deck.filter(w2=>!isExcluded(w2.w)).length);
-        updateResetBtn();
-        setFB('✓ Correct!',true);
-        grid.querySelectorAll('.c-btn').forEach(b=>{ if(b!==btn) b.disabled=true; });
-        if(choiceStreak===3) showStreak('🔥 3 streak!',1);
-        else if(choiceStreak===5) showStreak('🔥🔥 5 in a row!',2);
-        else if(choiceStreak===10) showStreak('🌟 10 streak!',3);
-        else if(choiceStreak>10&&choiceStreak%5===0) showStreak('🌟 '+choiceStreak+' streak!',3);
-        const allDone=deck.filter(w2=>!isExcluded(w2.w)).every(w2=>choiceAnsweredKeys.has(w2.w));
-        if(allDone){
-          setTimeout(()=>showExerciseComplete(),900);
-        } else {
-          setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 900);
-        }
-      } else {
-        choiceAnswered=true; // lock immediately — prevent tapping highlighted correct btn
-        trigShake(btn);
-        btn.classList.add('wrong','locked');
-        btn.disabled=true;
-        playWrong();
-        screenFlash('var(--red)','weak');
-        if(_ph_cur) _ph_cur.wrong_answers++;
-        choiceStreak=0;
-        applySched(w.w, false, 'fwd', true);
-        // Track confusion
-        const wrongTranslation=opt.t;
-        const p=getP(w.w);
-        p.wrongChoices[wrongTranslation]=(p.wrongChoices[wrongTranslation]||0)+1;
-        save();
+    // Show "✓ Correct!" above card
+    if(wordLabel){ wordLabel.textContent='✓ Correct!'; wordLabel.classList.add('mc-wl-visible'); }
 
-        // Flash correct answer — lock all other buttons too
-        grid.querySelectorAll('.c-btn').forEach(b=>{
-          if(b.textContent===w.t){ b.classList.add('correct'); }
-          else if(b!==btn){ b.disabled=true; b.classList.add('locked'); }
-        });
+    // Fade wrong buttons, show word + translation centered on card
+    setTimeout(()=>{
+      card.querySelectorAll('.mc-choice-btn').forEach(b=>{ if(b!==tappedBtn){ b.style.transition='opacity .2s'; b.style.opacity='0'; }});
+    }, 60);
+    setTimeout(()=>{
+      card.innerHTML='';
+      const cc=document.createElement('div'); cc.className='mc-correct-center';
+      // Big green = the correct answer (what they matched); small below = the prompt word
+      const wEl=document.createElement('div'); wEl.className='mc-correct-word'; wEl.textContent=correctAnswer;
+      const tEl=document.createElement('div'); tEl.className='mc-correct-trans'; tEl.textContent=prompt;
+      cc.appendChild(wEl); cc.appendChild(tEl); card.appendChild(cc);
+    }, 300);
 
-        // Show confusion popup overlay, then re-queue word
-        showConfusionPopup(wrongTranslation, w, currentIsReexposure);
-      }
-    };
-    let handled=false;
-    btn.addEventListener('touchstart',(e)=>{e.preventDefault();handled=true;handler();},{passive:false});
-    btn.addEventListener('click',()=>{if(handled){handled=false;return;}handler();});
-    grid.appendChild(btn);
-  });
-  wrap.appendChild(grid);
-  setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
+    // Slide left → next card
+    const allDone=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
+    setTimeout(()=>{
+      if(allDone){ showExerciseComplete(); return; }
+      card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease';
+      card.style.transform='translateX(-145%) rotate(-10deg) scale(.88)'; card.style.opacity='0';
+      setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 300);
+    }, 2000);
+
+  } else {
+    // ── WRONG: replace buttons with correction inline (no flip) ──
+    choiceStreak=0;
+    if(_ph_cur) _ph_cur.wrong_answers++;
+    tappedBtn.classList.add('mc-wrong');
+    trigShake(tappedBtn);
+    playWrong();
+    screenFlash('var(--red)','weak');
+    applySched(w.w, false, 'fwd', true);
+    const wrongKey=typeDir==='ru-en'?opt.t:opt.w;
+    const p=getP(w.w); p.wrongChoices[wrongKey]=(p.wrongChoices[wrongKey]||0)+1; save();
+    if(isReexposure){
+      // Second attempt also failed — flash correct, count word as done, then advance
+      card.querySelectorAll('.mc-choice-btn').forEach(b=>{ if(b.textContent===correctAnswer) b.classList.add('mc-correct'); });
+      choiceAnsweredKeys.add(w.w);
+      const newAnswered2=choiceAnsweredKeys.size;
+      setGameProgress(newAnswered2, totalActive);
+      if(countEl) countEl.textContent=newAnswered2+' / '+totalActive;
+      saveProgress();
+      setTimeout(()=>{
+        const allDone2=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
+        if(allDone2){ showExerciseComplete(); return; }
+        card.style.transition='transform 300ms cubic-bezier(.55,.05,.67,.19),opacity 240ms ease';
+        card.style.transform='translateX(-145%) rotate(-10deg) scale(.88)'; card.style.opacity='0';
+        setTimeout(()=>{ choiceCarouselIdx++; renderChoice(); }, 300);
+      }, 900);
+    } else {
+      choiceIsReexposure=true;
+
+      const wrongOptText=typeDir==='ru-en'?opt.t:opt.w;
+      const wrongOptWord=typeDir==='ru-en'?opt.w:opt.t;
+
+      // Brief highlight of correct, then swap to correction view
+      card.querySelectorAll('.mc-choice-btn').forEach(b=>{ if(b.textContent===correctAnswer) b.classList.add('mc-correct'); });
+      setTimeout(()=>{
+        card.innerHTML='';
+        _mcBuildCorrection(card, wrongOptText, wrongOptWord, correctAnswer);
+
+        let tapDone=false;
+        const onCorrTap=()=>{
+          if(tapDone) return; tapDone=true;
+          card.style.cursor='default';
+          // Fold to edge (90°) — text is invisible at that angle, no mirrored-text artefact
+          card.style.transformOrigin='center center';
+          card.style.transition='transform 280ms cubic-bezier(.4,0,.2,1),opacity 200ms ease';
+          card.style.transform='perspective(600px) rotateY(-90deg)';
+          card.style.opacity='0';
+          _mcNoEnterAnim=true;
+          setTimeout(()=>{ renderChoice(); }, 280);
+        };
+        card.addEventListener('touchstart',e=>{e.preventDefault();onCorrTap();},{passive:false,once:true});
+        card.addEventListener('click',onCorrTap,{once:true});
+      }, 550);
+    }
+  }
 }
+
+function showChoiceButtons(wrap, w){ renderChoice(); } // legacy stub — renderChoice handles everything now
+
 
 function showConfusionPopup(wrongTranslation, w, currentIsReexposure){
   const oldPopup=document.getElementById('confusionPopup');
