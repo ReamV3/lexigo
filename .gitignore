@@ -1,0 +1,8 @@
+# Local Claude Code config
+.claude/
+
+# Screenshots / scratch images
+*.png
+
+# OS files
+.DS_Store
