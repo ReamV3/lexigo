@@ -4503,66 +4503,124 @@ function _localSnapshot() {
   };
 }
 
-// ── Merge cloud data into local without losing anything ──
-function _mergeCloud(cloudData) {
-  if (!cloudData || !cloudData.bank) return;
-  const cb = cloudData.bank;
-  if (!cb.classes || !cb.words) return;
+// ── Track which Google account the current local data belongs to ──
+// Lets us tell a returning sign-in (silent merge) apart from switching to a
+// different account that already holds cloud data (needs the merge dialog).
+const _DATA_OWNER_KEY = 'lx_data_owner_uid';
+function _dataOwner(){ try { return localStorage.getItem(_DATA_OWNER_KEY) || null; } catch(e){ return null; } }
+function _setDataOwner(uid){ try { localStorage.setItem(_DATA_OWNER_KEY, uid); } catch(e){} }
 
-  // Only merge cloud data into local if cloud is larger or equal size (safety check)
-  const localWordCount = bank.words.length;
-  const cloudWordCount = cb.words.length;
-  const localClassCount = bank.classes.length;
-  const cloudClassCount = cb.classes.length;
+function _hasLocalData(){ return (bank.classes && bank.classes.length > 0) || (bank.words && bank.words.length > 0); }
+function _cloudHasData(cd){ return !!(cd && cd.bank && (((cd.bank.classes||[]).length > 0) || ((cd.bank.words||[]).length > 0))); }
 
-  // Add any cloud classes missing from local
-  cb.classes.forEach(c => {
-    if (!bank.classes.includes(c)) bank.classes.push(c);
-  });
+// ── Merge a cloud bank into the local bank in place — never drops anything ──
+function _mergeCloudBank(cb){
+  if (!cb) return;
+  cb.classes = cb.classes || []; cb.words = cb.words || []; cb.progress = cb.progress || {};
+  // Classes: union, kept sorted
+  cb.classes.forEach(c => { if (!bank.classes.includes(c)) bank.classes.push(c); });
   bank.classes.sort((a,b) => a - b);
-
-  // Add any cloud words missing from local (deduplicate by w+c)
+  // Words: union, deduplicated by lowercase word + class
   const localKeys = new Set(bank.words.map(w => w.w.toLowerCase() + '|' + w.c));
-  let added = 0;
   cb.words.forEach(cw => {
     const key = cw.w.toLowerCase() + '|' + cw.c;
-    if (!localKeys.has(key)) {
-      bank.words.push(cw);
-      localKeys.add(key);
-      added++;
-    }
+    if (!localKeys.has(key)) { bank.words.push(cw); localKeys.add(key); }
   });
-
-  if (added > 0 || cloudClassCount > localClassCount) {
-    save();
-    updateClassPill(); buildDeck();
-  }
+  // Per-word progress (keyed by word): keep the best of both sides
+  Object.entries(cb.progress).forEach(([k, cv]) => {
+    const lv = bank.progress[k];
+    if (!lv) { bank.progress[k] = cv; return; }
+    lv.correct  = Math.max(lv.correct || 0, cv.correct || 0);
+    lv.excluded = !!(lv.excluded || cv.excluded);
+    if (cv.bestTypeMs != null) lv.bestTypeMs = (lv.bestTypeMs == null) ? cv.bestTypeMs : Math.min(lv.bestTypeMs, cv.bestTypeMs);
+  });
 }
+
+// ── Replace local data wholesale with a cloud snapshot (Use Google Data) ──
+function _applyCloudSnapshot(cd){
+  if (!cd || !cd.bank) return;
+  bank = cd.bank;
+  if (!bank.words) bank.words = []; if (!bank.progress) bank.progress = {}; if (!bank.classes) bank.classes = [];
+  try { selected = new Set(Array.isArray(cd.sel) ? cd.sel : []); } catch(e){ selected = new Set(); }
+  if (selected.size === 0 && bank.classes.length > 0) selected = new Set([bank.classes[bank.classes.length - 1]]);
+  if (cd.theme === 'light') document.body.classList.add('light'); else document.body.classList.remove('light');
+  if (typeof cd.theme === 'string') localStorage.setItem(LS_THEME, cd.theme);
+  soundEnabled = cd.sound !== false;
+  localStorage.setItem(LS_SOUND, soundEnabled ? 'on' : 'off');
+}
+
+function _refreshAfterSync(){ try { save(); updateClassPill(); buildDeck(); } catch(e){} }
 
 // ── Upload current local state to Firestore ──
 async function _uploadToCloud(uid) {
-  try {
-    await _userDoc(uid).set(_localSnapshot());
-    return true;
-  } catch(e) { return false; }
+  try { await _userDoc(uid).set(_localSnapshot()); return true; }
+  catch(e) { console.error('[Lexigo cloud] upload failed:', e.code, e.message); return false; }
 }
 
-// ── On sign-in: sync local ↔ cloud ──
-async function _syncOnSignIn(uid) {
+// ── Ongoing auto-sync: debounced push fired from save() on every edit ──
+let _cloudSyncTimer = null;
+function _scheduleCloudSync(){
+  const user = _auth.currentUser;
+  if (!user) return;                 // signed out → nothing to back up to
+  if (_mergeResolver) return;        // a merge decision is pending → don't clobber
+  clearTimeout(_cloudSyncTimer);
+  _cloudSyncTimer = setTimeout(() => { _uploadToCloud(user.uid); }, 1500);
+}
+
+// ── Account-switch merge dialog ──
+let _mergeResolver = null, _mergeCloudData = null;
+function _showMergeDialog(cloudData){
+  _mergeCloudData = cloudData;
+  const cbk = cloudData.bank || { classes: [], words: [] };
+  document.getElementById('syncMergeLocal').textContent = (bank.classes||[]).length + ' classes · ' + (bank.words||[]).length + ' words';
+  document.getElementById('syncMergeCloud').textContent = (cbk.classes||[]).length + ' classes · ' + (cbk.words||[]).length + ' words';
+  document.getElementById('syncMergeModal').classList.add('open');
+  return new Promise(res => { _mergeResolver = res; });
+}
+async function _mergeChoose(choice){
+  const cd = _mergeCloudData;
+  // The two destructive options require an explicit confirmation.
+  if (choice === 'cloud' && !confirm("Replace this device's data with your Google account data?\nLocal content that isn't in the cloud will be lost.")) return;
+  if (choice === 'local' && !confirm("Replace your Google account data with this device's data?\nCloud content that isn't on this device will be lost.")) return;
+
+  document.getElementById('syncMergeModal').classList.remove('open');
+  const user = _auth.currentUser;
   try {
-    const doc = await _userDoc(uid).get();
-    if (!doc.exists) {
-      // First ever sign-in: upload all existing local data
-      await _uploadToCloud(uid);
-    } else {
-      // Cloud data exists: merge into local (never lose local data)
-      _mergeCloud(doc.data());
-      // Then push merged local back up
-      await _uploadToCloud(uid);
-    }
-  } catch(e) {
-    // Sync failure is non-fatal — app still works offline
+    if (choice === 'merge')      { _mergeCloudBank(cd.bank); _refreshAfterSync(); if (user) await _uploadToCloud(user.uid); showToast('✓ Data merged'); }
+    else if (choice === 'local') { _refreshAfterSync();      if (user) await _uploadToCloud(user.uid); showToast("✓ Using this device's data"); }
+    else if (choice === 'cloud') { _applyCloudSnapshot(cd);  _refreshAfterSync(); showToast('✓ Using Google account data'); }
+  } catch(e) { console.error('[Lexigo cloud] merge apply failed:', e); }
+  if (user) _setDataOwner(user.uid);
+  if (_mergeResolver) { const r = _mergeResolver; _mergeResolver = null; r(); }
+}
+
+// ── On sign-in: upload / silent-merge / or raise the conflict dialog ──
+async function _syncOnSignIn(uid) {
+  let doc;
+  try { doc = await _userDoc(uid).get(); }
+  catch(e) { console.error('[Lexigo cloud] sync read failed:', e.code, e.message); return; }
+
+  const cloud = doc.exists ? doc.data() : null;
+  const owner = _dataOwner();
+
+  // Account has no cloud data yet → upload existing local data (first login / migration).
+  if (!_cloudHasData(cloud)) {
+    if (_hasLocalData()) await _uploadToCloud(uid);
+    _setDataOwner(uid);
+    return;
   }
+  // Cloud has data, nothing local to protect → just adopt the cloud copy.
+  if (!_hasLocalData()) {
+    _applyCloudSnapshot(cloud); _refreshAfterSync(); _setDataOwner(uid);
+    return;
+  }
+  // Both sides have data, same account as the local data → safe silent merge.
+  if (owner === uid) {
+    _mergeCloudBank(cloud.bank); _refreshAfterSync(); await _uploadToCloud(uid);
+    return;
+  }
+  // Both sides have data, different/unknown account → let the user decide.
+  await _showMergeDialog(cloud);
 }
 
 // ── Handle a confirmed Firebase user ──
