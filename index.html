@@ -4570,14 +4570,21 @@ async function saveToCloud() {
     btn.disabled = true; btn.style.opacity = '.6';
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
-      // Redirect flow — reliable on mobile (Chrome Android kills popups).
-      // Page navigates to Google; on return, getRedirectResult + onAuthStateChanged take over.
-      await _auth.signInWithRedirect(provider);
+      // Popup flow — result returns directly to this page, avoiding the
+      // cross-domain redirect-storage loss that breaks signInWithRedirect on
+      // GitHub Pages. onAuthStateChanged handles the UI once it resolves.
+      await _auth.signInWithPopup(provider);
     } catch(e) {
       busy = false;
       btn.disabled = false; btn.style.opacity = '';
       console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
-      showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
+      if (e.code === 'auth/popup-blocked') {
+        // Popup blocked by the browser — fall back to redirect.
+        try { await _auth.signInWithRedirect(provider); return; } catch(e2){}
+      }
+      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
+      }
     }
   }
 
