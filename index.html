@@ -1608,6 +1608,10 @@ function load(){
 function save(){
   localStorage.setItem(LS_BANK,JSON.stringify(bank));
   localStorage.setItem(LS_SEL,JSON.stringify([...selected]));
+  // Auto-backup to the signed-in Google account (debounced). Defined later in
+  // the Firebase section; guarded so this is a no-op before it loads / when
+  // the user is signed out.
+  if(typeof _scheduleCloudSync==='function') _scheduleCloudSync();
 }
 function progKey(ex, selKey){ return LS_PROGRESS+'_'+ex+'_'+selKey; }
 function saveProgress(){
