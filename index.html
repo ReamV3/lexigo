@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lexigo</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 :root {
   --bg:#0e0e12; --surface:#16161e; --card:#1c1c28; --border:#2a2a3d;
@@ -772,6 +775,50 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   align-items:center;justify-content:center;padding:24px;
 }
 #ob3Screen.open{display:flex;}
+/* ── AUTH SCREEN ── */
+#authScreen{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 28px 60px;
+}
+#authScreen.open{display:flex;}
+.auth-google-container{
+  margin-bottom:16px;min-height:44px;
+  display:flex;align-items:center;justify-content:center;
+}
+.auth-sep{
+  font-family:'Inter',sans-serif;font-size:.8rem;
+  color:var(--muted);margin-bottom:14px;
+  display:flex;align-items:center;gap:12px;width:240px;
+}
+.auth-sep::before,.auth-sep::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+.auth-skip-btn{
+  font-family:'Inter',sans-serif;font-size:.88rem;
+  color:var(--muted);cursor:pointer;
+  background:none;border:none;
+  padding:10px 20px;
+  text-decoration:underline;text-underline-offset:3px;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.auth-skip-btn:active{color:var(--text);}
+.auth-google-btn{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:14px 28px;border-radius:50px;cursor:pointer;
+  background:var(--surface);border:1.5px solid var(--border);
+  color:var(--text);font-family:'Inter',sans-serif;font-size:1rem;font-weight:600;
+  width:280px;max-width:calc(100vw - 56px);
+  transition:border-color .18s,background .18s;
+  -webkit-tap-highlight-color:rgba(0,0,0,0);
+}
+.auth-google-btn:active{background:var(--card);}
+@media(hover:hover){.auth-google-btn:hover{border-color:var(--accent2);background:var(--card);}}
+.ws-cloud-btn{
+  border-color:rgba(232,184,109,.45)!important;
+  color:var(--accent)!important;
+}
 .ob2-card{
   background:var(--card);border:1px solid var(--border);
   border-radius:28px;padding:36px 28px 32px;
@@ -1271,7 +1318,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     </div>
   </div>
 
-  <!-- Export / Import at the bottom of words screen -->
+  <!-- Export / Import / Cloud at the bottom of words screen -->
   <div class="ws-bank-row">
     <button class="ws-bank-btn" onclick="exportBank()">
       <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1280,6 +1327,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <button class="ws-bank-btn" onclick="document.getElementById('importFileInput').click()">
       <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import bank
+    </button>
+    <button class="ws-bank-btn ws-cloud-btn" id="saveBankBtn" onclick="saveToCloud()">
+      <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      Save bank
     </button>
   </div>
 </div>
@@ -1397,6 +1448,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 </div>
 
 
+
+<!-- ═══════════ GOOGLE AUTH SCREEN ═══════════ -->
+<div id="authScreen">
+  <div class="ob-glow"></div>
+  <div class="ob-icon">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+  </div>
+  <div class="ob-title">Welcome to Lexigo</div>
+  <div class="ob-body" style="margin-bottom:36px;">Sign in to track your progress and keep your vocabulary in sync.</div>
+  <button class="auth-google-btn" id="authGoogleBtn">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+  <div class="auth-sep">or</div>
+  <button class="auth-skip-btn" id="authSkipBtn">Continue without signing in</button>
+</div>
 
 <!-- ═══════════ ONBOARDING SCREEN ═══════════ -->
 <div id="onboardScreen">
@@ -4336,8 +4403,211 @@ function spawnOb3Confetti(){
   }
 }
 
-// Boot decision: no classes → onboard; classes exist → normal
-if(bank.classes.length===0){
+// ── Firebase + Cloud Sync ──
+const _AUTH_DONE_KEY = 'lx_auth_done';
+const _AUTH_USER_KEY = 'lx_google_user';
+
+firebase.initializeApp({
+  apiKey:            'AIzaSyAfRu5HFYKHm7z5fdB6Q5XiNWOdKoPPZYs',
+  authDomain:        'lexigo-be575.firebaseapp.com',
+  projectId:         'lexigo-be575',
+  storageBucket:     'lexigo-be575.firebasestorage.app',
+  messagingSenderId: '385777305022',
+  appId:             '1:385777305022:web:adf4d48b1f5e456f6265ef',
+});
+const _db   = firebase.firestore();
+const _auth = firebase.auth();
+
+function _getStoredUser() {
+  try { return JSON.parse(localStorage.getItem(_AUTH_USER_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+function isAuthDone() { return !!localStorage.getItem(_AUTH_DONE_KEY); }
+
+// Restore user reference for returning visitors
+window._lexigo_user = _getStoredUser();
+
+// ── Auth screen ──
+function showAuthScreen() {
+  document.getElementById('authScreen').classList.add('open');
+}
+function hideAuthScreen(cb) {
+  const el = document.getElementById('authScreen');
+  el.style.transition = 'opacity .3s ease';
+  el.style.opacity = '0';
+  setTimeout(() => { el.classList.remove('open'); el.style.opacity=''; el.style.transition=''; if(cb) cb(); }, 310);
+}
+function proceedAfterAuth() {
+  if (bank.classes.length === 0) showOnboarding();
+}
+
+// ── Cloud data helpers ──
+function _userDoc(uid) {
+  return _db.collection('users').doc(uid).collection('data').doc('main');
+}
+function _localSnapshot() {
+  return {
+    version:  2,
+    savedAt:  Date.now(),
+    bank:     bank,
+    progress: (function(){ try{ return JSON.parse(localStorage.getItem(LS_PROGRESS)||'{}'); }catch(e){ return {}; } })(),
+    sel:      [...selected],
+    theme:    localStorage.getItem(LS_THEME) || 'dark',
+    sound:    localStorage.getItem(LS_SOUND) !== 'off',
+  };
+}
+
+// ── Merge cloud data into local without losing anything ──
+function _mergeCloud(cloudData) {
+  if (!cloudData || !cloudData.bank) return;
+  const cb = cloudData.bank;
+  if (!cb.classes || !cb.words) return;
+
+  // Only merge cloud data into local if cloud is larger or equal size (safety check)
+  const localWordCount = bank.words.length;
+  const cloudWordCount = cb.words.length;
+  const localClassCount = bank.classes.length;
+  const cloudClassCount = cb.classes.length;
+
+  // Add any cloud classes missing from local
+  cb.classes.forEach(c => {
+    if (!bank.classes.includes(c)) bank.classes.push(c);
+  });
+  bank.classes.sort((a,b) => a - b);
+
+  // Add any cloud words missing from local (deduplicate by w+c)
+  const localKeys = new Set(bank.words.map(w => w.w.toLowerCase() + '|' + w.c));
+  let added = 0;
+  cb.words.forEach(cw => {
+    const key = cw.w.toLowerCase() + '|' + cw.c;
+    if (!localKeys.has(key)) {
+      bank.words.push(cw);
+      localKeys.add(key);
+      added++;
+    }
+  });
+
+  if (added > 0 || cloudClassCount > localClassCount) {
+    save();
+    updateClassPill(); buildDeck();
+  }
+}
+
+// ── Upload current local state to Firestore ──
+async function _uploadToCloud(uid) {
+  try {
+    await _userDoc(uid).set(_localSnapshot());
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── On sign-in: sync local ↔ cloud ──
+async function _syncOnSignIn(uid) {
+  try {
+    const doc = await _userDoc(uid).get();
+    if (!doc.exists) {
+      // First ever sign-in: upload all existing local data
+      await _uploadToCloud(uid);
+    } else {
+      // Cloud data exists: merge into local (never lose local data)
+      _mergeCloud(doc.data());
+      // Then push merged local back up
+      await _uploadToCloud(uid);
+    }
+  } catch(e) {
+    // Sync failure is non-fatal — app still works offline
+  }
+}
+
+// ── Handle a signed-in Firebase user ──
+async function _handleFirebaseUser(user, fromAuthScreen) {
+  const userData = {
+    id:      user.uid,
+    email:   user.email || '',
+    name:    user.displayName || '',
+    picture: user.photoURL || '',
+  };
+  localStorage.setItem(_AUTH_USER_KEY, JSON.stringify(userData));
+  window._lexigo_user = userData;
+
+  if (window.posthog) {
+    posthog.identify(user.uid, {
+      email:           userData.email,
+      name:            userData.name,
+      profile_picture: userData.picture,
+      auth_provider:   'google',
+    });
+  }
+
+  if (fromAuthScreen) {
+    // Show a brief syncing indicator then proceed
+    await _syncOnSignIn(user.uid);
+    localStorage.setItem(_AUTH_DONE_KEY, '1');
+    hideAuthScreen(proceedAfterAuth);
+  } else {
+    // Returning user: sync quietly in the background
+    _syncOnSignIn(user.uid);
+  }
+}
+
+// ── Manual "Save Bank" ──
+async function saveToCloud() {
+  const user = _auth.currentUser;
+  if (!user) { showToast('Sign in to save to cloud'); return; }
+  const btn = document.getElementById('saveBankBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
+  const ok = await _uploadToCloud(user.uid);
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  showToast(ok ? '✓ Bank saved to cloud' : '✗ Save failed — check connection');
+}
+
+// ── Google sign-in button ──
+(function(){
+  const btn = document.getElementById('authGoogleBtn');
+  let busy = false, handled = false;
+
+  async function doSignIn() {
+    if (busy) return;
+    busy = true;
+    btn.disabled = true; btn.style.opacity = '.6';
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const result   = await _auth.signInWithPopup(provider);
+      await _handleFirebaseUser(result.user, true);
+    } catch(e) {
+      // User closed popup or error — don't block them
+      busy = false;
+      btn.disabled = false; btn.style.opacity = '';
+    }
+  }
+
+  btn.addEventListener('touchstart', (e) => { e.preventDefault(); handled = true; doSignIn(); }, { passive: false });
+  btn.addEventListener('click', () => { if (handled) { handled = false; return; } doSignIn(); });
+})();
+
+// ── Skip button ──
+(function(){
+  const skipBtn = document.getElementById('authSkipBtn');
+  let handled = false;
+  function doSkip() {
+    localStorage.setItem(_AUTH_DONE_KEY, '1');
+    hideAuthScreen(proceedAfterAuth);
+  }
+  skipBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handled = true; doSkip(); }, { passive: false });
+  skipBtn.addEventListener('click', () => { if (handled) { handled = false; return; } doSkip(); });
+})();
+
+// ── Returning users: re-identify when Firebase auth state is confirmed ──
+_auth.onAuthStateChanged((user) => {
+  if (user && isAuthDone()) {
+    _handleFirebaseUser(user, false);
+  }
+});
+
+// Boot decision: auth first → then onboard if no classes
+if (!isAuthDone()) {
+  showAuthScreen();
+} else if (bank.classes.length === 0) {
   showOnboarding();
 }
 
@@ -4509,8 +4779,18 @@ posthog.init('phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq', {
   disable_session_recording: true,
   loaded: function(ph) {
     ph.config.capture_pageleave = false;
-    // Identify this device with a stable friendly name so PostHog shows
-    // "User-3F2A" instead of a long random ID in the Person column
+    // Prefer Firebase/Google user ID; fall back to device ID for guests
+    try {
+      const _su = JSON.parse(localStorage.getItem('lx_google_user') || 'null');
+      if (_su && _su.id) {
+        ph.identify(_su.id, {
+          name: _su.name, email: _su.email,
+          profile_picture: _su.picture, auth_provider: 'google',
+          app_use_count: window._ph_useCount,
+        });
+        return;
+      }
+    } catch(e) {}
     ph.identify(window._ph_deviceId, {
       name:          window._ph_friendlyName,
       app_use_count: window._ph_useCount,
@@ -4830,9 +5110,8 @@ function _ph_fireSessionSummary() {
   _ph_sending   = false;
 
   // Build a PostHog-compatible batch body
-  // Use our stable device ID as distinct_id so the same device is always
-  // the same person in PostHog — regardless of PostHog's own cookie state.
-  const distinctId = window._ph_deviceId || 'anon';
+  // Prefer Google user ID (authenticated) over device ID (anonymous)
+  const distinctId = (window._lexigo_user && window._lexigo_user.id) || window._ph_deviceId || 'anon';
 
   const body = JSON.stringify({
     api_key:     'phc_swTVcz6G7M5MPyu3T6XmqVrZfHxo7RmpAy4EJGzqCsBq',
