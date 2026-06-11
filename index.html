@@ -460,6 +460,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .m-ok{padding:10px 22px;border-radius:8px;border:none;background:var(--accent);color:#0e0e12;
   font-family:'DM Mono',monospace;font-size:.85rem;font-weight:500;cursor:pointer;transition:opacity .18s;}
 .m-ok:hover{opacity:.85;}
+/* Account-sync merge dialog */
+.sync-compare{display:flex;gap:10px;margin:4px 0 16px;}
+.sync-compare>div{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;}
+.sync-lbl{font-size:.6rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+.sync-val{font-size:.82rem;color:var(--text);}
+.sync-actions{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.sync-actions button{width:100%;text-align:center;justify-content:center;}
+.sync-rec{font-size:.58rem;background:rgba(0,0,0,.22);padding:2px 6px;border-radius:6px;margin-left:6px;letter-spacing:.04em;}
 
 .empty-state{text-align:center;color:var(--muted);font-size:.88rem;padding:40px 20px;
   letter-spacing:.04em;line-height:1.8;}
