@@ -1461,6 +1461,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign in with Google
   </button>
+  <div id="authDebug" style="position:fixed;left:8px;right:8px;bottom:8px;max-height:42vh;overflow:auto;background:rgba(0,0,0,.85);color:#6ee7b7;font:11px/1.45 ui-monospace,monospace;padding:8px 10px;border-radius:8px;white-space:pre-wrap;z-index:1001;text-align:left;border:1px solid #2a2a3d;">auth debug — waiting…</div>
 </div>
 
 <!-- ═══════════ ONBOARDING SCREEN ═══════════ -->
@@ -4416,6 +4417,24 @@ firebase.initializeApp({
 const _db   = firebase.firestore();
 const _auth = firebase.auth();
 
+// Explicit local persistence — keep the session across reloads on every browser.
+try { _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e){}
+
+// On-screen diagnostic log (shown on the auth screen). Lets us read the exact
+// auth event sequence on a phone where no dev console is available.
+function _authLog(msg){
+  try{
+    console.log('[Lexigo auth]', msg);
+    const el=document.getElementById('authDebug');
+    if(!el) return;
+    el._lines = el._lines || [];
+    el._lines.push(new Date().toISOString().slice(11,19)+'  '+msg);
+    if(el._lines.length>24) el._lines.shift();
+    el.textContent = el._lines.join('\n');
+    el.scrollTop = el.scrollHeight;
+  }catch(e){}
+}
+
 function _getStoredUser() {
   try { return JSON.parse(localStorage.getItem(_AUTH_USER_KEY) || 'null'); }
   catch(e) { return null; }
@@ -4570,17 +4589,18 @@ async function saveToCloud() {
     btn.disabled = true; btn.style.opacity = '.6';
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
-      // Popup flow — result returns directly to this page, avoiding the
-      // cross-domain redirect-storage loss that breaks signInWithRedirect on
-      // GitHub Pages. onAuthStateChanged handles the UI once it resolves.
-      await _auth.signInWithPopup(provider);
+      _authLog('tap → signInWithPopup');
+      const res = await _auth.signInWithPopup(provider);
+      _authLog('popup resolved: ' + (res && res.user ? (res.user.email||res.user.uid) : 'no-user'));
     } catch(e) {
       busy = false;
       btn.disabled = false; btn.style.opacity = '';
+      _authLog('popup error: ' + (e.code || e.message));
       console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
-      if (e.code === 'auth/popup-blocked') {
-        // Popup blocked by the browser — fall back to redirect.
-        try { await _auth.signInWithRedirect(provider); return; } catch(e2){}
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+        // Popup unsupported/blocked — fall back to redirect.
+        _authLog('falling back to signInWithRedirect');
+        try { await _auth.signInWithRedirect(provider); return; } catch(e2){ _authLog('redirect error: '+(e2.code||e2.message)); }
       }
       if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
@@ -4594,8 +4614,10 @@ async function saveToCloud() {
 
 // Handle the return trip from signInWithRedirect — confirms success / surfaces errors.
 _auth.getRedirectResult().then((result) => {
+  _authLog('getRedirectResult: ' + (result && result.user ? ('USER '+(result.user.email||result.user.uid)) : 'null'));
   if (result && result.user) showToast('✓ Signed in');
 }).catch((e) => {
+  _authLog('getRedirectResult error: ' + (e.code || e.message));
   console.error('[Lexigo auth] redirect result error:', e.code, e.message, e);
   showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
 });
@@ -4604,18 +4626,20 @@ _auth.getRedirectResult().then((result) => {
 // Authenticated → dismiss auth screen and proceed into app
 // Not authenticated (new user, signed out, or expired) → show auth screen, block app
 _auth.onAuthStateChanged((user) => {
+  _authLog('onAuthStateChanged → ' + (user ? ('USER ' + (user.email||user.uid)) : 'NULL'));
   if (user) {
     // Dismiss the auth gate the moment Firebase confirms sign-in.
     // Never block the UI on the cloud sync below — if Firestore is slow or
     // unprovisioned, awaiting it would leave the user stuck on this screen.
     const authEl = document.getElementById('authScreen');
-    if (authEl.classList.contains('open')) hideAuthScreen();
+    if (authEl.classList.contains('open')) { _authLog('dismissing auth screen'); hideAuthScreen(); }
     // Store the user + sync cloud data in the background.
     _handleFirebaseUser(user)
-      .catch((e) => console.error('[Lexigo auth] handle user failed:', e))
-      .finally(() => { if (bank.classes.length === 0) showOnboarding(); });
+      .catch((e) => { _authLog('handleUser error: '+(e.code||e.message)); console.error('[Lexigo auth] handle user failed:', e); })
+      .finally(() => { _authLog('handleUser done; classes='+bank.classes.length); if (bank.classes.length === 0) showOnboarding(); });
   } else {
     // No authenticated user — clear stale data and block the app
+    _authLog('no user → showing auth screen');
     localStorage.removeItem(_AUTH_USER_KEY);
     window._lexigo_user = null;
     showAuthScreen();
@@ -4628,6 +4652,7 @@ _auth.onAuthStateChanged((user) => {
 if (!window._lexigo_user) {
   showAuthScreen();
 }
+_authLog('boot; storedUser=' + (window._lexigo_user ? (window._lexigo_user.email||'yes') : 'none') + '; origin=' + location.origin);
 
 // Step 1 CTA — show "how to add words" guide popup
 const obBtn=document.getElementById('obCtaBtn');
