@@ -1393,6 +1393,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- ACCOUNT SYNC MERGE MODAL -->
+<div class="overlay" id="syncMergeModal">
+  <div class="modal">
+    <div class="m-title">Choose your data</div>
+    <div class="m-sub">We found data on this device and in your Google account. Pick how to combine them — nothing is deleted without your confirmation.</div>
+    <div class="sync-compare">
+      <div><span class="sync-lbl">This device</span><br><span id="syncMergeLocal" class="sync-val"></span></div>
+      <div><span class="sync-lbl">Google account</span><br><span id="syncMergeCloud" class="sync-val"></span></div>
+    </div>
+    <div class="sync-actions">
+      <button class="m-ok" onclick="_mergeChoose('merge')">Merge both<span class="sync-rec">recommended</span></button>
+      <button class="m-cancel" onclick="_mergeChoose('local')">Keep this device's data</button>
+      <button class="m-cancel" onclick="_mergeChoose('cloud')">Use Google account data</button>
+    </div>
+  </div>
+</div>
+
 <!-- FILL GAP MODAL -->
 <div class="overlay" id="fillGapModal">
   <div class="modal">
