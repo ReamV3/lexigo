@@ -2521,12 +2521,12 @@ function flipCard(){
     if(backHint){ backHint.style.filter='blur(6px)'; backHint.style.opacity='0.4'; }
     if(backLbl){ backLbl.style.filter='blur(6px)'; backLbl.style.opacity='0.4'; }
 
-    // Show pulsing retrieval dot
+    // Show linear retrieval timer along the straight part of the bottom edge.
+    // Keeps the wrapper class so the existing cleanup paths still remove it.
     const dotWrap=document.createElement('div');
-    dotWrap.className='retrieval-dot-wrap';
-    dotWrap.style.cssText='position:absolute;display:flex;align-items:center;justify-content:center;inset:0;pointer-events:none;z-index:2;';
+    dotWrap.className='retrieval-dot-wrap retrieval-timer';
     const dot=document.createElement('div');
-    dot.className='retrieval-dot';
+    dot.className='retrieval-timer-fill';
     dotWrap.appendChild(dot);
     backFace.appendChild(dotWrap);
 
