@@ -4573,9 +4573,16 @@ async function saveToCloud() {
   if (!user) { showToast('Sign in to save to cloud'); return; }
   const btn = document.getElementById('saveBankBtn');
   if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
-  const ok = await _uploadToCloud(user.uid);
-  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-  showToast(ok ? '✓ Bank saved to cloud' : '✗ Save failed — check connection');
+  try {
+    await _userDoc(user.uid).set(_localSnapshot());
+    showToast('✓ Bank saved to cloud');
+  } catch(e) {
+    // Surface the real Firestore error so we can see why it was rejected.
+    console.error('[Lexigo cloud] save failed:', e.code, e.message, e);
+    showToast('✗ Save failed: ' + (e.code || e.message || 'unknown'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  }
 }
 
 // ── Google sign-in button ──
