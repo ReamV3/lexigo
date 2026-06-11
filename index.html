@@ -4575,8 +4575,9 @@ async function saveToCloud() {
     } catch(e) {
       busy = false;
       btn.disabled = false; btn.style.opacity = '';
+      console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
       if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-        showToast('Sign in failed — please try again');
+        showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
       }
     }
   }
