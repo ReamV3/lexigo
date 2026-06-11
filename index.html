@@ -4570,21 +4570,27 @@ async function saveToCloud() {
     btn.disabled = true; btn.style.opacity = '.6';
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
-      await _auth.signInWithPopup(provider);
-      // onAuthStateChanged fires on success and handles everything from here
+      // Redirect flow — reliable on mobile (Chrome Android kills popups).
+      // Page navigates to Google; on return, getRedirectResult + onAuthStateChanged take over.
+      await _auth.signInWithRedirect(provider);
     } catch(e) {
       busy = false;
       btn.disabled = false; btn.style.opacity = '';
       console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
-      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-        showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
-      }
+      showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
     }
   }
 
   btn.addEventListener('touchstart', (e) => { e.preventDefault(); handled = true; doSignIn(); }, { passive: false });
   btn.addEventListener('click', () => { if (handled) { handled = false; return; } doSignIn(); });
 })();
+
+// Handle the return trip from signInWithRedirect — surfaces any errors that
+// would otherwise be lost. On success, onAuthStateChanged below does the work.
+_auth.getRedirectResult().catch((e) => {
+  console.error('[Lexigo auth] redirect result error:', e.code, e.message, e);
+  showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
+});
 
 // ── Auth state is the single source of truth, checked on every launch ──
 // Authenticated → dismiss auth screen and proceed into app
