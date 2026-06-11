@@ -4585,9 +4585,10 @@ async function saveToCloud() {
   btn.addEventListener('click', () => { if (handled) { handled = false; return; } doSignIn(); });
 })();
 
-// Handle the return trip from signInWithRedirect — surfaces any errors that
-// would otherwise be lost. On success, onAuthStateChanged below does the work.
-_auth.getRedirectResult().catch((e) => {
+// Handle the return trip from signInWithRedirect — confirms success / surfaces errors.
+_auth.getRedirectResult().then((result) => {
+  if (result && result.user) showToast('✓ Signed in');
+}).catch((e) => {
   console.error('[Lexigo auth] redirect result error:', e.code, e.message, e);
   showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
 });
@@ -4595,15 +4596,17 @@ _auth.getRedirectResult().catch((e) => {
 // ── Auth state is the single source of truth, checked on every launch ──
 // Authenticated → dismiss auth screen and proceed into app
 // Not authenticated (new user, signed out, or expired) → show auth screen, block app
-_auth.onAuthStateChanged(async (user) => {
+_auth.onAuthStateChanged((user) => {
   if (user) {
-    await _handleFirebaseUser(user);
+    // Dismiss the auth gate the moment Firebase confirms sign-in.
+    // Never block the UI on the cloud sync below — if Firestore is slow or
+    // unprovisioned, awaiting it would leave the user stuck on this screen.
     const authEl = document.getElementById('authScreen');
-    if (authEl.classList.contains('open')) {
-      hideAuthScreen(() => { if (bank.classes.length === 0) showOnboarding(); });
-    } else if (bank.classes.length === 0) {
-      showOnboarding();
-    }
+    if (authEl.classList.contains('open')) hideAuthScreen();
+    // Store the user + sync cloud data in the background.
+    _handleFirebaseUser(user)
+      .catch((e) => console.error('[Lexigo auth] handle user failed:', e))
+      .finally(() => { if (bank.classes.length === 0) showOnboarding(); });
   } else {
     // No authenticated user — clear stale data and block the app
     localStorage.removeItem(_AUTH_USER_KEY);
