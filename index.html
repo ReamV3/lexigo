@@ -2927,6 +2927,8 @@ function renderChoice(){
   const wordLabel=document.createElement('div');
   wordLabel.className='mc-word-label'; wrap.appendChild(wordLabel); _mcWordLabel=wordLabel;
   const scene=document.createElement('div'); scene.className='mc-card-scene'; _mcScene=scene;
+  // Background deck cards (behind the active card; toggled per remaining count)
+  for(let d=1;d<=3;d++){ const L=document.createElement('div'); L.className='mc-stack-layer hidden'; L.setAttribute('data-depth',d); scene.appendChild(L); }
   const cardUnit=document.createElement('div'); cardUnit.className='mc-card-unit'; _mcCardUnit=cardUnit;
   const card=document.createElement('div'); card.id='mcMainCard'; _mcCard=card;
   cardUnit.appendChild(card); scene.appendChild(cardUnit); wrap.appendChild(scene);
