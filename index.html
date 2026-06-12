@@ -2351,7 +2351,7 @@ function exitGame(skipSave){
   updateGameDescs();
   const resetBtn=document.getElementById('gReset');
   if(resetBtn) resetBtn.classList.remove('visible');
-  document.getElementById('gameArea').classList.remove('open','type-active','choice-active');
+  document.getElementById('gameArea').classList.remove('open','type-active','choice-active','flash-active');
   // Restore header visibility in case it was hidden by keyboard
   const gh=document.querySelector('#gameArea .g-header');
   const pb=document.querySelector('#gameArea .prog-bar');
