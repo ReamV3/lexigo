@@ -141,8 +141,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   .g-back:hover{border-color:var(--border);color:var(--text);}
 }
 .g-back:active{transform:scale(.95);}
-.g-title{font-family:'Playfair Display',serif;font-size:1.3rem;flex:1;display:flex;align-items:center;gap:10px;}
-.g-title-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+/* In-game title removed across all modes; keep .g-title as a flex spacer so the
+   back button stays left and badge/reset stay right. */
+.g-title{flex:1;display:flex;align-items:center;gap:10px;}
+.g-title-icon,#gTitleText{display:none;}
+.g-title-icon{width:32px;height:32px;border-radius:10px;align-items:center;justify-content:center;flex-shrink:0;}
 .g-title-icon svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;fill:none;}
 .g-badge{font-size:.7rem;color:var(--muted);letter-spacing:.07em;}
 .g-reset{
