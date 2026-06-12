@@ -2792,7 +2792,7 @@ function _loadMCQuestion(afterFlipMs){
     const d=[`M ${cx},${pad}`,`h ${rW/2-rx}`,`a ${rx},${rx} 0 0 1 ${rx},${rx}`,`v ${rH-2*rx}`,`a ${rx},${rx} 0 0 1 ${-rx},${rx}`,`h ${-(rW-2*rx)}`,`a ${rx},${rx} 0 0 1 ${-rx},${-rx}`,`v ${-(rH-2*rx)}`,`a ${rx},${rx} 0 0 1 ${rx},${-rx}`,`h ${rW/2-rx}`,'Z'].join(' ');
     const fillR=document.createElementNS(ns,'path');
     fillR.setAttribute('d',d); fillR.setAttribute('fill','none');
-    fillR.setAttribute('stroke',isReexposure?'var(--accent)':'var(--accent2)');
+    fillR.setAttribute('stroke',isReexposure?'var(--accent)':'#5ec8ff');
     fillR.setAttribute('stroke-width',String(sw)); fillR.setAttribute('stroke-linecap','round');
     fillR.setAttribute('stroke-dasharray',String(perim)); fillR.setAttribute('stroke-dashoffset','0');
     rsvg.appendChild(fillR);
