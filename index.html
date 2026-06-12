@@ -2594,15 +2594,24 @@ function showFlashAssessButtons(){
   // Taps on the buttons must not bubble to the card (which would flip it).
   ['click','touchstart','mousedown'].forEach(ev=>assessRow.addEventListener(ev,e=>e.stopPropagation()));
 
-  const gotBtn=document.createElement('button');
-  gotBtn.className='flash-got';
-  gotBtn.textContent='Got it ✓';
-  gotBtn.setAttribute('tabindex','-1');
+  const prompt=document.createElement('div');
+  prompt.className='flash-assess-q';
+  prompt.textContent='Knew this word?';
+
+  const btnWrap=document.createElement('div');
+  btnWrap.className='flash-assess-btns';
 
   const missedBtn=document.createElement('button');
   missedBtn.className='flash-missed';
-  missedBtn.textContent='Missed it ✗';
+  missedBtn.textContent='✖';
   missedBtn.setAttribute('tabindex','-1');
+  missedBtn.setAttribute('aria-label',"Didn't know");
+
+  const gotBtn=document.createElement('button');
+  gotBtn.className='flash-got';
+  gotBtn.textContent='✔';
+  gotBtn.setAttribute('tabindex','-1');
+  gotBtn.setAttribute('aria-label','Knew it');
 
   const w=deck[idx];
 
