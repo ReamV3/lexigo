@@ -4140,11 +4140,14 @@ function hideGamePanels(){
   const sw=document.getElementById('sprintWrap');
   if(sw){ sw.style.display='none'; sw.innerHTML=''; }
 }
-// Cards-mode left/right slide — same wheel geometry as Multiple Choice so both
-// modes feel identical. Moves the .card-mover layer (the flip lives on .card-inner
-// inside it, so the two transforms never fight).
+// Cards-mode transition engine. The outgoing card (a ghost clone) animates to
+// `exitTx` while the next card rises forward from the stack — same cascade feel
+// as Multiple Choice. Moves the .card-mover layer (the flip lives on .card-inner
+// inside it, so the two transforms never fight). `opts.exitEase`/`opts.fade`
+// tune the exit; used for arrow nav, "Got it" (slide right) and "Missed it" (fade in).
 let _flashBusy=false;
-function _flashWheelNext(dir, loadCb){
+function _flashAdvance(exitTx, loadCb, opts){
+  opts=opts||{};
   const mover=document.getElementById('cardMover');
   const wrap=document.getElementById('cardWrap');
   if(!mover||!wrap){ loadCb(); return; }
@@ -4152,11 +4155,7 @@ function _flashWheelNext(dir, loadCb){
   _flashBusy=true;
   wrap.querySelectorAll('.flash-wheel-ghost').forEach(g=>g.remove());
   mover.style.transition='none'; mover.style.transform=''; mover.style.opacity='1';
-  const dur=400;
-  const s=dir==='left'?-1:1;
-  // Same cascade philosophy as the Choice game: the front card lifts off the top
-  // and slides away while the next card rises forward from the stack.
-  const exitTx =`translateX(${s*85}%) translateY(-14%) rotate(${s*12}deg) scale(.92)`;
+  const dur=opts.dur||400;
   const enterTx='translateY(14px) scale(.95)';   // starts at the depth-1 stack slot
   const ghost=mover.cloneNode(true);
   ghost.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
@@ -4165,7 +4164,7 @@ function _flashWheelNext(dir, loadCb){
   ghost.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:6;transform:none;opacity:1;';
   wrap.appendChild(ghost);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.7)}ms ease`;
+    ghost.style.transition=`transform ${dur}ms ${opts.exitEase||'cubic-bezier(.5,0,.75,.4)'},opacity ${Math.round(dur*(opts.fade||0.7))}ms ease`;
     ghost.style.transform=exitTx; ghost.style.opacity='0';
   }));
   loadCb();                          // swap to the next card's content immediately
@@ -4182,6 +4181,26 @@ function _flashWheelNext(dir, loadCb){
     mover.style.transition=''; mover.style.transform=''; mover.style.opacity='';
     _flashBusy=false;
   }, dur+80);
+}
+// Arrow navigation: directional cascade (left/right). No completion change.
+function _flashWheelNext(dir, loadCb){
+  const s=dir==='left'?-1:1;
+  _flashAdvance(`translateX(${s*85}%) translateY(-14%) rotate(${s*12}deg) scale(.92)`, loadCb);
+}
+// Final "Got it" with no cards left: slide the card out right, then finish.
+function _flashSlideOutComplete(cb){
+  const mover=document.getElementById('cardMover');
+  if(!mover){ cb(); return; }
+  if(_flashBusy){ cb(); return; }
+  _flashBusy=true;
+  mover.style.transition='transform 380ms cubic-bezier(.5,0,.75,.4),opacity 320ms ease';
+  mover.style.transform='translateX(125%) translateY(-2%) rotate(8deg) scale(.95)';
+  mover.style.opacity='0';
+  setTimeout(()=>{
+    _flashBusy=false;
+    mover.style.transition=''; mover.style.transform=''; mover.style.opacity='';
+    cb();
+  }, 400);
 }
 function nextCard(){
   if(!deck.length) return;
