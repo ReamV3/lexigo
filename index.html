@@ -2205,34 +2205,6 @@ function confirmAdd(){
   }
 }
 
-// ── Export / Import ──
-function exportBank(){
-  const blob=new Blob([JSON.stringify({version:2,...bank},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='vocab_bank.json'; a.click(); URL.revokeObjectURL(a.href);
-}
-function importBank(input){
-  const f=input.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=e=>{
-    try{
-      const d=JSON.parse(e.target.result);
-      if(!Array.isArray(d.words)) throw '';
-      let added=0;
-      d.words.forEach(w=>{ if(!bank.words.find(x=>x.w===w.w&&x.c===w.c)){ bank.words.push(w); added++; }});
-      if(d.classes) d.classes.forEach(c=>{ if(!bank.classes.includes(c)) bank.classes.push(c); });
-      bank.classes.sort((a,b)=>a-b);
-      if(d.progress) Object.entries(d.progress).forEach(([k,v])=>{ if(!bank.progress[k]) bank.progress[k]=v; });
-      save(); updateClassPill(); buildDeck();
-      if(document.getElementById('wordsScreen').classList.contains('open')) renderAddClassChips();
-      if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
-      showToast('✓ Imported '+added+' words');
-    } catch{ showToast('✗ Invalid file'); }
-    input.value='';
-  };
-  r.readAsText(f);
-}
-
 // ── Build deck ──
 let deckPool=[], deckUsed=new Set();
 function buildDeck(){
