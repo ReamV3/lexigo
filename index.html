@@ -4217,8 +4217,6 @@ function nextCard(){
 }
 function prevCard(){
   if(!deck.length) return;
-  // If flash assess buttons are showing, don't navigate (user must tap Got it / Missed it)
-  if(exercise==='flash' && document.querySelector('.flash-assess-row')) return;
   if(choiceCountdownTimer){ clearInterval(choiceCountdownTimer); choiceCountdownTimer=null; }
   if(exercise==='choice'){
     choiceCarouselIdx=Math.max(0,choiceCarouselIdx-1);
