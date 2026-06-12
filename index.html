@@ -2820,10 +2820,13 @@ function _loadMCQuestion(afterFlipMs){
       }
     }
     if(choiceSpeedSecs>0){
+      // Reversed direction: start empty (full offset) and FILL up to complete.
+      // Same duration as before — only the visual direction changed.
       fillR.style.transition='none';
+      fillR.setAttribute('stroke-dashoffset',String(perim));
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         fillR.style.transition='stroke-dashoffset '+choiceSpeedSecs+'s linear';
-        fillR.setAttribute('stroke-dashoffset',String(perim));
+        fillR.setAttribute('stroke-dashoffset','0');
       }));
     }
   }
