@@ -2516,6 +2516,7 @@ function renderFlash(){
 }
 function flipCard(){
   if(exercise!=='flash') return;
+  if(_flashBusy) return;   // don't flip a card that's mid-slide
   if(!flipped){
     // Flip to back: animate flip immediately, but blur content during retrieval pause
     flipped=true;
