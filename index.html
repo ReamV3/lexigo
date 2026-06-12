@@ -196,7 +196,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* Words only wrap on spaces — never split a word; the JS fitter scales long words down instead */
 .card-word{font-family:'Inter',sans-serif;font-size:2.5rem;font-weight:600;text-align:center;color:var(--text);line-height:1.18;letter-spacing:-.01em;max-width:100%;overflow-wrap:normal;word-break:keep-all;hyphens:none;}
 /* Deck stack — background cards peeking out behind the active flash card */
-.card-stack-layer{position:absolute;inset:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+.card-stack-layer{position:absolute;inset:0;background:var(--card);border:1px solid var(--border);border-radius:24px;
   box-shadow:0 8px 20px rgba(0,0,0,.22);transition:transform .3s ease,opacity .3s ease;pointer-events:none;}
 .card-stack-layer[data-depth="1"]{transform:translateY(14px) scale(.95);opacity:.8;z-index:3;}
 .card-stack-layer[data-depth="2"]{transform:translateY(27px) scale(.90);opacity:.6;z-index:2;}
