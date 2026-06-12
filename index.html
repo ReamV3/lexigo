@@ -4165,7 +4165,7 @@ function _flashAdvance(exitTx, loadCb, opts){
   wrap.querySelectorAll('.flash-wheel-ghost').forEach(g=>g.remove());
   mover.style.transition='none'; mover.style.transform=''; mover.style.opacity='1';
   const dur=opts.dur||400;
-  const enterTx='translateY(14px) scale(.95)';   // starts at the depth-1 stack slot
+  const enterTx='translateY(24px) scale(.95)';   // starts at the depth-1 stack slot (matches MC)
   const ghost=mover.cloneNode(true);
   ghost.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
   ghost.removeAttribute('id');
