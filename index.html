@@ -5328,16 +5328,6 @@ confirmDeleteWord = function() {
   _ph_words_deleted += Math.max(0, wBefore - bank.words.length);
 };
 
-const _ph_orig_importBank = importBank;
-importBank = function(input) {
-  const wBefore = bank.words.length;
-  const cBefore = bank.classes.length;
-  _ph_orig_importBank(input);
-  setTimeout(() => {
-    _ph_words_added   += Math.max(0, bank.words.length   - wBefore);
-    _ph_classes_added += Math.max(0, bank.classes.length - cBefore);
-  }, 400);
-};
 
 // ════════════════════════════════════════════════════════════════
 // IN-GAME COUNTER HOOKS (accuracy-hardened)
