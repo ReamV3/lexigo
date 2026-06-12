@@ -2471,6 +2471,8 @@ function _updateStack(container, selector, remaining){
 }
 
 function renderFlash(){
+  // Cancel any pending retrieval reveal from the previous card so it can't fire late.
+  if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
   document.getElementById('choiceWrap').style.display='none';
   document.getElementById('matchWrap').style.display='none';
   document.getElementById('emptyMsg').style.display='none';
