@@ -1022,7 +1022,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 #gameArea.choice-active .feedback,
 #gameArea.choice-active .prog-bar{display:none;}
 /* Wrapper that receives all flip/move transforms; overflows so the ring SVG shows outside */
-.mc-card-unit{position:relative;width:100%;overflow:visible;transform-origin:center center;will-change:transform,opacity;}
+.mc-card-unit{position:relative;width:100%;overflow:visible;transform-origin:center center;will-change:transform,opacity;z-index:4;}
 .mc-card{
   width:100%;aspect-ratio:3/4;
   background:var(--card);border:1px solid var(--border);border-radius:24px;
