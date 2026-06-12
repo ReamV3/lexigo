@@ -201,9 +201,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 /* Deck stack — background cards peeking out behind the active flash card */
 .card-stack-layer{position:absolute;inset:0;background:var(--card);border:1px solid var(--border);border-radius:24px;
   box-shadow:0 8px 20px rgba(0,0,0,.22);transition:transform .3s ease,opacity .3s ease;pointer-events:none;}
-.card-stack-layer[data-depth="1"]{transform:translateY(14px) scale(.95);opacity:.8;z-index:3;}
-.card-stack-layer[data-depth="2"]{transform:translateY(27px) scale(.90);opacity:.6;z-index:2;}
-.card-stack-layer[data-depth="3"]{transform:translateY(40px) scale(.85);opacity:.4;z-index:1;}
+.card-stack-layer[data-depth="1"]{transform:translateY(24px) scale(.95);opacity:.85;z-index:3;}
+.card-stack-layer[data-depth="2"]{transform:translateY(44px) scale(.90);opacity:.65;z-index:2;}
+.card-stack-layer[data-depth="3"]{transform:translateY(64px) scale(.85);opacity:.45;z-index:1;}
 .card-stack-layer.hidden{display:none;}
 .card-face.back .card-word{color:var(--accent);}
 .card-hint{font-size:.68rem;color:var(--muted);margin-top:4px;}
