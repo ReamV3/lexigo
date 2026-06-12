@@ -2559,7 +2559,7 @@ function flipCard(){
       backWord.style.transition='filter .2s,opacity .2s';
       backWord.style.filter='';
       backWord.style.opacity='';
-      if(backHint){ backHint.style.transition='filter .2s,opacity .2s'; backHint.style.filter=''; backHint.style.opacity=''; backHint.textContent='Got it? See buttons below'; }
+      if(backHint){ backHint.style.display='none'; }
       if(backLbl){ backLbl.style.transition='filter .2s,opacity .2s'; backLbl.style.filter=''; backLbl.style.opacity=''; }
       setTimeout(()=>{
         if(backWord) backWord.style.transition='';
