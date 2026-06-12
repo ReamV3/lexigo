@@ -2429,6 +2429,28 @@ function resetCurrentGame(){
 }
 
 // FLASH
+// ── Card text auto-fit ──
+// Keep the word as large as possible: long words wrap (full word always shown);
+// only shrink the font when wrapping still overflows the fixed-size card box.
+// Priority: show the full word → keep it readable → never spill outside the card.
+function _fitWordToBox(box, word, maxRem, minRem){
+  if(!box||!word) return;
+  word.style.fontSize=maxRem+'rem';
+  let s=maxRem, guard=0;
+  while(s>minRem && (box.scrollHeight>box.clientHeight+1 || box.scrollWidth>box.clientWidth+1) && guard<140){
+    s=Math.max(minRem, +(s-0.06).toFixed(3));
+    word.style.fontSize=s+'rem';
+    guard++;
+  }
+}
+// ── Deck stack ── show the front card plus up to 3 background cards, but only
+// as many as there are remaining cards behind the current one.
+function _updateStack(container, selector, remaining){
+  if(!container) return;
+  const bg=Math.max(0, Math.min(3, remaining-1));
+  container.querySelectorAll(selector).forEach((l,i)=>{ l.classList.toggle('hidden', i>=bg); });
+}
+
 function renderFlash(){
   document.getElementById('choiceWrap').style.display='none';
   document.getElementById('matchWrap').style.display='none';
