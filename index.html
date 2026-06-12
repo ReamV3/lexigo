@@ -2515,7 +2515,9 @@ function renderFlash(){
   document.getElementById('navNext').style.display='';
   document.getElementById('progTxt').style.display='';
 
-  setProg(idx+1,deck.length);
+  // Progress = cards completed via "Got it" (NOT position). Flipping / navigating
+  // a card must never change this — only "Got it" increments choiceAnsweredKeys.
+  setGameProgress(choiceAnsweredKeys.size, deck.filter(w=>!isExcluded(w.w)).length);
   updateResetBtn();
   saveProgress();
 }
