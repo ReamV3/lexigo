@@ -2577,9 +2577,9 @@ function flipCard(){
     const bFace=document.getElementById('cardInner').querySelector('.card-face.back');
     const oldDot2=bFace&&bFace.querySelector('.retrieval-dot-wrap');
     if(oldDot2) oldDot2.remove();
-    // Restore nav row
-    const navRow=document.getElementById('navRow');
-    navRow.style.display='flex';
+    const bHint=bFace&&bFace.querySelector('.card-hint');
+    if(bHint){ bHint.style.display=''; }
+    // navRow stays visible throughout; just clear any assess buttons
     document.getElementById('navPrev').style.display='';
     document.getElementById('navNext').style.display='';
     document.getElementById('progTxt').style.display='';
