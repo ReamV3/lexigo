@@ -2339,6 +2339,7 @@ function startGame(ex){
     const staleAssess=document.querySelector('.flash-assess-row');
     if(staleAssess) staleAssess.remove();
     if(ex==='choice') document.getElementById('gameArea').classList.add('choice-active');
+    if(ex==='flash') document.getElementById('gameArea').classList.add('flash-active');
     ex==='flash'?renderFlash():renderChoice();
   }
   checkIntakeGuard();
