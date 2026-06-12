@@ -176,16 +176,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .prog-txt{font-size:.72rem;color:var(--muted);letter-spacing:.07em;}
 
 /* CARD */
-.card-wrap{perspective:1200px;width:100%;max-width:520px;height:230px;margin-bottom:20px;cursor:pointer;}
-.card-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;
+.card-wrap{position:relative;perspective:1200px;width:100%;max-width:468px;height:207px;margin-bottom:24px;cursor:pointer;}
+.card-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;z-index:4;
   transition:transform .5s cubic-bezier(.4,0,.2,1);}
 .card-inner.flipped{transform:rotateY(180deg);}
 .card-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
   background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:10px;}
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;gap:10px;}
 .card-face.back{transform:rotateY(180deg);}
 .card-lbl{font-size:.62rem;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);}
-.card-word{font-family:'Inter',sans-serif;font-size:2.2rem;font-weight:600;text-align:center;color:var(--text);line-height:1.2;letter-spacing:-.01em;}
+.card-word{font-family:'Inter',sans-serif;font-size:2.5rem;font-weight:600;text-align:center;color:var(--text);line-height:1.18;letter-spacing:-.01em;max-width:100%;overflow-wrap:break-word;word-break:break-word;hyphens:auto;}
+/* Deck stack — background cards peeking out behind the active flash card */
+.card-stack-layer{position:absolute;inset:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 6px 18px rgba(0,0,0,.18);transition:transform .3s ease,opacity .3s ease;pointer-events:none;}
+.card-stack-layer[data-depth="1"]{transform:translateY(8px) scale(.97);opacity:.7;z-index:3;}
+.card-stack-layer[data-depth="2"]{transform:translateY(16px) scale(.94);opacity:.4;z-index:2;}
+.card-stack-layer[data-depth="3"]{transform:translateY(24px) scale(.91);opacity:.2;z-index:1;}
+.card-stack-layer.hidden{display:none;}
 .card-face.back .card-word{color:var(--accent);}
 .card-hint{font-size:.68rem;color:var(--muted);margin-top:4px;}
 .card-tag{position:absolute;top:14px;right:16px;font-size:.62rem;color:var(--muted);}
