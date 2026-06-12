@@ -2759,6 +2759,9 @@ function _loadMCQuestion(afterFlipMs){
   if(wordLabel){ wordLabel.textContent=''; wordLabel.classList.remove('mc-wl-visible'); }
   if(countEl) countEl.textContent=choiceAnsweredKeys.size+' / '+totalActive;
   setGameProgress(choiceAnsweredKeys.size,totalActive);
+  // Deck stack reflects remaining (unanswered) cards; fit the prompt word.
+  _updateStack(_mcScene, '.mc-stack-layer', totalActive-choiceAnsweredKeys.size);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(myGen===_mcLoadGen) _fitWordToBox(front, wordEl, 2.7, 1.35); }));
   updateResetBtn();
   function buildOptions(){
     const sameClass=bank.words.filter(x=>x.w!==w.w&&x.c===w.c);
