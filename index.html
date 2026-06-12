@@ -2654,8 +2654,10 @@ function showFlashAssessButtons(){
     (b)=>{ b.style.background=''; }
   );
 
-  assessRow.appendChild(gotBtn);
-  assessRow.appendChild(missedBtn);
+  btnWrap.appendChild(missedBtn);
+  btnWrap.appendChild(gotBtn);
+  assessRow.appendChild(prompt);
+  assessRow.appendChild(btnWrap);
   backFace.appendChild(assessRow);
 }
 
