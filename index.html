@@ -4121,6 +4121,47 @@ function hideGamePanels(){
   const sw=document.getElementById('sprintWrap');
   if(sw){ sw.style.display='none'; sw.innerHTML=''; }
 }
+// Cards-mode left/right slide — same wheel geometry as Multiple Choice so both
+// modes feel identical. Moves the .card-mover layer (the flip lives on .card-inner
+// inside it, so the two transforms never fight).
+let _flashBusy=false;
+function _flashWheelNext(dir, loadCb){
+  const mover=document.getElementById('cardMover');
+  const wrap=document.getElementById('cardWrap');
+  if(!mover||!wrap){ loadCb(); return; }
+  if(_flashBusy) return;            // ignore extra taps mid-slide
+  _flashBusy=true;
+  wrap.querySelectorAll('.flash-wheel-ghost').forEach(g=>g.remove());
+  mover.style.transition='none'; mover.style.transform=''; mover.style.opacity='1';
+  const dur=400;
+  const s=dir==='left'?-1:1;
+  const exitTx =`translateX(${s*120}%) translateY(22%) rotate(${s*28}deg) scale(.84)`;
+  const enterTx=`translateX(${-s*120}%) translateY(22%) rotate(${-s*28}deg) scale(.84)`;
+  // Ghost of the outgoing card slides off; the real card rises in from the other side.
+  const ghost=mover.cloneNode(true);
+  ghost.removeAttribute('id');
+  ghost.classList.add('flash-wheel-ghost');
+  ghost.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;transform:none;opacity:1;';
+  wrap.appendChild(ghost);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.65)}ms ease`;
+    ghost.style.transform=exitTx; ghost.style.opacity='0';
+  }));
+  loadCb();                          // swap to the next card's content
+  mover.style.transition='none';
+  mover.style.transform=enterTx;
+  mover.style.opacity='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    mover.style.transition=`transform ${dur}ms cubic-bezier(.08,.82,.28,1),opacity ${Math.round(dur*.65)}ms ease`;
+    mover.style.transform='translateX(0%) translateY(0%) rotate(0deg) scale(1)';
+    mover.style.opacity='1';
+  }));
+  setTimeout(()=>{
+    ghost.remove();
+    mover.style.transition=''; mover.style.transform=''; mover.style.opacity='';
+    _flashBusy=false;
+  }, dur+80);
+}
 function nextCard(){
   if(!deck.length) return;
   // If flash assess buttons are showing, don't navigate (user must tap Got it / Missed it)
@@ -4132,8 +4173,9 @@ function nextCard(){
     renderChoice();
     return;
   }
+  if(exercise==='flash'){ _flashWheelNext('right', ()=>{ advanceDeck(1); renderFlash(); }); return; }
   advanceDeck(1);
-  exercise==='flash'?renderFlash():renderChoice();
+  renderChoice();
 }
 function prevCard(){
   if(!deck.length) return;
@@ -4145,8 +4187,9 @@ function prevCard(){
     renderChoice();
     return;
   }
+  if(exercise==='flash'){ _flashWheelNext('left', ()=>{ advanceDeck(-1); renderFlash(); }); return; }
   advanceDeck(-1);
-  exercise==='flash'?renderFlash():renderChoice();
+  renderChoice();
 }
 
 // ── Sound ──
