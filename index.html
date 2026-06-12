@@ -2486,7 +2486,7 @@ function renderFlash(){
   const backHint=backFace.querySelector('.card-hint');
   const backLbl=backFace.querySelector('.card-lbl');
   if(backWord){ backWord.style.filter=''; backWord.style.opacity=''; backWord.style.transition=''; }
-  if(backHint){ backHint.style.filter=''; backHint.style.opacity=''; backHint.style.transition=''; backHint.textContent='tap · or use arrows'; }
+  if(backHint){ backHint.style.filter=''; backHint.style.opacity=''; backHint.style.transition=''; backHint.style.display=''; backHint.textContent='tap · or use arrows'; }
   if(backLbl){ backLbl.style.filter=''; backLbl.style.opacity=''; backLbl.style.transition=''; }
   // Remove any existing retrieval dot
   const oldDot=backFace.querySelector('.retrieval-dot-wrap');
