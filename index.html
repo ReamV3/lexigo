@@ -2570,23 +2570,6 @@ function flipCard(){
       },220);
       showFlashAssessButtons();
     },1500);
-  } else {
-    // Flip back to front — cancel any pending retrieval timer
-    if(_flashRetrievalTimer){ clearTimeout(_flashRetrievalTimer); _flashRetrievalTimer=null; }
-    flipped=false;
-    document.getElementById('cardInner').classList.remove('flipped');
-    // Remove retrieval dot if still present
-    const bFace=document.getElementById('cardInner').querySelector('.card-face.back');
-    const oldDot2=bFace&&bFace.querySelector('.retrieval-dot-wrap');
-    if(oldDot2) oldDot2.remove();
-    const bHint=bFace&&bFace.querySelector('.card-hint');
-    if(bHint){ bHint.style.display=''; }
-    // navRow stays visible throughout; just clear any assess buttons
-    document.getElementById('navPrev').style.display='';
-    document.getElementById('navNext').style.display='';
-    document.getElementById('progTxt').style.display='';
-    const existingAssess=document.querySelector('.flash-assess-row');
-    if(existingAssess) existingAssess.remove();
   }
 }
 function showFlashAssessButtons(){
