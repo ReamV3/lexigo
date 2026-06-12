@@ -2897,31 +2897,33 @@ function _mcWheelNext(loadCb, dir, correct){
   cardUnit.style.transition='none'; cardUnit.style.transform=''; cardUnit.style.opacity='1';
   const dur=correct?440:400;
   const s=dir==='left'?-1:1;
-  const exitTx =`translateX(${s*120}%) translateY(22%) rotate(${s*28}deg) scale(.84)`;
-  const enterTx=`translateX(${-s*120}%) translateY(22%) rotate(${-s*28}deg) scale(.84)`;
+  // Cascade deck: toss the front card off the top while the NEXT card — already
+  // visible as the top of the stack — rises forward into focus. No fly-in.
+  const exitTx =`translateX(${s*85}%) translateY(-14%) rotate(${s*12}deg) scale(.92)`;
+  const enterTx='translateY(24px) scale(.95)';   // starts at the depth-1 stack slot
   const restTx ='translateX(0%) translateY(0%) rotate(0deg) scale(1)';
-  const enterEase=correct?'cubic-bezier(.12,1.25,.35,1)':'cubic-bezier(.08,.82,.28,1)';
+  const enterEase=correct?'cubic-bezier(.12,1.25,.35,1)':'cubic-bezier(.2,.7,.3,1)';
   const ghost=cardUnit.cloneNode(true);
   ghost.removeAttribute('id');
   ghost.classList.add('mc-wheel-ghost'); // class used to purge stale ghosts on next call
   ghost.style.position='absolute'; ghost.style.top='0'; ghost.style.left='0';
-  ghost.style.width='100%'; ghost.style.pointerEvents='none'; ghost.style.zIndex='5';
+  ghost.style.width='100%'; ghost.style.pointerEvents='none'; ghost.style.zIndex='6';
   ghost.style.transform=''; ghost.style.opacity='1'; ghost.style.transition='';
   scene.appendChild(ghost);
-  // Exit: eases out fast then decelerates down the arc; longer fade = more visible during motion
+  // Exit: the old front lifts off the top of the deck and slides away
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.65)}ms ease`;
+    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.7)}ms ease`;
     ghost.style.transform=exitTx;
     ghost.style.opacity='0';
   }));
-  // Load new content; ring/timer deferred until enter animation settles
+  // Load new content immediately so the next word is visible at once
   loadCb(dur+120);
-  // Enter: rise from opposite arc position into center
+  // Enter: the next card rises forward from the stack into the front position
   cardUnit.style.transition='none';
   cardUnit.style.transform=enterTx;
-  cardUnit.style.opacity='0';
+  cardUnit.style.opacity='.9';
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    cardUnit.style.transition=`transform ${dur}ms ${enterEase},opacity ${Math.round(dur*.65)}ms ease`;
+    cardUnit.style.transition=`transform ${dur}ms ${enterEase},opacity ${Math.round(dur*.4)}ms ease`;
     cardUnit.style.transform=restTx;
     cardUnit.style.opacity='1';
   }));
