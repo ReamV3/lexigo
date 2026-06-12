@@ -2494,10 +2494,11 @@ function renderFlash(){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ inner.style.transition=''; }));
 
   // Deck stack reflects how many cards remain after this one; fit the words.
+  // Word and translation get their own size ranges (translations run longer).
   _updateStack(document.getElementById('cardWrap'), '.card-stack-layer', deck.length-idx);
   requestAnimationFrame(()=>{
-    _fitWordToBox(inner.querySelector('.card-face.front'), document.getElementById('cardFront'), 2.5, 1.2);
-    _fitWordToBox(inner.querySelector('.card-face.back'),  document.getElementById('cardBack'),  2.5, 1.2);
+    _fitWordToBox(inner.querySelector('.card-face.front'), document.getElementById('cardFront'), 2.6, 1.0);
+    _fitWordToBox(inner.querySelector('.card-face.back'),  document.getElementById('cardBack'),  2.3, 0.95);
   });
 
   // Restore nav row to arrows (in case previous card had assessment buttons)
