@@ -134,6 +134,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 #gameArea.choice-active,
 #gameArea.flash-active{overflow:hidden;}
 #gameArea.flash-active .feedback{display:none;}
+/* Progress bar floats just below the header (out of flow) so it doesn't push the
+   card down — the card+nav then center in the exact same region as Multiple Choice. */
+#gameArea.flash-active .prog-bar{position:absolute;top:78px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;margin:0;}
 #gameArea.flash-active #cardWrap{margin-top:auto;}
 #gameArea.flash-active #navRow{margin-top:50px;margin-bottom:auto;}
 .g-header{width:100%;max-width:520px;display:flex;align-items:center;gap:12px;margin-bottom:20px;}
