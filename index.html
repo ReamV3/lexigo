@@ -4523,20 +4523,9 @@ const _auth = firebase.auth();
 // Explicit local persistence — keep the session across reloads on every browser.
 try { _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch(e){}
 
-// On-screen diagnostic log (shown on the auth screen). Lets us read the exact
-// auth event sequence on a phone where no dev console is available.
-function _authLog(msg){
-  try{
-    console.log('[Lexigo auth]', msg);
-    const el=document.getElementById('authDebug');
-    if(!el) return;
-    el._lines = el._lines || [];
-    el._lines.push(new Date().toISOString().slice(11,19)+'  '+msg);
-    if(el._lines.length>24) el._lines.shift();
-    el.textContent = el._lines.join('\n');
-    el.scrollTop = el.scrollHeight;
-  }catch(e){}
-}
+// Auth tracing — no user-facing output. The on-screen debug panel was removed;
+// this stays as a no-op wrapper so the existing call sites keep working.
+function _authLog(msg){ /* intentionally silent in production */ }
 
 function _getStoredUser() {
   try { return JSON.parse(localStorage.getItem(_AUTH_USER_KEY) || 'null'); }
