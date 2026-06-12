@@ -127,6 +127,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   flex-direction:column;align-items:center;padding:24px 16px 48px;overflow-y:auto;}
 #gameArea.open{display:flex;animation:gameEnter .24s ease-out both;}
 #gameArea.type-active{padding-bottom:0;overflow:hidden;}
+/* Card modes: no scroll view (cards stay fixed) and centered playfield. */
+#gameArea.choice-active,
+#gameArea.flash-active{overflow:hidden;justify-content:center;}
+#gameArea.choice-active .g-header,
+#gameArea.flash-active .g-header{position:absolute;top:24px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;margin-bottom:0;}
 .g-header{width:100%;max-width:520px;display:flex;align-items:center;gap:12px;margin-bottom:20px;}
 .g-back{width:46px;height:46px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
   color:var(--text);cursor:pointer;transition:all .18s;display:flex;align-items:center;
