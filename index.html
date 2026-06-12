@@ -1012,15 +1012,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* ── Multiple Choice Card Game ── */
 #choiceWrap{flex-direction:column;align-items:center;}
-.mc-card-scene{width:min(calc(100vw - 44px),342px);display:flex;flex-direction:column;align-items:center;position:relative;}
+.mc-card-scene{width:min(80vw,318px);display:flex;flex-direction:column;align-items:center;position:relative;}
 /* Deck stack — background cards peeking out behind the active MC card */
 .mc-stack-layer{position:absolute;top:0;left:0;width:100%;aspect-ratio:3/4;
   background:var(--card);border:1px solid var(--border);border-radius:24px;
-  box-shadow:0 6px 22px rgba(0,0,0,.16),0 1px 4px rgba(0,0,0,.08);
+  box-shadow:0 8px 24px rgba(0,0,0,.20),0 1px 4px rgba(0,0,0,.10);
   transition:transform .3s ease,opacity .3s ease;pointer-events:none;}
-.mc-stack-layer[data-depth="1"]{transform:translateY(9px) scale(.97);opacity:.7;z-index:3;}
-.mc-stack-layer[data-depth="2"]{transform:translateY(18px) scale(.94);opacity:.4;z-index:2;}
-.mc-stack-layer[data-depth="3"]{transform:translateY(27px) scale(.91);opacity:.2;z-index:1;}
+.mc-stack-layer[data-depth="1"]{transform:translateY(24px) scale(.95);opacity:.85;z-index:3;}
+.mc-stack-layer[data-depth="2"]{transform:translateY(44px) scale(.90);opacity:.65;z-index:2;}
+.mc-stack-layer[data-depth="3"]{transform:translateY(64px) scale(.85);opacity:.45;z-index:1;}
 .mc-stack-layer.hidden{display:none;}
 #gameArea.choice-active .feedback,
 #gameArea.choice-active .prog-bar{display:none;}
