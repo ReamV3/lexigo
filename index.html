@@ -2843,6 +2843,10 @@ function _loadMCQuestion(afterFlipMs){
         grid.appendChild(btn);
       });
       card.appendChild(grid);
+      // Fit each option so long answers scale down rather than splitting a word.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        grid.querySelectorAll('.mc-choice-btn').forEach(b=>_fitWordToBox(b, b, 1.12, 0.7));
+      }));
     },undefined,true);
     // Free the lock after fold+unfold; fire any pending nav queued during the flip
     setTimeout(()=>{ _mcBusy=false; _mcFirePending(); }, 380*2+30);
