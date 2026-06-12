@@ -3004,6 +3004,11 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
       const wEl=document.createElement('div'); wEl.className='mc-correct-word'; wEl.textContent=correctAnswer;
       const tEl=document.createElement('div'); tEl.className='mc-correct-trans'; tEl.textContent=prompt;
       cc.appendChild(wEl); cc.appendChild(tEl); card.appendChild(cc);
+      // Scale the answer text down if needed so a long word never splits/overflows.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        _fitWordToBox(cc, wEl, 3.2, 1.1);
+        _fitWordToBox(cc, tEl, 1.9, 0.9);
+      }));
     }, 300);
 
     // Flip to next question on the same card
