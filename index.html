@@ -538,9 +538,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   100%{transform:translate(-50%,-50%) scale(.8);opacity:0;}
 }
 /* flash self-assessment buttons */
-.flash-assess-row{display:flex;gap:12px;width:100%;max-width:520px;margin-top:4px;}
-.flash-got{flex:1;padding:16px 0;border-radius:14px;border:2px solid var(--green);background:rgba(110,231,183,.1);color:var(--green);font-family:'DM Mono',monospace;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.04em;}
-.flash-missed{flex:1;padding:16px 0;border-radius:14px;border:2px solid var(--red);background:rgba(248,113,113,.08);color:var(--red);font-family:'DM Mono',monospace;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.04em;}
+/* Assessment buttons live INSIDE the card (pinned to its bottom edge). */
+.flash-assess-row{position:absolute;left:14px;right:14px;bottom:14px;display:flex;gap:10px;z-index:5;}
+.flash-got{flex:1;padding:11px 0;border-radius:11px;border:2px solid var(--green);background:rgba(110,231,183,.14);color:var(--green);font-family:'DM Mono',monospace;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.03em;}
+.flash-missed{flex:1;padding:11px 0;border-radius:11px;border:2px solid var(--red);background:rgba(248,113,113,.1);color:var(--red);font-family:'DM Mono',monospace;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.03em;}
 .flash-got:active{background:rgba(110,231,183,.22);}
 .flash-missed:active{background:rgba(248,113,113,.18);}
 /* retrieval pause dot */
