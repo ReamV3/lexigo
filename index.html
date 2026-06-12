@@ -2589,16 +2589,18 @@ function flipCard(){
   }
 }
 function showFlashAssessButtons(){
-  const navRow=document.getElementById('navRow');
-  // Hide the entire navRow while showing assessment buttons
-  navRow.style.display='none';
+  // Buttons live INSIDE the card (back face). The arrow nav row stays fully
+  // visible and functional — assessment never hides or blocks it.
+  const backFace=document.getElementById('cardInner').querySelector('.card-face.back');
+  if(!backFace) return;
 
-  // Remove old assess row if any
   const oldAssess=document.querySelector('.flash-assess-row');
   if(oldAssess) oldAssess.remove();
 
   const assessRow=document.createElement('div');
   assessRow.className='flash-assess-row';
+  // Taps on the buttons must not bubble to the card (which would flip it).
+  ['click','touchstart','mousedown'].forEach(ev=>assessRow.addEventListener(ev,e=>e.stopPropagation()));
 
   const gotBtn=document.createElement('button');
   gotBtn.className='flash-got';
@@ -2612,30 +2614,34 @@ function showFlashAssessButtons(){
 
   const w=deck[idx];
 
+  // GOT IT — counts as completed (+1), card slides out to the RIGHT, next loads.
   const handleGot=()=>{
+    if(_flashBusy) return;
     screenFlash('var(--green)','normal');
     applySched(w.w, true, 'fwd', false);
     recordCorrect(w.w); renderWords();
     choiceAnsweredKeys.add(w.w);
     saveProgress();
     assessRow.remove();
-    navRow.style.display='flex';
+    setGameProgress(choiceAnsweredKeys.size, deck.filter(wd=>!isExcluded(wd.w)).length);
     const allFlipped=deck.filter(wd=>!isExcluded(wd.w)).every(wd=>choiceAnsweredKeys.has(wd.w));
     if(allFlipped){
-      setTimeout(()=>showExerciseComplete(),400);
+      _flashSlideOutComplete(()=>showExerciseComplete());
     } else {
-      advanceDeck(1); renderFlash();
+      _flashAdvance('translateX(125%) translateY(-2%) rotate(8deg) scale(.96)', ()=>{ advanceDeck(1); renderFlash(); });
     }
   };
+  // MISSED IT — NOT completed, stays in the pool; card fades/shrinks inward into
+  // the deck, then next loads.
   const handleMissed=()=>{
+    if(_flashBusy) return;
     applySched(w.w, false, 'fwd', false);
     const p=getP(w.w);
     p.correct=Math.max(0,(p.correct||0)-1);
     save();
     choiceAnsweredKeys.delete(w.w);
     assessRow.remove();
-    navRow.style.display='flex';
-    advanceDeck(1); renderFlash();
+    _flashAdvance('translateY(22px) scale(.62)', ()=>{ advanceDeck(1); renderFlash(); }, {exitEase:'cubic-bezier(.4,0,.6,1)', fade:0.95});
   };
 
   safeTap(gotBtn, handleGot,
@@ -2649,8 +2655,7 @@ function showFlashAssessButtons(){
 
   assessRow.appendChild(gotBtn);
   assessRow.appendChild(missedBtn);
-  // Insert after navRow
-  navRow.parentNode.insertBefore(assessRow, navRow.nextSibling);
+  backFace.appendChild(assessRow);
 }
 
 // CHOICE — with mandatory countdown
