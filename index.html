@@ -1642,6 +1642,8 @@ const MC_ROWS=6;
 let choiceCountdownTimer=null;
 let choiceSpeedSecs=3;
 const LS_SPEED='vt2_speed';
+let sprintSecs=60;            // Throughput Sprint duration (15 / 30 / 60)
+const LS_SPRINT_SECS='vt2_sprint_secs';
 let bubbles=[], dragState=null, matchAnimFrame=null, matchConnected=new Set();
 // match tap-to-connect
 let matchTapSel=null; // {bubble, el}
