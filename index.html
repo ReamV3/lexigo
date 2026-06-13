@@ -1663,8 +1663,106 @@ const CONTEXT_FRAMES=[
   "I finally understood ___.",
   "Everything changed because of ___.",
   "I always associated it with ___.",
-  "She never mentioned ___ again."
+  "She never mentioned ___ again.",
+  "Can you tell me about ___?",
+  "We need ___ for tomorrow.",
+  "I read something about ___ today.",
+  "There is ___ on the table.",
+  "Do you remember ___?",
+  "I would like ___, please.",
+  "They were looking for ___.",
+  "This is my favorite ___.",
+  "I learned about ___ at school.",
+  "Have you ever seen ___?",
+  "We bought ___ yesterday.",
+  "I left ___ at home.",
+  "She wrote a story about ___.",
+  "Let's talk about ___.",
+  "I dreamed about ___ last night.",
+  "He showed me ___.",
+  "I can't find ___ anywhere.",
+  "We discussed ___ at the meeting.",
+  "I gave her ___ as a gift.",
+  "There was ___ near the window.",
+  "Everyone was talking about ___.",
+  "I'm not sure about ___.",
+  "She pointed at ___.",
+  "We saw ___ on the way home.",
+  "I really like ___."
 ];
+
+// ── Deterministic context frame index (stable per word, varied across the deck) ──
+function ctxFrameIndex(key){ let h=0; for(const ch of String(key)) h=(h+ch.charCodeAt(0))>>>0; return h%CONTEXT_FRAMES.length; }
+
+// ── Translation (MyMemory, free/keyless) + shared helpers ──
+const LANG_OPTS=[['en','English'],['ru','Russian'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],['pt','Portuguese'],['he','Hebrew'],['ar','Arabic'],['uk','Ukrainian'],['pl','Polish'],['nl','Dutch'],['tr','Turkish'],['el','Greek'],['ja','Japanese'],['zh','Chinese'],['ko','Korean'],['hi','Hindi']];
+function scriptToISO(script){ return {cyrillic:'ru',hebrew:'he',arabic:'ar',greek:'el',japanese:'ja',cjk:'zh',latin:'en',other:'en'}[script]||'en'; }
+function _userEmail(){ try{ return (window._lexigo_user&&window._lexigo_user.email)||''; }catch(e){ return ''; } }
+// Per-account quota: pass the signed-in Google email as MyMemory's `de` param.
+async function autoTranslate(text, from, to){
+  if(!text) return '';
+  if(from===to) return text;
+  const email=_userEmail();
+  const url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+encodeURIComponent(from)+'|'+encodeURIComponent(to)+(email?'&de='+encodeURIComponent(email):'');
+  const ctrl=new AbortController(); const to_=setTimeout(()=>ctrl.abort(),12000);
+  try{
+    const res=await fetch(url,{signal:ctrl.signal});
+    const data=await res.json();
+    const t=data&&data.responseData&&data.responseData.translatedText;
+    if(!t||/MYMEMORY WARNING|QUERY LENGTH LIMIT|INVALID|NO QUERY SPECIFIED/i.test(t)) return '';
+    return t.trim();
+  }catch(e){ return ''; }
+  finally{ clearTimeout(to_); }
+}
+// Run async fn over items with limited concurrency; reports progress.
+async function _mapLimit(items, limit, fn, onProgress){
+  let i=0, done=0; const results=new Array(items.length);
+  async function worker(){ while(i<items.length){ const idx=i++; results[idx]=await fn(items[idx],idx); done++; if(onProgress)onProgress(done,items.length); } }
+  await Promise.all(Array.from({length:Math.min(limit,items.length)||1},worker));
+  return results;
+}
+// ── Loading overlay ──
+function showLoading(msg){ const el=document.getElementById('loadingOverlay'); if(!el) return; const m=document.getElementById('loadingMsg'); if(m) m.textContent=msg||'Working…'; const c=document.getElementById('loadingCount'); if(c) c.textContent=''; el.classList.add('open'); }
+function setLoadingCount(done,total){ const c=document.getElementById('loadingCount'); if(c) c.textContent=done+' / '+total; }
+function hideLoading(){ const el=document.getElementById('loadingOverlay'); if(el) el.classList.remove('open'); }
+
+// ── Context sentence (English offline; foreign via translate-the-frame + cache) ──
+const CTX_BLANK_TOKEN='BLANKX9';
+function _fillCtxFrame(el, frameStr){
+  el.innerHTML='';
+  const parts=String(frameStr).split('___');
+  if(parts.length===2){
+    el.appendChild(document.createTextNode(parts[0]));
+    const blank=document.createElement('span'); blank.className='type-context-blank'; blank.innerHTML='&nbsp;';
+    el.appendChild(blank);
+    el.appendChild(document.createTextNode(parts[1]));
+  } else { el.textContent=frameStr; }
+}
+// Immediately-available sentence for the current direction (foreign falls back to English until cached).
+function getCtxFrameText(w){
+  const wp=getP(w.w);
+  if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
+  const engFrame=CONTEXT_FRAMES[wp.contextFrame];
+  if(typeDir==='en-ru'){           // answer is the foreign word → want a foreign sentence
+    const lang=scriptToISO(detectScript(w.w));
+    if(lang!=='en' && wp.ctxRev && wp.ctxRev.lang===lang && wp.ctxRev.sentence) return wp.ctxRev.sentence;
+  }
+  return engFrame;
+}
+// Translate the frame into the foreign language once, blank the answer via a token, cache it.
+async function fetchForeignCtx(w){
+  const wp=getP(w.w);
+  const lang=scriptToISO(detectScript(w.w));
+  if(lang==='en') return null;
+  if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
+  const eng=CONTEXT_FRAMES[wp.contextFrame].replace('___',' '+CTX_BLANK_TOKEN+' ');
+  const tr=await autoTranslate(eng,'en',lang);
+  const re=new RegExp(CTX_BLANK_TOKEN,'i');
+  if(!tr||!re.test(tr)) return null;          // token lost (mangled) → keep English fallback
+  const sentence=tr.replace(re,'___').replace(/\s+/g,' ').trim();
+  wp.ctxRev={lang, sentence}; save();
+  return sentence;
+}
 
 let exercise=null, deck=[], idx=0, flipped=false, choiceAnswered=false;
 let matchSel=null, matchDone=new Set(), matchPairs=[];
