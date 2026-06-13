@@ -2495,7 +2495,7 @@ async function confirmAddAuto(){
   if(words.length===0){ showToast('⚠ No new words to add'); return; }
 
   showLoading('Translating words…'); setLoadingCount(0,words.length);
-  const results=await _mapLimit(words,3, async(word)=>({word, t:await autoTranslate(word,from,to)}), (d,tot)=>setLoadingCount(d,tot));
+  const results=await _mapLimit(words,3, async(word)=>({word, t:cleanTranslation(await autoTranslate(word,from,to))}), (d,tot)=>setLoadingCount(d,tot));
   hideLoading();
 
   let added=0, failed=0;
