@@ -3413,32 +3413,23 @@ function onMCardTap(el,side,key){
       setTimeout(()=>{
         [lEl,rEl].forEach(e=>e.classList.add('fading'));
         setTimeout(()=>{
-          const pair=mcPairs.find(p=>p.w===lKey);
-          if(pair) pair.matched=true;
+          // Free the matched pair's two slots (dashed placeholders), then maybe refill.
+          const li=mcLeftSlots.indexOf(lKey);  if(li>=0) mcLeftSlots[li]=null;
+          const ri=mcRightSlots.indexOf(lKey); if(ri>=0) mcRightSlots[ri]=null;
+          delete mcByKey[lKey];
 
-          if(mcPool.length>0){
-            const newPair=mcPool.shift();
-            mcPairs.push({...newPair,matched:false});
-          }
-
-          const active=mcPairs.filter(p=>!p.matched);
-          if(active.length===0){
-            if(mcSolved>=mcTotal){
-              // Show avg match time then exercise complete
-              if(mcTapTimes.length>0){
-                const avg=(mcTapTimes.reduce((a,b)=>a+b,0)/mcTapTimes.length/1000).toFixed(1);
-                const scoreEl=document.getElementById('matchScore');
-                scoreEl.textContent='Avg match time: '+avg+'s';
-                setTimeout(()=>showExerciseComplete(),2000);
-              } else {
-                setTimeout(()=>showExerciseComplete(),400);
-              }
+          if(mcSolved>=mcTotal){
+            if(mcTapTimes.length>0){
+              const avg=(mcTapTimes.reduce((a,b)=>a+b,0)/mcTapTimes.length/1000).toFixed(1);
+              document.getElementById('matchScore').textContent='Avg match time: '+avg+'s';
+              setTimeout(()=>showExerciseComplete(),2000);
             } else {
-              setFB('🎉 All matched!',true);
-              setTimeout(()=>renderMatch(),1600);
+              setTimeout(()=>showExerciseComplete(),400);
             }
+            renderMatchBoard();
             return;
           }
+          maybeRefillMatch();
           renderMatchBoard();
         },380);
       },500);
