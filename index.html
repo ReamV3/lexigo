@@ -2079,7 +2079,7 @@ function makeWlItem(w){
 
   const info=document.createElement('div');
   info.style.flex='1';
-  info.innerHTML=`<span class="wl-word">${escapeHtml(w.w)}</span> <span class="wl-tr">— ${escapeHtml(w.t)}</span>`;
+  info.innerHTML=`<span class="wl-word">${escapeHtml(w.w)}</span> <span class="wl-tr">${w.t?('— '+escapeHtml(w.t)):'— <em style="color:var(--red);opacity:.8;">needs translation</em>'}</span>`;
   const dots=document.createElement('div'); dots.className='wl-dots';
   for(let i=1;i<=5;i++){
     const d=document.createElement('div');
