@@ -2512,8 +2512,9 @@ function renderFlash(){
   const oldDot=backFace.querySelector('.retrieval-dot-wrap');
   if(oldDot) oldDot.remove();
 
-  document.getElementById('cardFront').textContent=w.w;
-  document.getElementById('cardBack').textContent=w.t;
+  // Front/back follow the chosen language direction (same toggle as the other games).
+  document.getElementById('cardFront').textContent = typeDir==='ru-en' ? w.w : w.t;
+  document.getElementById('cardBack').textContent  = typeDir==='ru-en' ? w.t : w.w;
   document.getElementById('cardTag').textContent='Class '+w.c;
   document.getElementById('cardTagB').textContent='Class '+w.c;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ inner.style.transition=''; }));
