@@ -2283,7 +2283,14 @@ function renderWsTabs(){
     const p=classProg(c);
     btn.className='ws-tab'+(wsActiveTab===c?' active':'');
     btn.textContent='Class '+c+(p.pct>=100?' 🌟':p.pct>0?' '+p.pct+'%':'');
-    btn.onclick=()=>{ wsActiveTab=c; renderWsTabs(); renderWsList(); };
+    // Tap = select; long-press (~0.7s) = delete the class (same as the Add Words screen).
+    const doSelect=()=>{ wsActiveTab=c; renderWsTabs(); renderWsList(); };
+    let pressTimer=null, triggered=false;
+    btn.addEventListener('pointerdown',()=>{ triggered=false; pressTimer=setTimeout(()=>{ triggered=true; pressTimer=null; openDeleteModal(c, btn); },700); });
+    const endPress=()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; if(!triggered) doSelect(); } };
+    btn.addEventListener('pointerup', endPress);
+    btn.addEventListener('pointerleave',()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } });
+    btn.addEventListener('pointercancel',()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } });
     tabs.appendChild(btn);
   });
 }
