@@ -2361,7 +2361,43 @@ function isValidVocabEntry(w, t){
   return true;
 }
 
+// ── Add-mode toggle (Manual vs Auto-translate) ──
+function _populateLangSelects(){
+  ['trFrom','trTo'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel||sel.options.length) return;
+    LANG_OPTS.forEach(([code,name])=>{ const o=document.createElement('option'); o.value=code; o.textContent=name; sel.appendChild(o); });
+  });
+}
+function loadTranslatePrefs(){
+  addMode=localStorage.getItem(LS_ADD_MODE)==='auto'?'auto':'manual';
+  _populateLangSelects();
+  // Default "from" to the script of existing words (best guess), "to" English.
+  let defFrom=localStorage.getItem(LS_TR_FROM);
+  if(!defFrom){ const sample=(bank.words[0]&&bank.words[0].w)||''; defFrom=sample?scriptToISO(detectScript(sample)):'ru'; }
+  const f=document.getElementById('trFrom'); if(f) f.value=defFrom;
+  const t=document.getElementById('trTo'); if(t) t.value=localStorage.getItem(LS_TR_TO)||'en';
+  if(f) f.addEventListener('change',()=>localStorage.setItem(LS_TR_FROM,f.value));
+  if(t) t.addEventListener('change',()=>localStorage.setItem(LS_TR_TO,t.value));
+  setAddMode(addMode);
+}
+function setAddMode(mode){
+  addMode=mode==='auto'?'auto':'manual';
+  localStorage.setItem(LS_ADD_MODE,addMode);
+  const auto=addMode==='auto';
+  const mb=document.getElementById('addModeManual'), ab=document.getElementById('addModeAuto');
+  if(mb) mb.classList.toggle('active',!auto);
+  if(ab) ab.classList.toggle('active',auto);
+  const ml=document.getElementById('addManualLbl'), al=document.getElementById('addAutoLbl'), lr=document.getElementById('addLangRow');
+  if(ml) ml.style.display=auto?'none':'';
+  if(al) al.style.display=auto?'':'none';
+  if(lr) lr.style.display=auto?'flex':'none';
+  const ta=document.getElementById('addText');
+  if(ta) ta.placeholder=auto?'привет\nмир\nспасибо':'привет – hello\nмир – world\nспасибо – thank you';
+}
+
 function confirmAdd(){
+  if(addMode==='auto'){ confirmAddAuto(); return; }
   const raw=document.getElementById('addText').value;
   let target=addTargetClass;
   if(!target){
