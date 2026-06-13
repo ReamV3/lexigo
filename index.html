@@ -2717,7 +2717,7 @@ function startGame(ex){
   flipped=false; choiceAnswered=false;
   document.getElementById('gameArea').classList.add('open');
   if(ex==='match'){ document.getElementById('navRow').style.display='none'; document.getElementById('gameArea').classList.add('match-active'); renderMatch(); }
-  else if(ex==='type'||ex==='cloze'){ document.getElementById('navRow').style.display='none'; ex==='cloze'?renderCloze():renderType(); }
+  else if(ex==='type'||ex==='cloze'){ document.getElementById('navRow').style.display='none'; ex==='cloze'?renderCloze():renderType(); try{ prefetchDeckCtx(); }catch(e){} }
   else if(ex==='sprint'){ document.getElementById('navRow').style.display='none'; document.getElementById('gameArea').classList.add('sprint-active'); renderSprint(); }
   else {
     // flash uses global navRow; choice has its own nav below the card
