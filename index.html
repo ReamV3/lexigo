@@ -1824,30 +1824,30 @@ function _fillCtxFrame(el, frameStr){
     el.appendChild(document.createTextNode(parts[1]));
   } else { el.textContent=frameStr; }
 }
-// Immediately-available sentence for the current direction (foreign falls back to English until cached).
-// Frame index is computed deterministically every time, so existing words use the improved pool too
-// (no migration needed — old stored random indices are ignored).
+// The sentence is always in the language being PRODUCED (the answer side):
+//   ru-en → English sentence (answer = w.t);  en-ru → foreign sentence (answer = w.w).
+function _langName(code){ const m=LANG_OPTS.find(o=>o[0]===code); return m?m[1]:code; }
+function _ctxLangFor(w){ return typeDir==='ru-en' ? 'en' : _wordForeignLang(w); }
+function _ctxTargetMeaning(w){ return typeDir==='ru-en' ? [w.t, w.w] : [w.w, w.t]; } // [word in answer lang, its meaning]
+
+// Immediately-available sentence: a cached AI sentence if we have one, else a template.
 function getCtxFrameText(w){
   const wp=getP(w.w);
-  const engFrame=CONTEXT_FRAMES[ctxFrameIndex(w.w)];
-  if(typeDir==='en-ru'){           // answer is the foreign word → want a foreign sentence
-    const lang=_wordForeignLang(w);
-    if(lang!=='en' && wp.ctxRev && wp.ctxRev.lang===lang && wp.ctxRev.sentence) return wp.ctxRev.sentence;
-  }
-  return engFrame;
+  const lang=_ctxLangFor(w);
+  if(wp.ctx && wp.ctx[lang]) return wp.ctx[lang];
+  return CONTEXT_FRAMES[ctxFrameIndex(w.w)];   // instant template fallback
 }
-// Translate the frame into the foreign language once, blank the answer via a token, cache it.
-async function fetchForeignCtx(w){
+// Generate a word-specific sentence via Gemini (once per word+language), cache it. null → keep template.
+async function fetchCtx(w){
   const wp=getP(w.w);
-  const lang=_wordForeignLang(w);
-  if(lang==='en') return null;
-  const eng=CONTEXT_FRAMES[ctxFrameIndex(w.w)].replace('___',' '+CTX_BLANK_TOKEN+' ');
-  const tr=await autoTranslate(eng,'en',lang);
-  const re=new RegExp(CTX_BLANK_TOKEN,'i');
-  if(!tr||!re.test(tr)) return null;          // token lost (mangled) → keep English fallback
-  const sentence=tr.replace(re,'___').replace(/\s+/g,' ').trim();
-  wp.ctxRev={lang, sentence}; save();
-  return sentence;
+  const lang=_ctxLangFor(w);
+  if(wp.ctx && wp.ctx[lang]) return wp.ctx[lang];
+  if(typeof window.lexigoGenSentence!=='function') return null;   // AI not available → templates
+  const [target, meaning]=_ctxTargetMeaning(w);
+  const s=await window.lexigoGenSentence(target, _langName(lang), meaning);
+  if(!s) return null;
+  wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; save();
+  return s;
 }
 
 let exercise=null, deck=[], idx=0, flipped=false, choiceAnswered=false;
