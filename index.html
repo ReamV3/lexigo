@@ -1731,6 +1731,13 @@ function ctxFrameIndex(key){ let h=0; for(const ch of String(key)) h=(h+ch.charC
 // ── Translation (MyMemory, free/keyless) + shared helpers ──
 const LANG_OPTS=[['en','English'],['ru','Russian'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],['pt','Portuguese'],['he','Hebrew'],['ar','Arabic'],['uk','Ukrainian'],['pl','Polish'],['nl','Dutch'],['tr','Turkish'],['el','Greek'],['ja','Japanese'],['zh','Chinese'],['ko','Korean'],['hi','Hindi']];
 function scriptToISO(script){ return {cyrillic:'ru',hebrew:'he',arabic:'ar',greek:'el',japanese:'ja',cjk:'zh',latin:'en',other:'en'}[script]||'en'; }
+// Foreign language of a word: from its script, or (for Latin/ambiguous) the user's chosen "from" language.
+function _wordForeignLang(w){
+  const s=detectScript(w.w);
+  if(s!=='latin'&&s!=='other') return scriptToISO(s);
+  const pref=localStorage.getItem(LS_TR_FROM);
+  return (pref&&pref!=='en')?pref:'en';
+}
 function _userEmail(){ try{ return (window._lexigo_user&&window._lexigo_user.email)||''; }catch(e){ return ''; } }
 // Per-account quota: pass the signed-in Google email as MyMemory's `de` param.
 async function autoTranslate(text, from, to){
