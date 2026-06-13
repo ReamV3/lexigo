@@ -3992,15 +3992,19 @@ function renderType(){
     const barH = bottomBar.offsetHeight || 120;
     const wordTop = kbOpen ? vvTop + 8 : (gameHeader ? gameHeader.getBoundingClientRect().bottom + 8 : 90);
     const wordBottom = vvTop + vvHeight - barH;
+    // When the keyboard is open the area is short — compact the content so the
+    // dots stay visible instead of slipping behind the input bar.
+    wordBlock.classList.toggle('kb-open', kbOpen);
     wordBlock.style.cssText = `
       position:fixed;
       left:${leftPos}px; width:${maxW}px;
       top:${wordTop}px; height:${Math.max(wordBottom - wordTop, 80)}px;
       display:flex; flex-direction:column;
       align-items:center; justify-content:center;
-      gap:14px;
+      gap:${kbOpen ? 8 : 14}px;
       padding:0 ${hPad}px;
       box-sizing:border-box;
+      overflow:hidden;
       pointer-events:auto;
     `;
   }
