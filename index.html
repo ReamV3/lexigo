@@ -3063,12 +3063,9 @@ function handleMcAnswer(card, tappedBtn, opt, w, correctAnswer, prompt, wordLabe
     const wrongKey=typeDir==='ru-en'?opt.t:opt.w;
     const p=getP(w.w); p.wrongChoices[wrongKey]=(p.wrongChoices[wrongKey]||0)+1; save();
     if(isReexposure){
-      // Second attempt also failed — flash correct, count word as done, then advance
+      // Second attempt also failed — show the correct answer, but KEEP the word in
+      // the pool so it returns later. Do not mark it done or shrink the deck.
       card.querySelectorAll('.mc-choice-btn').forEach(b=>{ if(b.textContent===correctAnswer) b.classList.add('mc-correct'); });
-      choiceAnsweredKeys.add(w.w);
-      const newAnswered2=choiceAnsweredKeys.size;
-      setGameProgress(newAnswered2, totalActive);
-      if(countEl) countEl.textContent=newAnswered2+' / '+totalActive;
       saveProgress();
       _mcAnswerTimer=setTimeout(()=>{
         _mcAnswerTimer=null;
