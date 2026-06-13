@@ -4284,8 +4284,9 @@ function renderSprint(){
     if(fill){
       const offset=circum*(1-sprintSecondsLeft/SPRINT_TOTAL);
       fill.style.strokeDashoffset=String(offset.toFixed(2));
-      if(sprintSecondsLeft<=10){
-        // Last 10 seconds: switch to the Cards "X" red and pulse.
+      // Red window: last 5s for 15s rounds, last 10s for 30s/60s rounds.
+      const redAt = SPRINT_TOTAL<=15 ? 5 : 10;
+      if(sprintSecondsLeft<=redAt){
         fill.style.stroke='var(--red)';
         if(numEl) numEl.style.color='var(--red)';
         const spWrap=document.getElementById('sprintWrap');
@@ -4293,7 +4294,7 @@ function renderSprint(){
           spWrap.classList.add('sprint-urgent');
           screenFlash('var(--red)','weak');
         }
-      } else { fill.style.stroke='#4ade80'; if(numEl) numEl.style.color=''; }   // steady color until the final 10s
+      } else { fill.style.stroke='var(--accent)'; if(numEl) numEl.style.color=''; }   // steady = Sprint game color
     }
     if(sprintSecondsLeft<=0){ endSprint(); }
   },1000);
