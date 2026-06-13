@@ -8,6 +8,48 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- Firebase AI Logic (Gemini) — modular SDK, separate named app. Generates context
+     sentences. If anything here fails (SDK version, AI Logic not enabled, App Check),
+     window.lexigoGenSentence stays undefined and the app falls back to templates. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
+  import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js";
+  try {
+    const cfg = {
+      apiKey:            'AIzaSyAfRu5HFYKHm7z5fdB6Q5XiNWOdKoPPZYs',
+      authDomain:        'lexigo-be575.firebaseapp.com',
+      projectId:         'lexigo-be575',
+      storageBucket:     'lexigo-be575.firebasestorage.app',
+      messagingSenderId: '385777305022',
+      appId:             '1:385777305022:web:adf4d48b1f5e456f6265ef',
+    };
+    const aiApp = initializeApp(cfg, 'ai');
+    // App Check (recommended): paste your reCAPTCHA v3 site key below to enable it.
+    // For local testing, set window.FIREBASE_APPCHECK_DEBUG_TOKEN=true in the console first.
+    // Left blank → App Check is skipped (works as long as you haven't turned on enforcement).
+    const RECAPTCHA_V3_SITE_KEY = '';
+    if (RECAPTCHA_V3_SITE_KEY) {
+      try { initializeAppCheck(aiApp, { provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
+      catch(e){ console.warn('[Lexigo AI] App Check init failed', e); }
+    }
+    const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+    const model = getGenerativeModel(ai, { model: 'gemini-2.5-flash', generationConfig: { maxOutputTokens: 60, temperature: 0.7 } });
+    window.lexigoGenSentence = async function(targetWord, langName, meaning){
+      try{
+        const prompt = `Write ONE very short, natural example sentence (max 8 words) in ${langName} using the word "${targetWord}" (meaning: "${meaning}"). Replace exactly that one word with ___ (three underscores). Output only the sentence.`;
+        const res = await model.generateContent(prompt);
+        let s = ((res && res.response && res.response.text()) || '').trim();
+        s = s.replace(/^["'`]+|["'`]+$/g,'').replace(/\s+/g,' ').trim();
+        if(!s.includes('___')) return null;
+        const parts = s.split('___');                       // collapse any extra blanks to one
+        if(parts.length>2) s = parts[0].trim()+' ___ '+parts.slice(1).join(' ').trim();
+        return s.replace(/\s+/g,' ').trim();
+      }catch(e){ console.warn('[Lexigo AI] generate failed', e); return null; }
+    };
+    window.lexigoAIReady = true;
+  } catch(e){ console.warn('[Lexigo AI] init failed — context will use templates', e); }
+</script>
 <style>
 :root {
   --bg:#0e0e12; --surface:#16161e; --card:#1c1c28; --border:#2a2a3d;
