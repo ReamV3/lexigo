@@ -1835,10 +1835,10 @@ function updateClassPill(){
   if(!el) return;
   if(bank.classes.length===0){
     el.textContent='+ Add words';
-  } else if(selected.has('all')) el.textContent='All Mixed';
+  } else if(selected.has('all')) el.textContent='All mixed';
   else if(selected.size===0) el.textContent='No class';
   else if(selected.size===1) el.textContent='Class '+[...selected][0];
-  else el.textContent='Multiple ('+[...selected].sort((a,b)=>a-b).map(c=>'C'+c).join(', ')+')';
+  else el.textContent='Multiple classes';
 }
 function classPillClick(){
   if(bank.classes.length===0) openWordsScreen();
