@@ -1513,6 +1513,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   </div>
 </div>
 
+<!-- LOADING OVERLAY -->
+<div class="overlay" id="loadingOverlay">
+  <div class="modal loading-modal">
+    <div class="loading-spinner"></div>
+    <div class="loading-msg" id="loadingMsg">Translating…</div>
+    <div class="loading-count" id="loadingCount"></div>
+  </div>
+</div>
+
 <!-- INFO MODAL -->
 <div class="overlay" id="infoModal" onclick="closeInfoModal()">
   <div class="modal info-modal" onclick="event.stopPropagation()">
