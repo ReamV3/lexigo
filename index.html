@@ -3899,9 +3899,9 @@ function renderSprint(){
   wrap.style.display='flex';
   wrap.innerHTML='';
 
-  let sprintSecondsLeft=60;
+  const SPRINT_TOTAL=sprintSecs;
+  let sprintSecondsLeft=SPRINT_TOTAL;
   let sprintCardsCleared=0;
-  const SPRINT_TOTAL=60;
   const R=38, CX=44, CY=44, SZ=88;
   const circum=Math.PI*2*R;
 
