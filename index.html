@@ -515,7 +515,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* GAME CARD inline toggle (speed, direction) */
 .game-card-row{display:flex;align-items:stretch;gap:0;width:100%;max-width:520px;margin-bottom:10px;}
-.game-card-row .game-card{flex:1;margin-bottom:0;}
+.game-card-row .game-card{flex:1;min-width:0;margin-bottom:0;}
+/* Invisible placeholder so rows without a toggle keep the same card width as those with one */
+.card-inline-spacer{width:72px;min-width:72px;margin-left:8px;flex-shrink:0;}
+.game-name{overflow:hidden;}
 .card-inline-toggle{
   width:72px;min-width:72px;
   margin-left:8px;
