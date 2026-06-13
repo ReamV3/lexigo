@@ -2394,6 +2394,7 @@ function confirmDeleteClass(){
   // Fix selected set
   selected.delete(c);
   if(selected.size===0&&bank.classes.length>0) selected=new Set([bank.classes[bank.classes.length-1]]);
+  if(wsActiveTab===c) wsActiveTab='all';   // were viewing the deleted class → fall back to All
   save(); updateClassPill(); buildDeck(); renderAddClassChips();
   if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
 
