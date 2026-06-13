@@ -1785,7 +1785,7 @@ function getCtxFrameText(w){
   if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
   const engFrame=CONTEXT_FRAMES[wp.contextFrame];
   if(typeDir==='en-ru'){           // answer is the foreign word → want a foreign sentence
-    const lang=scriptToISO(detectScript(w.w));
+    const lang=_wordForeignLang(w);
     if(lang!=='en' && wp.ctxRev && wp.ctxRev.lang===lang && wp.ctxRev.sentence) return wp.ctxRev.sentence;
   }
   return engFrame;
