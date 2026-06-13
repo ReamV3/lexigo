@@ -4151,6 +4151,10 @@ function updateGameDescs(){
   const dirLabel=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
   const typeBadge=document.getElementById('type-setting-badge');
   if(typeBadge) typeBadge.textContent=dirLabel;
+  const flashBadge=document.getElementById('flash-setting-badge');
+  if(flashBadge) flashBadge.textContent=dirLabel;
+  const sprintBadge=document.getElementById('sprint-setting-badge');
+  if(sprintBadge) sprintBadge.textContent=sprintSecs+'s';
 }
 
 // ── Theme/Sound blink only ──
