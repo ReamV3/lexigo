@@ -3851,9 +3851,8 @@ function renderType(){
     _fillCtxFrame(ctxFrame, getCtxFrameText(w));   // template shows instantly
     wordBlock.appendChild(ctxFrame);
 
-    // Generate a word-specific sentence (cached) and swap it in when ready.
-    const _ctxLang=_ctxLangFor(w);
-    if(!(wp.ctx && wp.ctx[_ctxLang]) && typeof window.lexigoGenSentence==='function'){
+    // Generate a word-specific sentence (cached per direction) and swap it in when ready.
+    if(!(wp.ctx && wp.ctx[typeDir]) && typeof window.lexigoGenSentence==='function'){
       const key=w.w;
       fetchCtx(w).then(s=>{ if(s && _typeShownKey===key && (exercise==='type'||exercise==='cloze')) _fillCtxFrame(ctxFrame, s); });
     }
