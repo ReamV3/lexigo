@@ -1888,6 +1888,7 @@ const LS_MATCHMIX='vt2_matchmix';
 let addMode='manual';                  // 'manual' (word – translation) | 'auto' (MyMemory)
 const LS_ADD_MODE='vt2_addmode', LS_TR_FROM='vt2_tr_from', LS_TR_TO='vt2_tr_to';
 let _typeShownKey=null;                // word currently shown in Type It (invalidates stale async ctx)
+const _ctxInflight=new Set();          // word|lang keys currently being generated (avoid dup single+batch calls)
 let choiceCountdownTimer=null;
 let choiceSpeedSecs=3;
 const LS_SPEED='vt2_speed';
