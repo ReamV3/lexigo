@@ -1808,20 +1808,13 @@ function classProg(c){
 // ── Class pill ──
 function updateClassPill(){
   const el=document.getElementById('classPillLabel');
+  if(!el) return;
   if(bank.classes.length===0){
     el.textContent='+ Add words';
-    document.getElementById('classPill').style.borderColor='var(--accent)';
-    document.getElementById('classPill').style.color='var(--accent)';
-    document.getElementById('classPill').style.background='rgba(232,184,109,.08)';
-  } else {
-    document.getElementById('classPill').style.borderColor='';
-    document.getElementById('classPill').style.color='';
-    document.getElementById('classPill').style.background='';
-    if(selected.has('all')) el.textContent='All Mixed';
-    else if(selected.size===0) el.textContent='No class';
-    else if(selected.size===1) el.textContent='Class '+[...selected][0];
-    else el.textContent='Multiple ('+[...selected].sort((a,b)=>a-b).map(c=>'C'+c).join(', ')+')';
-  }
+  } else if(selected.has('all')) el.textContent='All Mixed';
+  else if(selected.size===0) el.textContent='No class';
+  else if(selected.size===1) el.textContent='Class '+[...selected][0];
+  else el.textContent='Multiple ('+[...selected].sort((a,b)=>a-b).map(c=>'C'+c).join(', ')+')';
 }
 function classPillClick(){
   if(bank.classes.length===0) openWordsScreen();
