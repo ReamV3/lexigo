@@ -34,18 +34,31 @@
       catch(e){ console.warn('[Lexigo AI] App Check init failed', e); }
     }
     const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
-    const model = getGenerativeModel(ai, { model: 'gemini-2.5-flash', generationConfig: { maxOutputTokens: 60, temperature: 0.7 } });
+    const model = getGenerativeModel(ai, { model: 'gemini-2.5-flash', generationConfig: { maxOutputTokens: 1024, temperature: 0.7 } });
+    const _oneBlank = s => { s=String(s||'').replace(/^["'`]+|["'`]+$/g,'').replace(/\s+/g,' ').trim();
+      if(!s.includes('___')) return null;
+      const p=s.split('___'); if(p.length>2) s=p[0].trim()+' ___ '+p.slice(1).join(' ').trim();
+      return s.replace(/\s+/g,' ').trim(); };
+    // Single word → one meaning-revealing example sentence with the word blanked.
     window.lexigoGenSentence = async function(targetWord, langName, meaning){
       try{
-        const prompt = `Write ONE very short, natural example sentence (max 8 words) in ${langName} using the word "${targetWord}" (meaning: "${meaning}"). Replace exactly that one word with ___ (three underscores). Output only the sentence.`;
+        const prompt = `You help a language learner. Write ONE short, natural sentence (max 10 words) in ${langName} whose context clearly hints at the meaning of "${targetWord}" (it means "${meaning}"), so a learner could guess the word from the sentence. Then replace exactly that one word with ___ (three underscores). Output only the sentence.`;
         const res = await model.generateContent(prompt);
-        let s = ((res && res.response && res.response.text()) || '').trim();
-        s = s.replace(/^["'`]+|["'`]+$/g,'').replace(/\s+/g,' ').trim();
-        if(!s.includes('___')) return null;
-        const parts = s.split('___');                       // collapse any extra blanks to one
-        if(parts.length>2) s = parts[0].trim()+' ___ '+parts.slice(1).join(' ').trim();
-        return s.replace(/\s+/g,' ').trim();
+        return _oneBlank((res && res.response && res.response.text()) || '');
       }catch(e){ console.warn('[Lexigo AI] generate failed', e); return null; }
+    };
+    // Batch: many words in ONE request (far fewer tokens/requests for big existing classes).
+    window.lexigoGenBatch = async function(items, langName){
+      try{
+        const list = items.map(it=>`${it.id}: word="${it.word}" meaning="${it.meaning}"`).join('\n');
+        const prompt = `You help a language learner. For EACH item below, write ONE short, natural sentence (max 10 words) in ${langName} whose context clearly hints at the meaning of the word, so the learner could guess it; then replace exactly that word with ___ (three underscores). Return ONLY a JSON object mapping each id (string) to its sentence.\nItems:\n${list}`;
+        const res = await model.generateContent(prompt);
+        let s = ((res && res.response && res.response.text()) || '').trim().replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+        const obj = JSON.parse(s);
+        const out = {};
+        for(const k in obj){ const v=_oneBlank(obj[k]); if(v) out[k]=v; }
+        return out;
+      }catch(e){ console.warn('[Lexigo AI] batch failed', e); return null; }
     };
     window.lexigoAIReady = true;
   } catch(e){ console.warn('[Lexigo AI] init failed — context will use templates', e); }
