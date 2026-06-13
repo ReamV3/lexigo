@@ -4005,7 +4005,7 @@ function renderSprint(){
     res.className='sprint-result';
     const trophy=document.createElement('div'); trophy.style.fontSize='3rem'; trophy.textContent='⚡';
     const sc=document.createElement('div'); sc.className='sprint-result-score'; sc.textContent='0';
-    const rate=document.createElement('div'); rate.className='sprint-result-rate'; rate.textContent='cards cleared in 60 seconds';
+    const rate=document.createElement('div'); rate.className='sprint-result-rate'; rate.textContent='cards cleared in '+SPRINT_TOTAL+' seconds';
     const pb=document.createElement('div'); pb.className='sprint-result-pb';
     if(isNewBest&&sprintCardsCleared>0) pb.textContent='🏆 New personal best!';
     else if(prevBest>0) pb.textContent='Best: '+prevBest;
