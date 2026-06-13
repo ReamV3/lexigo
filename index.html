@@ -3915,7 +3915,7 @@ function renderSprint(){
     <circle class="str-track" cx="${CX}" cy="${CY}" r="${R}"/>
     <circle class="str-fill" id="sprintRingFill" cx="${CX}" cy="${CY}" r="${R}"
       stroke-dasharray="${circum.toFixed(2)}" stroke-dashoffset="0"/>
-  </svg><div class="sprint-timer-num" id="sprintTimerNum">60</div>`;
+  </svg><div class="sprint-timer-num" id="sprintTimerNum">${SPRINT_TOTAL}</div>`;
 
   const scoreLine=document.createElement('div');
   scoreLine.className='sprint-score-line';
