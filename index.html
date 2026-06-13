@@ -46,6 +46,7 @@
       try{
         const prompt = `You help a language learner. Write ONE short, natural sentence (max 10 words) in ${langName} whose context clearly hints at the meaning of "${targetWord}" (it means "${meaning}"), so a learner could guess the word from the sentence. Then replace exactly that one word with ___ (three underscores). Output only the sentence.`;
         const res = await model.generateContent(prompt);
+        _reportUsage(res);
         return _oneBlank((res && res.response && res.response.text()) || '');
       }catch(e){ console.warn('[Lexigo AI] generate failed', e); return null; }
     };
