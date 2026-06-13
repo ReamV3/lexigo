@@ -2465,6 +2465,47 @@ function confirmAdd(){
   }
 }
 
+// Auto-translate mode: paste bare words, MyMemory fills the translations.
+async function confirmAddAuto(){
+  const raw=document.getElementById('addText').value;
+  let target=addTargetClass;
+  if(!target){ const s=[...bank.classes].sort((a,b)=>a-b); target=s.length>0?Math.max(...s)+1:1; }
+  const from=(document.getElementById('trFrom')||{}).value||'ru';
+  const to=(document.getElementById('trTo')||{}).value||'en';
+  localStorage.setItem(LS_TR_FROM,from); localStorage.setItem(LS_TR_TO,to);
+  // Dedupe lines and skip ones already in this class.
+  const seen=new Set();
+  const words=raw.split('\n').map(l=>l.trim()).filter(l=>{
+    if(!l) return false;
+    const k=l.toLowerCase();
+    if(seen.has(k)) return false; seen.add(k);
+    if(bank.words.find(x=>x.w.toLowerCase()===k&&x.c===target)) return false;
+    return true;
+  });
+  if(words.length===0){ showToast('⚠ No new words to add'); return; }
+
+  showLoading('Translating words…'); setLoadingCount(0,words.length);
+  const results=await _mapLimit(words,3, async(word)=>({word, t:await autoTranslate(word,from,to)}), (d,tot)=>setLoadingCount(d,tot));
+  hideLoading();
+
+  let added=0, failed=0;
+  results.forEach(({word,t})=>{
+    bank.words.push({w:word, t:t||'', c:target});
+    added++; if(!t) failed++;
+  });
+  if(added>0){
+    if(!bank.classes.includes(target)){ bank.classes.push(target); bank.classes.sort((a,b)=>a-b); }
+    selected=new Set([target]); wsActiveTab=target;
+    save(); document.getElementById('addText').value='';
+    renderAddClassChips(); updateClassPill(); buildDeck(); updateTypeDirBtn(); updateFlashDirBtn();
+    try{ localStorage.setItem(LS_ONBOARD,'1'); }catch(e){}
+    if(document.getElementById('listScreen').classList.contains('open')){ renderWsTabs(); renderWsList(); }
+    showToast('✓ Added '+added+' word'+(added!==1?'s':'')+(failed>0?' · '+failed+' need a manual translation':''));
+  } else {
+    showToast('⚠ Could not add words');
+  }
+}
+
 // ── Build deck ──
 let deckPool=[], deckUsed=new Set();
 function buildDeck(){
