@@ -4164,6 +4164,9 @@ function loadSprintSecs(){
   sprintSecs=(v===15||v===30)?v:60;
   updateSprintSecsBtn();
 }
+function toggleMatchMix(e){ if(e)e.stopPropagation(); matchMix=!matchMix; localStorage.setItem(LS_MATCHMIX, matchMix?'1':'0'); updateMatchMixBtn(); }
+function updateMatchMixBtn(){ const el=document.getElementById('matchMixLabel'); if(el) el.textContent=matchMix?'on':'off'; }
+function loadMatchMix(){ matchMix=localStorage.getItem(LS_MATCHMIX)==='1'; updateMatchMixBtn(); }
 
 function updateGameDescs(){
   const matchDesc=document.getElementById('desc-match');
