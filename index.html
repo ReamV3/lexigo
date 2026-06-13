@@ -1873,6 +1873,16 @@ function _fillCtxFrame(el, frameStr){
 // The sentence is always in the language being PRODUCED (the answer side):
 //   ru-en → English sentence (answer = w.t);  en-ru → foreign sentence (answer = w.w).
 function _langName(code){ const m=LANG_OPTS.find(o=>o[0]===code); return m?m[1]:code; }
+
+// ── Gemini usage tracking (for PostHog summary): this session + all-time (per device) ──
+let _geminiTokSession=0, _geminiCallsSession=0;
+const LS_GEM_TOK='vt2_gem_tok_total', LS_GEM_CALLS='vt2_gem_calls_total';
+window.lexigoOnGeminiUsage=function(tokens, calls){
+  tokens=tokens||0; calls=calls||0;
+  _geminiTokSession+=tokens; _geminiCallsSession+=calls;
+  try{ localStorage.setItem(LS_GEM_TOK,   String((parseInt(localStorage.getItem(LS_GEM_TOK)||'0',10))+tokens)); }catch(e){}
+  try{ localStorage.setItem(LS_GEM_CALLS, String((parseInt(localStorage.getItem(LS_GEM_CALLS)||'0',10))+calls)); }catch(e){}
+};
 function _ctxLangFor(w){ return typeDir==='ru-en' ? 'en' : _wordForeignLang(w); }
 function _ctxTargetMeaning(w){ return typeDir==='ru-en' ? [w.t, w.w] : [w.w, w.t]; } // [word in answer lang, its meaning]
 
