@@ -4287,14 +4287,13 @@ function renderSprint(){
       // Red window: last 5s for 15s rounds, last 10s for 30s/60s rounds.
       const redAt = SPRINT_TOTAL<=15 ? 5 : 10;
       if(sprintSecondsLeft<=redAt){
-        fill.style.stroke='var(--red)';
-        if(numEl) numEl.style.color='var(--red)';
+        fill.style.stroke='var(--red)';   // only the ring turns red; number keeps its color
         const spWrap=document.getElementById('sprintWrap');
         if(spWrap&&!spWrap.classList.contains('sprint-urgent')){
           spWrap.classList.add('sprint-urgent');
           screenFlash('var(--red)','weak');
         }
-      } else { fill.style.stroke='var(--accent)'; if(numEl) numEl.style.color=''; }   // steady = Sprint game color
+      } else { fill.style.stroke='var(--accent)'; }   // steady = Sprint game color
     }
     if(sprintSecondsLeft<=0){ endSprint(); }
   },1000);
