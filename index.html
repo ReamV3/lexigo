@@ -3313,51 +3313,49 @@ function renderMatchBoard(){
   const rightCol=document.createElement('div'); rightCol.className='match-col-cards';
   board.appendChild(leftCol); board.appendChild(rightCol);
 
-  const active=mcPairs.filter(p=>!p.matched);
-
-  // Determine if ghosts should be shown
-  const showGhosts=mcSolved>=Math.floor(mcTotal*0.5) && active.length>3;
-  mcGhostsActive=showGhosts;
-
-  // Length-based shuffle filter
-  const leftOrder=_bestShuffleLeft([...active]);
-  const rightOrder=_bestShuffleByLength([...active]);
-
-  leftOrder.forEach(pair=>{
-    const el=document.createElement('div');
-    el.className='mcard'; el.textContent=pair.w;
-    el.dataset.key=pair.w; el.dataset.side='left';
-    attachMCardHandlers(el,'left',pair.w);
-    pair.leftEl=el; leftCol.appendChild(el);
-  });
-  rightOrder.forEach(pair=>{
-    const el=document.createElement('div');
-    el.className='mcard'; el.textContent=pair.t;
-    el.dataset.key=pair.w; el.dataset.side='right';
-    attachMCardHandlers(el,'right',pair.w);
-    pair.rightEl=el; rightCol.appendChild(el);
-  });
-
-  // Add ghost cards if threshold met
-  if(showGhosts){
-    const matched=mcPairs.filter(p=>p.matched);
-    if(matched.length>0){
-      const ghostPair=matched[Math.floor(Math.random()*matched.length)];
-      // Left ghost
-      const ghostL=document.createElement('div');
-      ghostL.className='mcard ghost';
-      ghostL.textContent=ghostPair.w;
-      ghostL.addEventListener('touchstart',(e)=>{e.preventDefault();trigShake(ghostL);},{passive:false});
-      ghostL.addEventListener('click',()=>trigShake(ghostL));
-      leftCol.appendChild(ghostL);
-      // Right ghost (same pair — decoy, not a valid match)
-      const ghostR=document.createElement('div');
-      ghostR.className='mcard ghost';
-      ghostR.textContent=ghostPair.t;
-      ghostR.addEventListener('touchstart',(e)=>{e.preventDefault();trigShake(ghostR);},{passive:false});
-      ghostR.addEventListener('click',()=>trigShake(ghostR));
-      rightCol.appendChild(ghostR);
+  const buildSlot=(key,side)=>{
+    if(key===null || !mcByKey[key]){
+      // Matched slot awaiting refill — shown as a dashed placeholder.
+      const ph=document.createElement('div'); ph.className='mcard placeholder';
+      return ph;
     }
+    const el=document.createElement('div');
+    el.className='mcard'; el.textContent=side==='left'?mcByKey[key].w:mcByKey[key].t;
+    el.dataset.key=key; el.dataset.side=side;
+    attachMCardHandlers(el,side,key);
+    return el;
+  };
+  mcLeftSlots.forEach(key=>leftCol.appendChild(buildSlot(key,'left')));
+  mcRightSlots.forEach(key=>rightCol.appendChild(buildSlot(key,'right')));
+}
+
+// Refill matched (placeholder) slots — only once MC_REFILL have accumulated, so the
+// new cards' positions don't reveal which word goes with which translation.
+function maybeRefillMatch(){
+  const phLeft=mcLeftSlots.map((k,i)=>k===null?i:-1).filter(i=>i>=0);
+  const phRight=mcRightSlots.map((k,i)=>k===null?i:-1).filter(i=>i>=0);
+  if(mcPool.length===0){
+    // No more pairs to bring in — compact the board so no dead dashed slots linger.
+    mcLeftSlots=mcLeftSlots.filter(k=>k!==null);
+    mcRightSlots=mcRightSlots.filter(k=>k!==null);
+    return;
+  }
+  if(phLeft.length<MC_REFILL) return;              // wait until 3 are matched
+  const take=Math.min(phLeft.length, mcPool.length);
+  const newPairs=mcPool.splice(0,take);
+  newPairs.forEach(p=>{ mcByKey[p.w]={w:p.w,t:p.t}; });
+  if(matchMix){
+    // Mix ON — reshuffle every card across all slots.
+    const keys=Object.keys(mcByKey), total=mcLeftSlots.length;
+    const lk=shuffle([...keys]), rk=shuffle([...keys]);
+    mcLeftSlots =Array.from({length:total},(_,i)=> i<lk.length?lk[i]:null);
+    mcRightSlots=Array.from({length:total},(_,i)=> i<rk.length?rk[i]:null);
+  } else {
+    // Mix OFF — keep every other card put; drop the new pairs into the freed slots,
+    // shuffled independently so the new word/translation positions don't line up.
+    const newKeys=newPairs.map(p=>p.w);
+    const la=shuffle([...newKeys]), ra=shuffle([...newKeys]);
+    for(let i=0;i<take;i++){ mcLeftSlots[phLeft[i]]=la[i]; mcRightSlots[phRight[i]]=ra[i]; }
   }
 }
 
