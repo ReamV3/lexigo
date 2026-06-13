@@ -1793,7 +1793,7 @@ function getCtxFrameText(w){
 // Translate the frame into the foreign language once, blank the answer via a token, cache it.
 async function fetchForeignCtx(w){
   const wp=getP(w.w);
-  const lang=scriptToISO(detectScript(w.w));
+  const lang=_wordForeignLang(w);
   if(lang==='en') return null;
   if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
   const eng=CONTEXT_FRAMES[wp.contextFrame].replace('___',' '+CTX_BLANK_TOKEN+' ');
