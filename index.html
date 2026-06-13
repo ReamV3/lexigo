@@ -4103,6 +4103,24 @@ function updateTypeDirBtn(){
   if(badge) badge.textContent=label;
 }
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
+function toggleSprintSecs(e){
+  if(e)e.stopPropagation();
+  sprintSecs = sprintSecs===60?15 : sprintSecs===15?30 : 60;
+  localStorage.setItem(LS_SPRINT_SECS, sprintSecs);
+  updateSprintSecsBtn();
+}
+function updateSprintSecsBtn(){
+  const label=sprintSecs+'s';
+  const el=document.getElementById('sprintSecsLabel');
+  const badge=document.getElementById('sprint-setting-badge');
+  if(el) el.textContent=label;
+  if(badge) badge.textContent=label;
+}
+function loadSprintSecs(){
+  const v=parseInt(localStorage.getItem(LS_SPRINT_SECS)||'60');
+  sprintSecs=(v===15||v===30)?v:60;
+  updateSprintSecsBtn();
+}
 
 function updateGameDescs(){
   const matchDesc=document.getElementById('desc-match');
