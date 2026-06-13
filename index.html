@@ -516,10 +516,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   border:1px solid var(--border);background:var(--surface);margin-bottom:16px;}
 .add-block-title{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--accent);margin-bottom:14px;}
 .add-mode-row{display:flex;gap:6px;margin-bottom:14px;}
-.add-mode-btn{flex:1;padding:9px 0;border-radius:8px;border:1px solid var(--border);background:transparent;
-  color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem;cursor:pointer;transition:all .16s;
+.add-mode-btn{position:relative;flex:1;padding:9px 0;border-radius:8px;border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem;cursor:pointer;transition:all .16s;overflow:visible;
   -webkit-tap-highlight-color:rgba(0,0,0,0);}
 .add-mode-btn.active{border-color:var(--accent2);background:rgba(124,158,255,.12);color:var(--accent2);}
+.new-badge{position:absolute;top:-7px;right:-7px;background:#facc15;color:#0e0e12;
+  font-family:'DM Mono',monospace;font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 5px;border-radius:6px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.3);}
 .add-lang-row{display:flex;gap:10px;margin-bottom:10px;}
 .add-lang{display:flex;align-items:center;gap:6px;flex:1;font-size:.66rem;color:var(--muted);
   letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace;}
