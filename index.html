@@ -1842,26 +1842,25 @@ function _langName(code){ const m=LANG_OPTS.find(o=>o[0]===code); return m?m[1]:
 function _ctxLangFor(w){ return typeDir==='ru-en' ? 'en' : _wordForeignLang(w); }
 function _ctxTargetMeaning(w){ return typeDir==='ru-en' ? [w.t, w.w] : [w.w, w.t]; } // [word in answer lang, its meaning]
 
+// Cache key = direction (so the two directions never collide, for any language).
 // Immediately-available sentence: a cached AI sentence if we have one, else a template.
 function getCtxFrameText(w){
   const wp=getP(w.w);
-  const lang=_ctxLangFor(w);
-  if(wp.ctx && wp.ctx[lang]) return wp.ctx[lang];
+  if(wp.ctx && wp.ctx[typeDir]) return wp.ctx[typeDir];
   return CONTEXT_FRAMES[ctxFrameIndex(w.w)];   // instant template fallback
 }
-// Generate a word-specific sentence via Gemini (once per word+language), cache it. null → keep template.
+// Generate a word-specific sentence via Gemini (once per word+direction), cache it. null → keep template.
 async function fetchCtx(w){
   const wp=getP(w.w);
-  const lang=_ctxLangFor(w);
-  if(wp.ctx && wp.ctx[lang]) return wp.ctx[lang];
+  if(wp.ctx && wp.ctx[typeDir]) return wp.ctx[typeDir];
   if(typeof window.lexigoGenSentence!=='function') return null;   // AI not available → templates
-  const ik=w.w+'|'+lang;
+  const ik=w.w+'|'+typeDir;
   if(_ctxInflight.has(ik)) return null;                           // a batch/single call already covers it
   _ctxInflight.add(ik);
   try{
     const [target, meaning]=_ctxTargetMeaning(w);
-    const s=await window.lexigoGenSentence(target, _langName(lang), meaning);
-    if(s){ wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; save(); }
+    const s=await window.lexigoGenSentence(target, _langName(_ctxLangFor(w)), meaning);
+    if(s){ wp.ctx=wp.ctx||{}; wp.ctx[typeDir]=s; save(); }
     return s||null;
   } finally { _ctxInflight.delete(ik); }
 }
@@ -1869,33 +1868,35 @@ async function fetchCtx(w){
 // far fewer requests/tokens than one-by-one, important for users who already have big classes.
 async function prefetchDeckCtx(){
   if(typeof window.lexigoGenBatch!=='function' || !deck || !deck.length) return;
-  const groups={};   // sentence-language -> [{id, word, meaning, key}]
+  const dir=typeDir;
+  const groups={};   // prompt-language -> [{word, meaning, wkey}]
   deck.forEach(w=>{
     if(isExcluded(w.w)) return;
-    const wp=getP(w.w), lang=_ctxLangFor(w);
-    if(wp.ctx && wp.ctx[lang]) return;
-    if(_ctxInflight.has(w.w+'|'+lang)) return;
+    const wp=getP(w.w);
+    if(wp.ctx && wp.ctx[dir]) return;
+    if(_ctxInflight.has(w.w+'|'+dir)) return;
     const [target,meaning]=_ctxTargetMeaning(w);
-    (groups[lang]=groups[lang]||[]).push({word:target, meaning, key:w.w});
+    const lang=_ctxLangFor(w);
+    (groups[lang]=groups[lang]||[]).push({word:target, meaning, wkey:w.w});
   });
   for(const lang in groups){
     const items=groups[lang];
     for(let i=0;i<items.length;i+=12){
-      const chunk=items.slice(i,i+12).map((it,j)=>({id:String(j), word:it.word, meaning:it.meaning, key:it.key}));
-      chunk.forEach(it=>_ctxInflight.add(it.key+'|'+lang));
+      const chunk=items.slice(i,i+12).map((it,j)=>({id:String(j), word:it.word, meaning:it.meaning, wkey:it.wkey}));
+      chunk.forEach(it=>_ctxInflight.add(it.wkey+'|'+dir));
       let res=null;
       try{ res=await window.lexigoGenBatch(chunk.map(it=>({id:it.id,word:it.word,meaning:it.meaning})), _langName(lang)); }catch(e){}
       chunk.forEach(it=>{
         const s=res&&res[it.id];
-        if(s){ const wp=getP(it.key); wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; }
-        _ctxInflight.delete(it.key+'|'+lang);
+        if(s){ const wp=getP(it.wkey); wp.ctx=wp.ctx||{}; wp.ctx[dir]=s; }
+        _ctxInflight.delete(it.wkey+'|'+dir);
       });
       save();
       // If the word currently on screen just got its sentence, swap it in.
       if(_typeShownKey){
         const cw=deck.find(x=>x.w===_typeShownKey);
         const el=document.querySelector('.type-context-frame');
-        if(cw && el){ const wp=getP(cw.w), lg=_ctxLangFor(cw); if(wp.ctx && wp.ctx[lg]) _fillCtxFrame(el, wp.ctx[lg]); }
+        if(cw && el){ const wp=getP(cw.w); if(wp.ctx && wp.ctx[dir]) _fillCtxFrame(el, wp.ctx[dir]); }
       }
     }
   }
