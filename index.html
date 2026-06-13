@@ -4113,13 +4113,19 @@ function detectWordLang(){
 function updateTypeDirBtn(){
   const {word,meaning}=detectWordLang();
   const label=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
-  // Direction is global — keep Type and Cards controls/badges in sync.
-  [['typeDirLabel','type-setting-badge'],['flashDirLabel','flash-setting-badge']].forEach(([labelId,badgeId])=>{
-    const el=document.getElementById(labelId); if(el) el.textContent=label;
-    const badge=document.getElementById(badgeId); if(badge) badge.textContent=label;
-  });
+  const el=document.getElementById('typeDirLabel'); if(el) el.textContent=label;
+  const badge=document.getElementById('type-setting-badge'); if(badge) badge.textContent=label;
 }
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
+// Cards direction — independent from Type It, remembered on its own.
+function toggleFlashDir(e){ if(e)e.stopPropagation(); flashDir=flashDir==='ru-en'?'en-ru':'ru-en'; localStorage.setItem(LS_FLASHDIR,flashDir); updateFlashDirBtn(); }
+function updateFlashDirBtn(){
+  const {word,meaning}=detectWordLang();
+  const label=flashDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
+  const el=document.getElementById('flashDirLabel'); if(el) el.textContent=label;
+  const badge=document.getElementById('flash-setting-badge'); if(badge) badge.textContent=label;
+}
+function loadFlashDir(){ flashDir=localStorage.getItem(LS_FLASHDIR)||'ru-en'; updateFlashDirBtn(); }
 function toggleSprintSecs(e){
   if(e)e.stopPropagation();
   sprintSecs = sprintSecs===60?15 : sprintSecs===15?30 : 60;
