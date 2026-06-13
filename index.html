@@ -1855,11 +1855,50 @@ async function fetchCtx(w){
   const lang=_ctxLangFor(w);
   if(wp.ctx && wp.ctx[lang]) return wp.ctx[lang];
   if(typeof window.lexigoGenSentence!=='function') return null;   // AI not available → templates
-  const [target, meaning]=_ctxTargetMeaning(w);
-  const s=await window.lexigoGenSentence(target, _langName(lang), meaning);
-  if(!s) return null;
-  wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; save();
-  return s;
+  const ik=w.w+'|'+lang;
+  if(_ctxInflight.has(ik)) return null;                           // a batch/single call already covers it
+  _ctxInflight.add(ik);
+  try{
+    const [target, meaning]=_ctxTargetMeaning(w);
+    const s=await window.lexigoGenSentence(target, _langName(lang), meaning);
+    if(s){ wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; save(); }
+    return s||null;
+  } finally { _ctxInflight.delete(ik); }
+}
+// Pre-generate sentences for all uncached words in the current deck in ONE batch per chunk —
+// far fewer requests/tokens than one-by-one, important for users who already have big classes.
+async function prefetchDeckCtx(){
+  if(typeof window.lexigoGenBatch!=='function' || !deck || !deck.length) return;
+  const groups={};   // sentence-language -> [{id, word, meaning, key}]
+  deck.forEach(w=>{
+    if(isExcluded(w.w)) return;
+    const wp=getP(w.w), lang=_ctxLangFor(w);
+    if(wp.ctx && wp.ctx[lang]) return;
+    if(_ctxInflight.has(w.w+'|'+lang)) return;
+    const [target,meaning]=_ctxTargetMeaning(w);
+    (groups[lang]=groups[lang]||[]).push({word:target, meaning, key:w.w});
+  });
+  for(const lang in groups){
+    const items=groups[lang];
+    for(let i=0;i<items.length;i+=12){
+      const chunk=items.slice(i,i+12).map((it,j)=>({id:String(j), word:it.word, meaning:it.meaning, key:it.key}));
+      chunk.forEach(it=>_ctxInflight.add(it.key+'|'+lang));
+      let res=null;
+      try{ res=await window.lexigoGenBatch(chunk.map(it=>({id:it.id,word:it.word,meaning:it.meaning})), _langName(lang)); }catch(e){}
+      chunk.forEach(it=>{
+        const s=res&&res[it.id];
+        if(s){ const wp=getP(it.key); wp.ctx=wp.ctx||{}; wp.ctx[lang]=s; }
+        _ctxInflight.delete(it.key+'|'+lang);
+      });
+      save();
+      // If the word currently on screen just got its sentence, swap it in.
+      if(_typeShownKey){
+        const cw=deck.find(x=>x.w===_typeShownKey);
+        const el=document.querySelector('.type-context-frame');
+        if(cw && el){ const wp=getP(cw.w), lg=_ctxLangFor(cw); if(wp.ctx && wp.ctx[lg]) _fillCtxFrame(el, wp.ctx[lg]); }
+      }
+    }
+  }
 }
 
 let exercise=null, deck=[], idx=0, flipped=false, choiceAnswered=false;
