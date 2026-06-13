@@ -3257,8 +3257,11 @@ function renderMatch(){
   const remaining=allPairs.filter(p=>!alreadyMatched.has(p.w));
   mcSolved=alreadyMatched.size;
   const shuffled=shuffle([...remaining]);
-  mcPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length)).map(p=>({...p,matched:false}));
+  const boardPairs=shuffled.slice(0,Math.min(MC_ROWS,shuffled.length));
   mcPool=shuffled.slice(Math.min(MC_ROWS,shuffled.length));
+  mcByKey={}; boardPairs.forEach(p=>{ mcByKey[p.w]={w:p.w,t:p.t}; });
+  mcLeftSlots=shuffle(boardPairs.map(p=>p.w));     // word slots
+  mcRightSlots=shuffle(boardPairs.map(p=>p.w));    // translation slots (independent order)
   mcSelLeft=mcSelRight=mcSelLeftKey=mcSelRightKey=null;
 
   document.getElementById('matchLblLeft').textContent='word';
