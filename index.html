@@ -527,6 +527,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   font-family:'DM Mono',monospace;font-size:.82rem;font-weight:500;z-index:999;
   opacity:0;transition:opacity .25s,transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* Loading overlay — radial spinner + message for in-flight translation */
+.loading-modal{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:200px;}
+.loading-spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent2);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-msg{font-family:'DM Mono',monospace;font-size:.85rem;color:var(--text);letter-spacing:.03em;text-align:center;}
+.loading-count{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);}
 
 /* GAME CARD inline toggle (speed, direction) */
 .game-card-row{display:flex;align-items:stretch;gap:0;width:100%;max-width:520px;margin-bottom:10px;}
