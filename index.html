@@ -4123,20 +4123,10 @@ function renderType(){
 }
 
 
-// ── CLOZE game — Type It with forced context frame ──
+// ── CLOZE game — Type It with the context frame always shown ──
 function renderCloze(){
-  // Force assign a context frame for every word, then delegate to renderType
-  // renderType checks exercise==='cloze' to always show context
-  const pool=selected.has('all')?[...bank.words]:bank.words.filter(w=>selected.has(w.c));
-  const active=pool.filter(w=>!isExcluded(w.w));
-  active.forEach(w=>{
-    const wp=getP(w.w);
-    if(wp.contextFrame===null||wp.contextFrame===undefined){
-      wp.contextFrame=ctxFrameIndex(w.w);
-    }
-  });
-  save();
-  renderType(); // renderType already handles cloze mode via exercise==='cloze' check
+  // Frames are derived deterministically per word in renderType; just delegate.
+  renderType(); // renderType handles cloze mode via the exercise==='cloze' check
 }
 
 // ── THROUGHPUT SPRINT game ──
