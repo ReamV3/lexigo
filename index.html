@@ -3716,6 +3716,7 @@ function renderType(){
 
   if(deck.length===0){ document.getElementById('emptyMsg').style.display='block'; wrap.style.display='none'; return; }
   const w=deck[idx];
+  _typeShownKey=w.w;   // invalidates any in-flight foreign-context fetch from a previous card
   const prompt = typeDir==='ru-en' ? w.w : w.t;
   const answer  = typeDir==='ru-en' ? w.t : w.w;
   typeAnswer=answer;
@@ -3728,7 +3729,7 @@ function renderType(){
   const wp=getP(w.w);
   const inContextMode=exercise==='cloze'||(wp.correct||0)>=3;
   if(inContextMode && (wp.contextFrame===null||wp.contextFrame===undefined)){
-    wp.contextFrame=Math.floor(Math.random()*15);
+    wp.contextFrame=ctxFrameIndex(w.w);   // deterministic, stable per word
     save();
   }
 
@@ -3737,28 +3738,26 @@ function renderType(){
   wordBlock.className='type-word-block';
   wordBlock.id='typeWordBlock';
 
-  // Context frame display
+  // Context frame display — English offline; foreign direction upgrades async (cached).
   if(inContextMode){
     const ctxLabel=document.createElement('div');
     ctxLabel.className='type-context-label';
     ctxLabel.textContent='context';
     wordBlock.appendChild(ctxLabel);
 
-    const frameStr=CONTEXT_FRAMES[wp.contextFrame];
     const ctxFrame=document.createElement('div');
     ctxFrame.className='type-context-frame';
-    const parts=frameStr.split('___');
-    if(parts.length===2){
-      ctxFrame.appendChild(document.createTextNode(parts[0]));
-      const blank=document.createElement('span');
-      blank.className='type-context-blank';
-      blank.innerHTML='&nbsp;';
-      ctxFrame.appendChild(blank);
-      ctxFrame.appendChild(document.createTextNode(parts[1]));
-    } else {
-      ctxFrame.textContent=frameStr;
-    }
+    _fillCtxFrame(ctxFrame, getCtxFrameText(w));
     wordBlock.appendChild(ctxFrame);
+
+    // If we need a foreign-language sentence and it isn't cached yet, fetch + swap in place.
+    if(typeDir==='en-ru'){
+      const lang=scriptToISO(detectScript(w.w));
+      if(lang!=='en' && !(wp.ctxRev && wp.ctxRev.lang===lang)){
+        const key=w.w;
+        fetchForeignCtx(w).then(s=>{ if(s && _typeShownKey===key && (exercise==='type'||exercise==='cloze')) _fillCtxFrame(ctxFrame, s); });
+      }
+    }
   }
 
   const wordRow=document.createElement('div');
