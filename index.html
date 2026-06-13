@@ -4103,12 +4103,13 @@ function detectWordLang(){
   return {word:wCode, meaning:tCode};
 }
 function updateTypeDirBtn(){
-  const el=document.getElementById('typeDirLabel');
-  const badge=document.getElementById('type-setting-badge');
   const {word,meaning}=detectWordLang();
   const label=typeDir==='ru-en'?`${word}→${meaning}`:`${meaning}→${word}`;
-  if(el) el.textContent=label;
-  if(badge) badge.textContent=label;
+  // Direction is global — keep Type and Cards controls/badges in sync.
+  [['typeDirLabel','type-setting-badge'],['flashDirLabel','flash-setting-badge']].forEach(([labelId,badgeId])=>{
+    const el=document.getElementById(labelId); if(el) el.textContent=label;
+    const badge=document.getElementById(badgeId); if(badge) badge.textContent=label;
+  });
 }
 function loadTypeDir(){ typeDir=localStorage.getItem(LS_TYPEDIR)||'ru-en'; updateTypeDirBtn(); }
 function toggleSprintSecs(e){
