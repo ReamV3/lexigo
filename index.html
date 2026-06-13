@@ -3732,9 +3732,9 @@ function renderType(){
   // Record start time for personal best
   _typeWordStartMs=Date.now();
 
-  // Check context mode — always on for cloze, unlocks at correct>=3 for type
+  // Context is always shown in Type It (and Cloze) so players actually use it.
   const wp=getP(w.w);
-  const inContextMode=exercise==='cloze'||(wp.correct||0)>=3;
+  const inContextMode=exercise==='cloze'||exercise==='type';
   if(inContextMode && (wp.contextFrame===null||wp.contextFrame===undefined)){
     wp.contextFrame=ctxFrameIndex(w.w);   // deterministic, stable per word
     save();
