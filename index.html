@@ -1780,10 +1780,11 @@ function _fillCtxFrame(el, frameStr){
   } else { el.textContent=frameStr; }
 }
 // Immediately-available sentence for the current direction (foreign falls back to English until cached).
+// Frame index is computed deterministically every time, so existing words use the improved pool too
+// (no migration needed — old stored random indices are ignored).
 function getCtxFrameText(w){
   const wp=getP(w.w);
-  if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
-  const engFrame=CONTEXT_FRAMES[wp.contextFrame];
+  const engFrame=CONTEXT_FRAMES[ctxFrameIndex(w.w)];
   if(typeDir==='en-ru'){           // answer is the foreign word → want a foreign sentence
     const lang=_wordForeignLang(w);
     if(lang!=='en' && wp.ctxRev && wp.ctxRev.lang===lang && wp.ctxRev.sentence) return wp.ctxRev.sentence;
@@ -1795,8 +1796,7 @@ async function fetchForeignCtx(w){
   const wp=getP(w.w);
   const lang=_wordForeignLang(w);
   if(lang==='en') return null;
-  if(wp.contextFrame==null){ wp.contextFrame=ctxFrameIndex(w.w); save(); }
-  const eng=CONTEXT_FRAMES[wp.contextFrame].replace('___',' '+CTX_BLANK_TOKEN+' ');
+  const eng=CONTEXT_FRAMES[ctxFrameIndex(w.w)].replace('___',' '+CTX_BLANK_TOKEN+' ');
   const tr=await autoTranslate(eng,'en',lang);
   const re=new RegExp(CTX_BLANK_TOKEN,'i');
   if(!tr||!re.test(tr)) return null;          // token lost (mangled) → keep English fallback
