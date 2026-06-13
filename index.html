@@ -3995,7 +3995,7 @@ function renderSprint(){
     if(sprintCountdownTimer){ clearInterval(sprintCountdownTimer); sprintCountdownTimer=null; }
     const perMin=(sprintCardsCleared/1).toFixed(0); // 60s = 1 min
     const selKey=selected.has('all')?'all':[...selected].sort().join(',');
-    const bestKey=LS_SPRINT_BEST+'_'+selKey;
+    const bestKey=LS_SPRINT_BEST+'_'+SPRINT_TOTAL+'_'+selKey;
     const prevBest=parseInt(localStorage.getItem(bestKey)||'0');
     const isNewBest=sprintCardsCleared>prevBest;
     if(isNewBest) localStorage.setItem(bestKey,String(sprintCardsCleared));
