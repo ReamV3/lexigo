@@ -547,6 +547,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 .card-inline-toggle:active{background:rgba(124,158,255,.25);transform:scale(.95);}
 .card-inline-toggle .tog-hint{font-size:.56rem;color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-family:'DM Mono',monospace;}
 .card-inline-toggle .tog-val{font-size:.82rem;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace;letter-spacing:.03em;}
+/* Each game's toggle is tinted to match its icon color */
+#speedToggle{border-color:rgba(94,200,255,.5);background:rgba(94,200,255,.1);}
+#speedToggle .tog-val{color:#5ec8ff;}
+#speedToggle:active{background:rgba(94,200,255,.25);}
+#typeDirToggle{border-color:rgba(110,231,183,.5);background:rgba(110,231,183,.1);}
+#typeDirToggle .tog-val{color:var(--green);}
+#typeDirToggle:active{background:rgba(110,231,183,.25);}
+#sprintSecsToggle{border-color:rgba(232,184,109,.5);background:rgba(232,184,109,.1);}
+#sprintSecsToggle .tog-val{color:var(--accent);}
+#sprintSecsToggle:active{background:rgba(232,184,109,.25);}
+#flashDirToggle{border-color:rgba(244,63,107,.5);background:rgba(244,63,107,.1);}
+#flashDirToggle .tog-val{color:#f43f6b;}
+#flashDirToggle:active{background:rgba(244,63,107,.25);}
 
 @keyframes btnBlink{
   0%{border-color:var(--accent);color:var(--accent);}
