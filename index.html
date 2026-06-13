@@ -314,6 +314,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
   color:var(--red) !important;animation:mcardShake .4s ease;
 }
 .mcard.fading{opacity:0;transform:scale(.85);pointer-events:none;transition:opacity .35s ease,transform .35s ease;}
+.mcard.placeholder{border:1.5px dashed var(--border);background:transparent;opacity:.5;pointer-events:none;cursor:default;}
 @keyframes mcardPop{0%{transform:scale(1);}50%{transform:scale(1.07);}100%{transform:scale(1);}}
 @keyframes mcardShake{0%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}100%{transform:translateX(0);}}
 .mcard-touch-active{border-color:var(--accent2) !important;background:rgba(124,158,255,.1) !important;}
