@@ -37,9 +37,10 @@ a:focus,a:active,a:focus-visible{
   box-shadow:none !important;
   -webkit-tap-highlight-color:rgba(0,0,0,0) !important;
 }
+html{overflow-x:hidden;max-width:100%;}
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;
   display:flex;flex-direction:column;align-items:center;padding:28px 16px 60px;transition:background .3s,color .3s;
-  overflow-x:hidden;opacity:0;}
+  overflow-x:hidden;max-width:100%;opacity:0;}
 
 /* TOP BAR */
 .top-bar{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;}
