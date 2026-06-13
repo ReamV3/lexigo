@@ -192,7 +192,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
 /* CARD */
 /* Matches the Multiple Choice card exactly: same width, 3/4 portrait aspect, radius. */
-.card-wrap{position:relative;perspective:1200px;width:min(80vw,318px);aspect-ratio:3/4;margin-bottom:0;cursor:pointer;}
+.card-wrap{position:relative;perspective:1200px;width:min(80vw,318px);aspect-ratio:3/4;margin-bottom:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 /* Movement layer: carries left/right nav slide so it never collides with the flip */
 .card-mover{position:relative;width:100%;height:100%;transform-style:preserve-3d;z-index:4;}
 .card-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;
