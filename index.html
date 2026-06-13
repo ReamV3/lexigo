@@ -28,7 +28,7 @@
     // App Check (recommended): paste your reCAPTCHA v3 site key below to enable it.
     // For local testing, set window.FIREBASE_APPCHECK_DEBUG_TOKEN=true in the console first.
     // Left blank → App Check is skipped (works as long as you haven't turned on enforcement).
-    const RECAPTCHA_V3_SITE_KEY = '';
+    const RECAPTCHA_V3_SITE_KEY = '6LemnB0tAAAAAGe9q7ghCYW3rBfqWoaKyjHsK4Zv';
     if (RECAPTCHA_V3_SITE_KEY) {
       try { initializeAppCheck(aiApp, { provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY), isTokenAutoRefreshEnabled: true }); }
       catch(e){ console.warn('[Lexigo AI] App Check init failed', e); }
