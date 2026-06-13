@@ -4129,7 +4129,7 @@ function renderCloze(){
   active.forEach(w=>{
     const wp=getP(w.w);
     if(wp.contextFrame===null||wp.contextFrame===undefined){
-      wp.contextFrame=Math.floor(Math.random()*CONTEXT_FRAMES.length);
+      wp.contextFrame=ctxFrameIndex(w.w);
     }
   });
   save();
