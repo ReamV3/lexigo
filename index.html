@@ -3759,7 +3759,7 @@ function renderType(){
 
     // If we need a foreign-language sentence and it isn't cached yet, fetch + swap in place.
     if(typeDir==='en-ru'){
-      const lang=scriptToISO(detectScript(w.w));
+      const lang=_wordForeignLang(w);
       if(lang!=='en' && !(wp.ctxRev && wp.ctxRev.lang===lang)){
         const key=w.w;
         fetchForeignCtx(w).then(s=>{ if(s && _typeShownKey===key && (exercise==='type'||exercise==='cloze')) _fillCtxFrame(ctxFrame, s); });
