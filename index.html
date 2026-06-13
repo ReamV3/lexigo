@@ -1416,12 +1416,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-
 
   <div class="add-block">
     <div class="add-block-title">Add Words</div>
-    <div class="m-lbl">Paste words (one per line: foreign word – English translation)</div>
+    <div class="add-mode-row">
+      <button class="add-mode-btn active" id="addModeManual" onclick="setAddMode('manual')">Manual</button>
+      <button class="add-mode-btn" id="addModeAuto" onclick="setAddMode('auto')">Auto-translate</button>
+    </div>
+    <div class="m-lbl" id="addManualLbl">Paste words (one per line: foreign word – English translation)</div>
+    <div class="m-lbl" id="addAutoLbl" style="display:none">Paste words (one per line) — translations are added for you</div>
+    <div class="add-lang-row" id="addLangRow" style="display:none">
+      <label class="add-lang">from <select id="trFrom"></select></label>
+      <label class="add-lang">to <select id="trTo"></select></label>
+    </div>
     <textarea class="m-ta" id="addText" placeholder="привет – hello&#10;мир – world&#10;спасибо – thank you"></textarea>
     <div class="m-lbl">Class</div>
     <div class="m-chips" id="addClassChips"></div>
     <div class="add-actions">
-      <button class="add-confirm" onclick="confirmAdd()">Add words</button>
+      <button class="add-confirm" id="addConfirmBtn" onclick="confirmAdd()">Add words</button>
     </div>
   </div>
 
