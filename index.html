@@ -3735,10 +3735,6 @@ function renderType(){
   // Context is always shown in Type It (and Cloze) so players actually use it.
   const wp=getP(w.w);
   const inContextMode=exercise==='cloze'||exercise==='type';
-  if(inContextMode && (wp.contextFrame===null||wp.contextFrame===undefined)){
-    wp.contextFrame=ctxFrameIndex(w.w);   // deterministic, stable per word
-    save();
-  }
 
   // ── Word block: flex:1, centers word+dots vertically ──
   const wordBlock=document.createElement('div');
