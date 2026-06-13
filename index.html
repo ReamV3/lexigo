@@ -1676,6 +1676,13 @@ let mcPairs=[], mcPool=[], mcSolved=0, mcTotal=0, mcStreak=0;
 let mcSelLeft=null, mcSelRight=null, mcSelLeftKey=null, mcSelRightKey=null;
 let mcNextFillSide='left';
 const MC_ROWS=6;
+// Slot-based board: each array holds a pair-key per slot, or null for a matched
+// (dashed) placeholder. Refills happen in batches so it's not obvious which new
+// card pairs with which.
+let mcLeftSlots=[], mcRightSlots=[], mcByKey={};
+const MC_REFILL=3;
+let matchMix=false;                    // Mix positions on refill (on/off)
+const LS_MATCHMIX='vt2_matchmix';
 let choiceCountdownTimer=null;
 let choiceSpeedSecs=3;
 const LS_SPEED='vt2_speed';
