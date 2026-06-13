@@ -3795,16 +3795,14 @@ function renderType(){
 
     const ctxFrame=document.createElement('div');
     ctxFrame.className='type-context-frame';
-    _fillCtxFrame(ctxFrame, getCtxFrameText(w));
+    _fillCtxFrame(ctxFrame, getCtxFrameText(w));   // template shows instantly
     wordBlock.appendChild(ctxFrame);
 
-    // If we need a foreign-language sentence and it isn't cached yet, fetch + swap in place.
-    if(typeDir==='en-ru'){
-      const lang=_wordForeignLang(w);
-      if(lang!=='en' && !(wp.ctxRev && wp.ctxRev.lang===lang)){
-        const key=w.w;
-        fetchForeignCtx(w).then(s=>{ if(s && _typeShownKey===key && (exercise==='type'||exercise==='cloze')) _fillCtxFrame(ctxFrame, s); });
-      }
+    // Generate a word-specific sentence (cached) and swap it in when ready.
+    const _ctxLang=_ctxLangFor(w);
+    if(!(wp.ctx && wp.ctx[_ctxLang]) && typeof window.lexigoGenSentence==='function'){
+      const key=w.w;
+      fetchCtx(w).then(s=>{ if(s && _typeShownKey===key && (exercise==='type'||exercise==='cloze')) _fillCtxFrame(ctxFrame, s); });
     }
   }
 
