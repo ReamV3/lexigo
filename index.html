@@ -5753,6 +5753,14 @@ function _ph_buildPayload() {
     });
   } catch(e) {}
 
+  // Gemini (context-sentence) usage — tokens & calls for this session and all-time.
+  app_session_usage.gemini = {
+    tokens_this_session: _geminiTokSession,
+    tokens_all_time:     parseInt(localStorage.getItem(LS_GEM_TOK)||'0',10),
+    calls_this_session:  _geminiCallsSession,
+    calls_all_time:      parseInt(localStorage.getItem(LS_GEM_CALLS)||'0',10),
+  };
+
   return { games, total_app_usage_seconds, total_game_plays_seconds, app_session_usage, final_state };
 }
 
