@@ -1662,8 +1662,10 @@ let bubbles=[], dragState=null, matchAnimFrame=null, matchConnected=new Set();
 // match tap-to-connect
 let matchTapSel=null; // {bubble, el}
 // type game
-let typeDir='ru-en'; // 'ru-en' or 'en-ru'
+let typeDir='ru-en'; // 'ru-en' or 'en-ru'  (Type It — independent)
 const LS_TYPEDIR='vt2_typedir';
+let flashDir='ru-en'; // Cards direction — remembered separately from Type It
+const LS_FLASHDIR='vt2_flashdir';
 let typeHintsGiven=0;
 let typeAnswer='';
 let typeVVListener=null;
