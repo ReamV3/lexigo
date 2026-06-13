@@ -39,6 +39,8 @@
       if(!s.includes('___')) return null;
       const p=s.split('___'); if(p.length>2) s=p[0].trim()+' ___ '+p.slice(1).join(' ').trim();
       return s.replace(/\s+/g,' ').trim(); };
+    // Report each Gemini call's token usage (1 request) to the app for analytics.
+    const _reportUsage = res => { try{ const um=res&&res.response&&res.response.usageMetadata; if(window.lexigoOnGeminiUsage) window.lexigoOnGeminiUsage((um&&um.totalTokenCount)||0, 1); }catch(e){} };
     // Single word → one meaning-revealing example sentence with the word blanked.
     window.lexigoGenSentence = async function(targetWord, langName, meaning){
       try{
