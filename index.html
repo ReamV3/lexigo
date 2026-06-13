@@ -1751,6 +1751,13 @@ async function autoTranslate(text, from, to){
   }catch(e){ return ''; }
   finally{ clearTimeout(to_); }
 }
+// Tidy a translated word: drop dots/punctuation signs, keep only first letter capitalized.
+function cleanTranslation(t){
+  if(!t) return '';
+  let s=String(t).replace(/[.,;:!?"“”«»()\[\]{}<>·]/g,'').replace(/\s+/g,' ').trim();
+  if(s) s=s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();
+  return s;
+}
 // Run async fn over items with limited concurrency; reports progress.
 async function _mapLimit(items, limit, fn, onProgress){
   let i=0, done=0; const results=new Array(items.length);
