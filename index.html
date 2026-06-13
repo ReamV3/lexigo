@@ -1812,8 +1812,7 @@ function showLoading(msg){ const el=document.getElementById('loadingOverlay'); i
 function setLoadingCount(done,total){ const c=document.getElementById('loadingCount'); if(c) c.textContent=done+' / '+total; }
 function hideLoading(){ const el=document.getElementById('loadingOverlay'); if(el) el.classList.remove('open'); }
 
-// ── Context sentence (English offline; foreign via translate-the-frame + cache) ──
-const CTX_BLANK_TOKEN='BLANKX9';
+// ── Context sentence: Gemini-generated (cached per word+lang), template fallback ──
 function _fillCtxFrame(el, frameStr){
   el.innerHTML='';
   const parts=String(frameStr).split('___');
