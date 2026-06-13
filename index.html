@@ -1830,6 +1830,24 @@ function showLoading(msg){ const el=document.getElementById('loadingOverlay'); i
 function setLoadingCount(done,total){ const c=document.getElementById('loadingCount'); if(c) c.textContent=done+' / '+total; }
 function hideLoading(){ const el=document.getElementById('loadingOverlay'); if(el) el.classList.remove('open'); }
 
+// ── Close any popup with the reverse of its entrance animation ──
+function closeOverlayAnimated(ov){
+  if(!ov || !ov.classList.contains('open') || ov.classList.contains('closing')) return;
+  ov.classList.add('closing');
+  let done=false;
+  const finish=()=>{ if(done) return; done=true; ov.classList.remove('open','closing'); };
+  const modal=ov.querySelector('.modal');
+  if(modal) modal.addEventListener('animationend', finish, {once:true});
+  setTimeout(finish, 320); // safety fallback
+}
+// Tap on the backdrop (outside the modal) closes dismissible popups.
+document.addEventListener('click', function(e){
+  const ov=e.target;
+  if(ov && ov.classList && ov.classList.contains('overlay') && ov.classList.contains('open') && !ov.hasAttribute('data-nodismiss')){
+    closeOverlayAnimated(ov);
+  }
+});
+
 // ── Context sentence: Gemini-generated (cached per word+lang), template fallback ──
 function _fillCtxFrame(el, frameStr){
   el.innerHTML='';
