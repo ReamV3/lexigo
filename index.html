@@ -3351,7 +3351,7 @@ function _mcWheelNext(loadCb, dir, correct){
   scene.appendChild(ghost);
   // Exit: the old card slides for ~0.5s while staying fully visible, THEN fades.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition='transform 760ms cubic-bezier(.5,0,.75,.4),opacity 220ms ease 500ms';
+    ghost.style.transition='transform 760ms cubic-bezier(.5,0,.75,.4),opacity 220ms ease 200ms';
     ghost.style.transform=exitTx;
     ghost.style.opacity='0';
   }));
@@ -4607,7 +4607,7 @@ function _flashAdvance(exitTx, loadCb, opts){
   wrap.appendChild(ghost);
   // Exit: identical to Multiple Choice — slide ~0.5s fully visible, THEN fade.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform 760ms ${opts.exitEase||'cubic-bezier(.5,0,.75,.4)'},opacity 220ms ease 500ms`;
+    ghost.style.transition=`transform 760ms ${opts.exitEase||'cubic-bezier(.5,0,.75,.4)'},opacity 220ms ease 200ms`;
     ghost.style.transform=exitTx; ghost.style.opacity='0';
   }));
   loadCb();                          // swap to the next card's content immediately
@@ -4638,7 +4638,7 @@ function _flashSlideOutComplete(cb){
   if(!mover){ cb(); return; }
   if(_flashBusy){ cb(); return; }
   _flashBusy=true;
-  mover.style.transition='transform 760ms cubic-bezier(.5,0,.75,.4),opacity 220ms ease 500ms';
+  mover.style.transition='transform 760ms cubic-bezier(.5,0,.75,.4),opacity 220ms ease 200ms';
   mover.style.transform='translateX(125%) translateY(-2%) rotate(8deg) scale(.95)';
   mover.style.opacity='0';
   setTimeout(()=>{
