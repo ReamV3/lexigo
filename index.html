@@ -3334,7 +3334,7 @@ function _mcWheelNext(loadCb, dir, correct){
   scene.querySelectorAll('.mc-wheel-ghost').forEach(g=>g.remove());
   // Hard-reset any leftover transform from mcFlipCard or an interrupted wheel animation
   cardUnit.style.transition='none'; cardUnit.style.transform=''; cardUnit.style.opacity='1';
-  const dur=correct?440:400;
+  const dur=correct?560:520;
   const s=dir==='left'?-1:1;
   // Cascade deck: toss the front card off the top while the NEXT card — already
   // visible as the top of the stack — rises forward into focus. No fly-in.
