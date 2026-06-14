@@ -3351,7 +3351,7 @@ function _mcWheelNext(loadCb, dir, correct){
   scene.appendChild(ghost);
   // Exit: the old front lifts off the top of the deck and slides away
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.7)}ms ease`;
+    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.92)}ms ease`;
     ghost.style.transform=exitTx;
     ghost.style.opacity='0';
   }));
