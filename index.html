@@ -3372,7 +3372,7 @@ function _mcWheelNext(loadCb, dir, correct){
     _mcBusy=false; _mcFirePending();
   }, dur+80);
   // …and remove the outgoing ghost after its slower fade finishes.
-  setTimeout(()=>{ ghost.remove(); }, 820);
+  setTimeout(()=>{ ghost.remove(); }, 560);
 }
 
 function renderChoice(){
@@ -4625,7 +4625,7 @@ function _flashAdvance(exitTx, loadCb, opts){
     _flashBusy=false;
   }, dur+80);
   // …and remove the outgoing ghost after its slower fade finishes.
-  setTimeout(()=>{ ghost.remove(); }, 820);
+  setTimeout(()=>{ ghost.remove(); }, 560);
 }
 // Arrow navigation: directional cascade (left/right). No completion change.
 function _flashWheelNext(dir, loadCb){
