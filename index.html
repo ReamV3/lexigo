@@ -4633,14 +4633,14 @@ function _flashSlideOutComplete(cb){
   if(!mover){ cb(); return; }
   if(_flashBusy){ cb(); return; }
   _flashBusy=true;
-  mover.style.transition='transform 380ms cubic-bezier(.5,0,.75,.4),opacity 320ms ease';
+  mover.style.transition='transform 520ms cubic-bezier(.5,0,.75,.4),opacity 480ms ease';
   mover.style.transform='translateX(125%) translateY(-2%) rotate(8deg) scale(.95)';
   mover.style.opacity='0';
   setTimeout(()=>{
     _flashBusy=false;
     mover.style.transition=''; mover.style.transform=''; mover.style.opacity='';
     cb();
-  }, 400);
+  }, 540);
 }
 function nextCard(){
   if(!deck.length) return;
