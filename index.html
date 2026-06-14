@@ -5231,29 +5231,53 @@ async function saveToCloud() {
 }
 
 // ── Google sign-in button ──
+// iOS Safari blocks pop-ups by default and loses them inside PWA / in-app
+// browsers, so there we go straight to the full-page redirect flow. Now that the
+// app is served from the same origin as authDomain (lexigo-be575.firebaseapp.com),
+// the redirect completes first-party and works reliably on iOS. Desktop keeps the
+// nicer pop-up and only falls back to redirect if the pop-up can't open.
 (function(){
   const btn = document.getElementById('authGoogleBtn');
   let busy = false, handled = false;
+
+  function _prefersRedirect(){
+    const ua = navigator.userAgent || '';
+    const iOS = /iP(hone|ad|od)/.test(ua)
+             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
+    const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+             || navigator.standalone === true;
+    return iOS || standalone;
+  }
 
   async function doSignIn() {
     if (busy) return;
     busy = true;
     btn.disabled = true; btn.style.opacity = '.6';
+    const provider = new firebase.auth.GoogleAuthProvider();
     try {
-      const provider = new firebase.auth.GoogleAuthProvider();
+      if (_prefersRedirect()) {
+        _authLog('tap → signInWithRedirect (mobile/standalone)');
+        await _auth.signInWithRedirect(provider);   // navigates away; resumes via getRedirectResult
+        return;
+      }
       _authLog('tap → signInWithPopup');
       const res = await _auth.signInWithPopup(provider);
       _authLog('popup resolved: ' + (res && res.user ? (res.user.email||res.user.uid) : 'no-user'));
     } catch(e) {
       busy = false;
       btn.disabled = false; btn.style.opacity = '';
-      _authLog('popup error: ' + (e.code || e.message));
+      _authLog('sign-in error: ' + (e.code || e.message));
       console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
-      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-        // Popup unsupported/blocked — fall back to redirect.
+      // Pop-up couldn't open (blocked / unsupported / storage) — fall back to redirect.
+      if (e.code === 'auth/popup-blocked'
+       || e.code === 'auth/operation-not-supported-in-this-environment'
+       || e.code === 'auth/web-storage-unsupported') {
         _authLog('falling back to signInWithRedirect');
-        try { await _auth.signInWithRedirect(provider); return; } catch(e2){ _authLog('redirect error: '+(e2.code||e2.message)); }
+        try { await _auth.signInWithRedirect(provider); return; }
+        catch(e2){ _authLog('redirect error: '+(e2.code||e2.message)); showToast('Sign in failed: ' + (e2.code || e2.message || 'unknown')); }
+        return;
       }
+      // popup-closed-by-user / cancelled-popup-request → the user backed out; stay quiet.
       if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
       }
