@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lexigo</title>
+<script>
+  // Keep Google sign-in first-party for iOS Safari: the app's auth handler lives
+  // on lexigo-be575.firebaseapp.com (= Firebase authDomain). Firebase Hosting also
+  // mirrors the site on *.web.app, which is a *different* origin from authDomain and
+  // re-introduces the cross-domain redirect that iOS blocks. If we're on the web.app
+  // mirror, hop to the firebaseapp.com host (same origin as auth) before anything loads.
+  (function () {
+    try {
+      if (location.hostname === 'lexigo-be575.web.app') {
+        location.replace('https://lexigo-be575.firebaseapp.com' +
+          location.pathname + location.search + location.hash);
+      }
+    } catch (e) {}
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
