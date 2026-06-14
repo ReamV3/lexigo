@@ -4605,8 +4605,9 @@ function _flashAdvance(exitTx, loadCb, opts){
   ghost.classList.add('flash-wheel-ghost');
   ghost.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:6;transform:none;opacity:1;';
   wrap.appendChild(ghost);
+  // Exit: identical to Multiple Choice — slide ~0.5s fully visible, THEN fade.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform ${dur}ms ${opts.exitEase||'cubic-bezier(.5,0,.75,.4)'},opacity ${Math.round(dur*(opts.fade||0.92))}ms ease`;
+    ghost.style.transition=`transform 760ms ${opts.exitEase||'cubic-bezier(.5,0,.75,.4)'},opacity 220ms ease 500ms`;
     ghost.style.transform=exitTx; ghost.style.opacity='0';
   }));
   loadCb();                          // swap to the next card's content immediately
@@ -4618,11 +4619,13 @@ function _flashAdvance(exitTx, loadCb, opts){
     mover.style.transform='translateX(0%) translateY(0%) rotate(0deg) scale(1)';
     mover.style.opacity='1';
   }));
+  // Release the slide lock once the incoming card settles…
   setTimeout(()=>{
-    ghost.remove();
     mover.style.transition=''; mover.style.transform=''; mover.style.opacity='';
     _flashBusy=false;
   }, dur+80);
+  // …and remove the outgoing ghost after its slower fade finishes.
+  setTimeout(()=>{ ghost.remove(); }, 820);
 }
 // Arrow navigation: directional cascade (left/right). No completion change.
 function _flashWheelNext(dir, loadCb){
