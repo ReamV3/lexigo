@@ -3349,9 +3349,9 @@ function _mcWheelNext(loadCb, dir, correct){
   ghost.style.width='100%'; ghost.style.pointerEvents='none'; ghost.style.zIndex='6';
   ghost.style.transform=''; ghost.style.opacity='1'; ghost.style.transition='';
   scene.appendChild(ghost);
-  // Exit: the old front lifts off the top of the deck and slides away
+  // Exit: the old card slides for ~0.5s while staying fully visible, THEN fades.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    ghost.style.transition=`transform ${dur}ms cubic-bezier(.5,0,.75,.4),opacity ${Math.round(dur*.92)}ms ease`;
+    ghost.style.transition='transform 760ms cubic-bezier(.5,0,.75,.4),opacity 220ms ease 500ms';
     ghost.style.transform=exitTx;
     ghost.style.opacity='0';
   }));
@@ -3366,11 +3366,13 @@ function _mcWheelNext(loadCb, dir, correct){
     cardUnit.style.transform=restTx;
     cardUnit.style.opacity='1';
   }));
+  // Release the nav lock once the incoming card settles (keeps arrows responsive)…
   setTimeout(()=>{
-    ghost.remove();
     cardUnit.style.transition=''; cardUnit.style.transform=''; cardUnit.style.opacity='';
-    _mcBusy=false; _mcFirePending(); // release lock and fire any queued nav
+    _mcBusy=false; _mcFirePending();
   }, dur+80);
+  // …and remove the outgoing ghost after its slower fade finishes.
+  setTimeout(()=>{ ghost.remove(); }, 820);
 }
 
 function renderChoice(){
