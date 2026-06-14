@@ -5216,73 +5216,62 @@ async function saveToCloud() {
   }
 }
 
-// ── Google sign-in button ──
-// iOS Safari blocks pop-ups by default and loses them inside PWA / in-app
-// browsers, so there we go straight to the full-page redirect flow. Now that the
-// app is served from the same origin as authDomain (lexigo-be575.firebaseapp.com),
-// the redirect completes first-party and works reliably on iOS. Desktop keeps the
-// nicer pop-up and only falls back to redirect if the pop-up can't open.
-(function(){
-  const btn = document.getElementById('authGoogleBtn');
-  let busy = false, handled = false;
+// ── Google sign-in via Google Identity Services (GIS) ──
+// GIS runs the Google account chooser first-party on accounts.google.com and hands
+// back a Google ID token directly — there is NO cross-domain pop-up or redirect
+// through firebaseapp.com, which is exactly what iOS Safari blocked before. That ID
+// token is exchanged for a Firebase session with signInWithCredential, so everything
+// downstream (onAuthStateChanged, Firestore sync, the merge dialog) is unchanged.
+// The app stays on its current URL — no hosting change needed.
+//
+// ⚠️ SETUP REQUIRED (one time):
+//   1. Paste your OAuth 2.0 *Web* Client ID below. Find it in Google Cloud Console →
+//      APIs & Services → Credentials → "Web client (auto created by Google Service)".
+//   2. On that same client, add this site to "Authorized JavaScript origins":
+//        https://reamv3.github.io
+//   Until both are done, the sign-in button won't appear.
+const _GOOGLE_CLIENT_ID = 'PASTE_YOUR_WEB_CLIENT_ID_HERE.apps.googleusercontent.com';
 
-  function _prefersRedirect(){
-    const ua = navigator.userAgent || '';
-    const iOS = /iP(hone|ad|od)/.test(ua)
-             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
-    const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
-             || navigator.standalone === true;
-    return iOS || standalone;
+(function(){
+  // GIS callback: we received a Google ID token → turn it into a Firebase session.
+  function onCredential(response){
+    if (!response || !response.credential) { _authLog('GIS: no credential in response'); return; }
+    _authLog('GIS credential received → signInWithCredential');
+    const cred = firebase.auth.GoogleAuthProvider.credential(response.credential);
+    _auth.signInWithCredential(cred).catch((e) => {
+      console.error('[Lexigo auth] signInWithCredential failed:', e.code, e.message, e);
+      showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
+    });
   }
 
-  async function doSignIn() {
-    if (busy) return;
-    busy = true;
-    btn.disabled = true; btn.style.opacity = '.6';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    try {
-      if (_prefersRedirect()) {
-        _authLog('tap → signInWithRedirect (mobile/standalone)');
-        await _auth.signInWithRedirect(provider);   // navigates away; resumes via getRedirectResult
-        return;
-      }
-      _authLog('tap → signInWithPopup');
-      const res = await _auth.signInWithPopup(provider);
-      _authLog('popup resolved: ' + (res && res.user ? (res.user.email||res.user.uid) : 'no-user'));
-    } catch(e) {
-      busy = false;
-      btn.disabled = false; btn.style.opacity = '';
-      _authLog('sign-in error: ' + (e.code || e.message));
-      console.error('[Lexigo auth] sign-in failed:', e.code, e.message, e);
-      // Pop-up couldn't open (blocked / unsupported / storage) — fall back to redirect.
-      if (e.code === 'auth/popup-blocked'
-       || e.code === 'auth/operation-not-supported-in-this-environment'
-       || e.code === 'auth/web-storage-unsupported') {
-        _authLog('falling back to signInWithRedirect');
-        try { await _auth.signInWithRedirect(provider); return; }
-        catch(e2){ _authLog('redirect error: '+(e2.code||e2.message)); showToast('Sign in failed: ' + (e2.code || e2.message || 'unknown')); }
-        return;
-      }
-      // popup-closed-by-user / cancelled-popup-request → the user backed out; stay quiet.
-      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-        showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
-      }
+  function renderGis(){
+    // The GIS library loads async; wait until it's ready, then render the button.
+    if (!(window.google && google.accounts && google.accounts.id)) { setTimeout(renderGis, 120); return; }
+    if (_GOOGLE_CLIENT_ID.indexOf('PASTE_YOUR_') === 0) {
+      console.warn('[Lexigo auth] _GOOGLE_CLIENT_ID is not set — paste your OAuth Web Client ID to enable sign-in.');
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: _GOOGLE_CLIENT_ID,
+      callback: onCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      ux_mode: 'popup',     // static site → credential returns to this page's callback
+      itp_support: true,    // better behaviour on Safari / ITP browsers
+    });
+    const host = document.getElementById('gisButton');
+    if (host) {
+      const w = Math.min(360, Math.max(220, host.clientWidth || 280));
+      google.accounts.id.renderButton(host, {
+        type: 'standard', theme: 'outline', size: 'large',
+        text: 'signin_with', shape: 'pill', logo_alignment: 'center', width: w,
+      });
     }
   }
 
-  btn.addEventListener('touchstart', (e) => { e.preventDefault(); handled = true; doSignIn(); }, { passive: false });
-  btn.addEventListener('click', () => { if (handled) { handled = false; return; } doSignIn(); });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderGis);
+  else renderGis();
 })();
-
-// Handle the return trip from signInWithRedirect — confirms success / surfaces errors.
-_auth.getRedirectResult().then((result) => {
-  _authLog('getRedirectResult: ' + (result && result.user ? ('USER '+(result.user.email||result.user.uid)) : 'null'));
-  if (result && result.user) showToast('✓ Signed in');
-}).catch((e) => {
-  _authLog('getRedirectResult error: ' + (e.code || e.message));
-  console.error('[Lexigo auth] redirect result error:', e.code, e.message, e);
-  showToast('Sign in failed: ' + (e.code || e.message || 'unknown'));
-});
 
 // ── Auth state is the single source of truth, checked on every launch ──
 // Authenticated → dismiss auth screen and proceed into app
